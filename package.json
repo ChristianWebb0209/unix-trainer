@@ -1,0 +1,17 @@
+{
+  "name": "unix-trainer",
+  "version": "1.0.0",
+  "description": "- React (TypeScript)\r - Node.js\r - Server and backend TBD\r - Authentication: Auth.js\r - Editor: Monaco editor\r - Terminal UI: xterm.js\r - Terminal: Fake shell interpreter (choose)\r - - wasm-bash\r - - webcontainer API (StackBlitz)\r - - JS Linux",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
