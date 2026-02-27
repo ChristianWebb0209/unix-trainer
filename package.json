@@ -11,6 +11,11 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "devDependencies": {
     "concurrently": "^9.2.1"
   }
