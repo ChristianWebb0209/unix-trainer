@@ -1,0 +1,39 @@
+{
+    "problems": [
+        {
+            "id": "unix_001",
+            "title": "Print Hello",
+            "description": "Write a command that prints exactly: Hello, World!",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "",
+                    "expected_stdout": "Hello, World!\n"
+                }
+            ]
+        },
+        {
+            "id": "unix_002",
+            "title": "Count Files",
+            "description": "Count how many files are in the current directory.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "setup_files": [
+                        "a.txt",
+                        "b.txt",
+                        "c.txt"
+                    ],
+                    "expected_stdout": "3\n"
+                },
+                {
+                    "setup_files": [
+                        "one",
+                        "two"
+                    ],
+                    "expected_stdout": "2\n"
+                }
+            ]
+        }
+    ]
+}

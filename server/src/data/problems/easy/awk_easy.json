@@ -1,0 +1,124 @@
+{
+    "problems": [
+        {
+            "id": "awk_001",
+            "title": "Print Column",
+            "description": "Print the second column of each line in a file.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "a b c\nd e f\n",
+                    "expected_stdout": "b\ne\n"
+                }
+            ]
+        },
+        {
+            "id": "awk_002",
+            "title": "Sum Column",
+            "description": "Print the sum of numbers in the first column.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "1\n2\n3\n",
+                    "expected_stdout": "6\n"
+                }
+            ]
+        },
+        {
+            "id": "awk_003",
+            "title": "Print Lines with Pattern",
+            "description": "Print all lines containing the word 'apple'.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "apple\nbanana\napple pie\n",
+                    "expected_stdout": "apple\napple pie\n"
+                }
+            ]
+        },
+        {
+            "id": "awk_004",
+            "title": "Count Lines",
+            "description": "Count the number of lines in a file.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "a\nb\nc\n",
+                    "expected_stdout": "3\n"
+                }
+            ]
+        },
+        {
+            "id": "awk_005",
+            "title": "Print Last Column",
+            "description": "Print the last column of each line.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "1 2 3\n4 5 6\n",
+                    "expected_stdout": "3\n6\n"
+                }
+            ]
+        },
+        {
+            "id": "awk_006",
+            "title": "Replace Text",
+            "description": "Replace 'foo' with 'bar' in each line.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "foo\nfoobar\nbaz\n",
+                    "expected_stdout": "bar\nbarbar\nbaz\n"
+                }
+            ]
+        },
+        {
+            "id": "awk_007",
+            "title": "Print First and Last Column",
+            "description": "Print only the first and last columns of each line.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "a b c d\ne f g h\n",
+                    "expected_stdout": "a d\ne h\n"
+                }
+            ]
+        },
+        {
+            "id": "awk_008",
+            "title": "Print Lines Longer than 5 Chars",
+            "description": "Print lines that have more than 5 characters.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "hi\nhello\nwelcome\n",
+                    "expected_stdout": "welcome\n"
+                }
+            ]
+        },
+        {
+            "id": "awk_009",
+            "title": "Print Unique Values",
+            "description": "Print unique values in the first column.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "a\nb\na\nc\nb\n",
+                    "expected_stdout": "a\nb\nc\n"
+                }
+            ]
+        },
+        {
+            "id": "awk_010",
+            "title": "Print Line Numbers",
+            "description": "Print each line with its line number at the start.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "foo\nbar\nbaz\n",
+                    "expected_stdout": "1 foo\n2 bar\n3 baz\n"
+                }
+            ]
+        }
+    ]
+}

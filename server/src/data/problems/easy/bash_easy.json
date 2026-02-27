@@ -1,0 +1,130 @@
+{
+    "problems": [
+        {
+            "id": "bash_001",
+            "title": "Print Hello",
+            "description": "Write a bash command that prints 'Hello, Bash!'",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "",
+                    "expected_stdout": "Hello, Bash!\n"
+                }
+            ]
+        },
+        {
+            "id": "bash_002",
+            "title": "List Files",
+            "description": "List all files in the current directory.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "setup_files": ["a.txt", "b.txt"],
+                    "expected_stdout": "a.txt\nb.txt\n"
+                }
+            ]
+        },
+        {
+            "id": "bash_003",
+            "title": "Count Lines in File",
+            "description": "Count the number of lines in a file named 'file.txt'.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "setup_files": {"file.txt": "line1\nline2\nline3\n"},
+                    "expected_stdout": "3\n"
+                }
+            ]
+        },
+        {
+            "id": "bash_004",
+            "title": "Create Directory",
+            "description": "Create a directory called 'test_dir'.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "",
+                    "expected_stdout": "",
+                    "expected_dir": "test_dir"
+                }
+            ]
+        },
+        {
+            "id": "bash_005",
+            "title": "Print Current Directory",
+            "description": "Print the current working directory.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "",
+                    "expected_stdout_regex": ".+\n"
+                }
+            ]
+        },
+        {
+            "id": "bash_006",
+            "title": "Echo Arguments",
+            "description": "Print all command-line arguments passed to the script.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input_args": ["one","two","three"],
+                    "expected_stdout": "one two three\n"
+                }
+            ]
+        },
+        {
+            "id": "bash_007",
+            "title": "Check File Exists",
+            "description": "Print 'Yes' if file.txt exists, else 'No'.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "setup_files": {"file.txt": ""},
+                    "expected_stdout": "Yes\n"
+                },
+                {
+                    "setup_files": {},
+                    "expected_stdout": "No\n"
+                }
+            ]
+        },
+        {
+            "id": "bash_008",
+            "title": "Print Even Numbers",
+            "description": "Print numbers 1 to 10 that are even.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "",
+                    "expected_stdout": "2\n4\n6\n8\n10\n"
+                }
+            ]
+        },
+        {
+            "id": "bash_009",
+            "title": "Move File",
+            "description": "Move a file named 'a.txt' to 'b.txt'.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "setup_files": {"a.txt": "content"},
+                    "expected_stdout": "",
+                    "expected_files": {"b.txt": "content"}
+                }
+            ]
+        },
+        {
+            "id": "bash_010",
+            "title": "Print Date",
+            "description": "Print the current date in YYYY-MM-DD format.",
+            "difficulty": "easy",
+            "tests": [
+                {
+                    "input": "",
+                    "expected_stdout_regex": "\\d{4}-\\d{2}-\\d{2}\n"
+                }
+            ]
+        }
+    ]
+}
