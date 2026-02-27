@@ -33,34 +33,59 @@ export class ContainerService {
         this.containers = new Set();
         this.containerCounter = 0;
         this.docker = new Docker();
+        this.imageName = 'unix-trainer:latest';
     }
 
     /**
-     * Creates a new ephemeral container using Dockerode.
+     * Ensures the Docker image is built.
+     */
+    async ensureImage() {
+        try {
+            // Check if image exists
+            const images = await this.docker.listImages();
+            const exists = images.some(img => img.RepoTags && img.RepoTags.includes(this.imageName));
+            
+            if (!exists) {
+                console.log(`[ContainerService] Building image ${this.imageName}...`);
+                // Build from the docker directory
+                await new Promise((resolve, reject) => {
+                    this.docker.buildImage(
+                        {
+                            context: './docker',
+                            src: ['Dockerfile']
+                        },
+                        { t: this.imageName },
+                        (err, stream) => {
+                            if (err) return reject(err);
+                            this.docker.modem.followProgress(stream, (err, output) => {
+                                if (err) return reject(err);
+                                resolve(output);
+                            });
+                        }
+                    );
+                });
+                console.log(`[ContainerService] Image built successfully`);
+            } else {
+                console.log(`[ContainerService] Image ${this.imageName} already exists`);
+            }
+        } catch (err) {
+            console.error(`[ContainerService] Failed to ensure image: ${err.message}`);
+            throw err;
+        }
+    }
+
+    /**
+     * Creates a new ephemeral container using the pre-built image.
      * @param {object} config Configuration for the container.
      * @returns {Promise<string>} The generated container ID from docker.
      */
     async createContainer(config) {
-        console.log(`[ContainerService] Pulling image for language: ${config.language}...`);
+        // Ensure image exists (build if needed)
+        await this.ensureImage();
 
-        // Use alpine if language is alpine, otherwise this would be a map to language-specific images
-        const image = config.language === 'alpine' ? 'alpine:latest' : 'alpine:latest'; // simplified for refactor
-
-        await new Promise((resolve, reject) => {
-            this.docker.pull(image, (err, stream) => {
-                if (err) return reject(err);
-                this.docker.modem.followProgress(stream, onFinished, onProgress);
-                function onFinished(error, output) {
-                    if (error) return reject(error);
-                    resolve(output);
-                }
-                function onProgress(event) { }
-            });
-        });
-
-        console.log(`[ContainerService] Creating container...`);
+        console.log(`[ContainerService] Creating container from ${this.imageName}...`);
         const container = await this.docker.createContainer({
-            Image: image,
+            Image: this.imageName,
             Cmd: ["tail", "-f", "/dev/null"], // keep it alive
             Tty: true,
             HostConfig: {
@@ -83,25 +108,43 @@ export class ContainerService {
      * @param {string} input Optional stdin to provide to the process.
      * @returns {Promise<object>} A promise that resolves to the execution result.
      */
-    async run(containerId, command, input = '', code = '') {
+    async run(containerId, command, input = '', code = '', language = 'bash') {
         if (!this.containers.has(containerId)) {
             throw new Error(`Container ${containerId} not found or already destroyed.`);
         }
 
-        console.log(`[ContainerService] Running command in ${containerId}: ${command}`);
+        console.log(`[ContainerService] Running command in ${containerId}: ${command}, input length: ${input.length}`);
 
         const container = this.docker.getContainer(containerId);
-        const encoded = Buffer.from(String(code || ""), "utf-8").toString("base64");
-        const shellCmd = `echo ${encoded} | base64 -d > /tmp/exec.sh && /bin/sh /tmp/exec.sh`;
+        const codeEncoded = Buffer.from(String(code || ""), "utf-8").toString("base64");
+        
+        // Build command based on language
+        let shellCmd;
+        if (language === 'awk') {
+            // For AWK: write script to file, then pipe input to awk
+            const inputEncoded = Buffer.from(String(input || ""), "utf-8").toString("base64");
+            shellCmd = `echo ${codeEncoded} | base64 -d > /tmp/exec.sh && echo ${inputEncoded} | base64 -d | /bin/awk -f /tmp/exec.sh`;
+        } else if (language === 'bash') {
+            // For bash: write script and run with input as stdin
+            const inputEncoded = Buffer.from(String(input || ""), "utf-8").toString("base64");
+            shellCmd = `echo ${codeEncoded} | base64 -d > /tmp/exec.sh && echo ${inputEncoded} | base64 -d | /bin/bash /tmp/exec.sh`;
+        } else {
+            // For other languages: write script and run with input
+            const inputEncoded = Buffer.from(String(input || ""), "utf-8").toString("base64");
+            shellCmd = `echo ${codeEncoded} | base64 -d > /tmp/exec.sh && echo ${inputEncoded} | base64 -d | /bin/sh /tmp/exec.sh`;
+        }
+
+        console.log(`[ContainerService] Executing: ${shellCmd.substring(0, 100)}...`);
+
         const exec = await container.exec({
             Cmd: ["/bin/sh", "-lc", shellCmd],
             AttachStdout: true,
             AttachStderr: true,
-            AttachStdin: true,
+            AttachStdin: false,
             Tty: false,
         });
 
-        const stream = await exec.start({ hijack: true, stdin: true });
+        const stream = await exec.start({ hijack: false, stdin: false });
         const stdoutChunks = [];
         const stderrChunks = [];
 
@@ -117,16 +160,13 @@ export class ContainerService {
             stream.on('error', reject);
             stream.on('end', resolve);
             stream.on('close', resolve);
-
-            if (input) {
-                stream.write(input);
-            }
-            stream.end();
         });
 
         const inspect = await exec.inspect();
         const stdout = Buffer.concat(stdoutChunks).toString('utf-8');
         const stderr = Buffer.concat(stderrChunks).toString('utf-8');
+
+        console.log(`[ContainerService] Result: exitCode=${inspect.ExitCode}, stdout="${stdout.substring(0, 50)}"`);
 
         return {
             exitCode: inspect.ExitCode ?? 0,

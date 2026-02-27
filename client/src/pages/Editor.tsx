@@ -8,6 +8,20 @@ import ResizeHandle from "../components/ResizeHandle";
 import { ThemeContext } from "../contexts/ThemeContext";
 import type { ProblemSummary } from "../api/problems";
 
+interface Language {
+    id: string;
+    name: string;
+}
+
+const DEFAULT_CODE: Record<string, string> = {
+    bash: '# Write your bash code here\necho "Hello from CodeMirror!"',
+    awk: '# Write your awk code here\n{print $2}',
+    unix: '# Write your unix command here\necho "Hello, World!"',
+    python: '# Write your python code here\nprint("Hello, World!")',
+    javascript: '// Write your javascript code here\nconsole.log("Hello, World!");',
+    alpine: '# Write your alpine shell code here\necho "Hello from Alpine!"',
+};
+
 export default function Editor() {
     const [code, setCode] = useState("# Write your bash code here\necho \"Hello from CodeMirror!\"");
     const [containerId, setContainerId] = useState<string | null>(null);
@@ -18,13 +32,15 @@ export default function Editor() {
     const [selectedProblem, setSelectedProblem] = useState<ProblemSummary | null>(null);
     const [problemDescription, setProblemDescription] = useState<string>("");
     const [problemTitle, setProblemTitle] = useState<string>("");
+    const [languages, setLanguages] = useState<Language[]>([]);
+    const [selectedLanguage, setSelectedLanguage] = useState<string>("bash");
     const { theme } = useContext(ThemeContext);
     const activeProblemId = selectedProblem?.id;
 
     const createContainer = async () => {
         setIsCreatingContainer(true);
         try {
-            const response = await fetch("http://localhost:3000/api/containers", {
+            const response = await fetch("/api/containers", {
                 method: "POST",
             });
             const data = await response.json();
@@ -47,12 +63,12 @@ export default function Editor() {
         setRunError(null);
         setRunOutput(null);
         try {
-            const response = await fetch(`http://localhost:3000/api/executions/${activeProblemId}/submit`, {
+            const response = await fetch(`/api/executions/${activeProblemId}/submit`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     code,
-                    language: "bash",
+                    language: selectedLanguage,
                 }),
             });
             const data = await response.json();
@@ -74,7 +90,7 @@ export default function Editor() {
 
     const loadProblem = async (problemId: string) => {
         try {
-            const response = await fetch(`http://localhost:3000/api/problems/${problemId}`);
+            const response = await fetch(`/api/problems/${problemId}`);
             const data = await response.json();
             if (data?.problem) {
                 setProblemTitle(data.problem.title ?? "");
@@ -88,7 +104,31 @@ export default function Editor() {
     const handleSelectProblem = async (problem: ProblemSummary) => {
         setSelectedProblem(problem);
         await loadProblem(problem.id);
+
+        // Auto-switch language based on problem ID prefix
+        const problemId = problem.id.toLowerCase();
+        for (const lang of languages) {
+            if (problemId.startsWith(lang.id)) {
+                setSelectedLanguage(lang.id);
+                setCode(DEFAULT_CODE[lang.id] || DEFAULT_CODE.bash);
+                break;
+            }
+        }
     };
+
+    // Fetch available languages on mount
+    useEffect(() => {
+        const fetchLanguages = async () => {
+            try {
+                const response = await fetch("/api/executions/languages");
+                const data = await response.json();
+                setLanguages(data);
+            } catch (err) {
+                console.error("Failed to fetch languages", err);
+            }
+        };
+        fetchLanguages();
+    }, []);
 
     useEffect(() => {
         if (!containerId && !isCreatingContainer) {
@@ -114,21 +154,30 @@ export default function Editor() {
             {/* Main Resizable Area */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                 {/* Top Navbar Simulation if needed */}
-                <div style={{ height: "40px", backgroundColor: "var(--bg-secondary)", borderBottom: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 1rem" }}>
+                <div style={{ height: "40px", backgroundColor: "var(--bg-secondary)", borderBottom: "1px solid var(--border-color)", display: "flex", alignItems: "center", padding: "0 1rem", gap: "1rem" }}>
                     <span>Editor Workspace</span>
-                    <button
-                        onClick={handleRunCode}
-                        disabled={isRunning}
+                    <select
+                        value={selectedLanguage}
+                        onChange={(e) => {
+                            setSelectedLanguage(e.target.value);
+                            setCode(DEFAULT_CODE[e.target.value] || DEFAULT_CODE.bash);
+                        }}
                         style={{
-                            padding: "0.35rem 0.8rem",
+                            marginLeft: "auto",
+                            padding: "0.25rem 0.5rem",
                             borderRadius: "4px",
                             border: "1px solid var(--border-color)",
-                            backgroundColor: "var(--accent-color)",
-                            color: "var(--text-primary)"
+                            backgroundColor: "var(--bg-primary)",
+                            color: "var(--text-primary)",
+                            cursor: "pointer",
                         }}
                     >
-                        {isRunning ? "Running..." : "Run Code"}
-                    </button>
+                        {languages.map((lang) => (
+                            <option key={lang.id} value={lang.id}>
+                                {lang.name}
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <PanelGroup direction="horizontal" style={{ flex: 1 }}>
@@ -153,7 +202,7 @@ export default function Editor() {
 
                             {/* Top: Code Editor */}
                             <Panel defaultSize={70} minSize={20}>
-                                <div style={{ height: "100%", overflow: "auto" }}>
+                                <div style={{ height: "100%", position: "relative", overflow: "hidden" }}>
                                     <CodeMirror
                                         value={code}
                                         height="100%"
@@ -162,6 +211,24 @@ export default function Editor() {
                                         onChange={(val: string) => setCode(val)}
                                         style={{ fontSize: "16px", height: "100%" }}
                                     />
+                                    <button
+                                        onClick={handleRunCode}
+                                        disabled={isRunning}
+                                        style={{
+                                            position: "absolute",
+                                            bottom: "10px",
+                                            left: "10px",
+                                            padding: "0.35rem 0.8rem",
+                                            borderRadius: "4px",
+                                            border: "1px solid var(--border-color)",
+                                            backgroundColor: "var(--accent-color)",
+                                            color: "var(--text-primary)",
+                                            cursor: "pointer",
+                                            zIndex: 10
+                                        }}
+                                    >
+                                        {isRunning ? "Running..." : "Run Code"}
+                                    </button>
                                 </div>
                             </Panel>
 

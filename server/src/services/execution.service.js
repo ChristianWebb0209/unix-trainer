@@ -89,7 +89,7 @@ export class ExecutionService {
                 const runCommand = `run-${request.language}`;
 
                 try {
-                    const result = await this.containerService.run(containerId, runCommand, testCase.input, request.code);
+                    const result = await this.containerService.run(containerId, runCommand, testCase.input, request.code, request.language);
 
                     actualOutputs.push(result.stdout);
                     maxTimeMs = Math.max(maxTimeMs, result.timeMs);

@@ -4,6 +4,7 @@ import { ExecutionService } from '../services/execution.service.js';
 import { ContainerService } from '../services/container.service.js';
 import { ValidationService } from '../services/validation.service.js';
 import { ProblemService } from '../services/problem.service.js';
+import { ALLOWED_LANGUAGES, LANGUAGE_CONFIG } from '../config/execution.config.js';
 
 /**
  * Execution Routes
@@ -33,5 +34,14 @@ const executionService = new ExecutionService(containerService, validationServic
 const executionController = new ExecutionController(executionService);
 
 export const executionRouter = Router();
+
+// Get available languages
+executionRouter.get('/languages', (req, res) => {
+    const languages = ALLOWED_LANGUAGES.map(lang => ({
+        id: lang,
+        name: LANGUAGE_CONFIG[lang]?.displayName || lang
+    }));
+    res.json(languages);
+});
 
 executionRouter.post('/:problemId/submit', (req, res) => executionController.executeSubmission(req, res));
