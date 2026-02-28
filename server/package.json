@@ -5,17 +5,24 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "db:init": "node src/db/init.js",
+    "db:migrate": "node src/db/migrate.js",
+    "db:sync-problems": "node src/db/sync-problems.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dockerode": "^4.0.9",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.14.1",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
