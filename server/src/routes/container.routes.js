@@ -47,3 +47,20 @@ containerRouter.get("/", (req, res) => { res.send("Container route works!"); });
 containerRouter.post('/', (req, res) => containerController.createContainer(req, res));
 containerRouter.post('/create', (req, res) => containerController.createContainer(req, res));
 containerRouter.delete('/:containerId', (req, res) => containerController.destroyContainer(req, res));
+
+// Terminal execution endpoint
+containerRouter.post('/:containerId/exec', async (req, res) => {
+    const { containerId } = req.params;
+    const { command } = req.body;
+    
+    if (!command) {
+        return res.status(400).json({ error: 'Command is required' });
+    }
+
+    try {
+        const result = await containerService.runCommand(containerId, command);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});

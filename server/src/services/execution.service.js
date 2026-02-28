@@ -49,7 +49,9 @@ export class ExecutionService {
      * @returns {Promise<object>} A promise that resolves to the final ExecutionResult.
      */
     async executeSubmission(problemId, request) {
-        let containerId = null;
+        // Use existing container if provided, otherwise create a new one
+        let containerId = request.containerId || null;
+        let shouldDestroyContainer = !request.containerId;
 
         try {
             // 1. Fetch test cases (including hidden for full grading)
@@ -65,12 +67,14 @@ export class ExecutionService {
                 };
             }
 
-            // 2. Request a container
-            containerId = await this.containerService.createContainer({
-                language: request.language,
-                memoryLimitBytes: request.memoryLimitBytes,
-                timeLimitMs: request.timeLimitMs
-            });
+            // 2. Request a container only if not provided
+            if (!containerId) {
+                containerId = await this.containerService.createContainer({
+                    language: request.language,
+                    memoryLimitBytes: request.memoryLimitBytes,
+                    timeLimitMs: request.timeLimitMs
+                });
+            }
 
             // 3. Compile code if necessary (Mocked for now)
             // In a real environment, we'd compile C++/Java here and catch COMPILATION_ERROR.
@@ -151,8 +155,8 @@ export class ExecutionService {
                 usage: { timeMs: 0, memoryBytes: 0 }
             };
         } finally {
-            // 7. Cleanup
-            if (containerId) {
+            // 7. Cleanup only if we created the container
+            if (containerId && shouldDestroyContainer) {
                 await this.containerService.destroy(containerId);
             }
         }

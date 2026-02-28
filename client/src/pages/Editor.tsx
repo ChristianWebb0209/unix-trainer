@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect } from "react";
+import { useState, useContext, useEffect, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { python } from "@codemirror/lang-python";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -11,6 +11,12 @@ import type { ProblemSummary } from "../api/problems";
 interface Language {
     id: string;
     name: string;
+}
+
+interface TerminalEntry {
+    command: string;
+    output: string;
+    isError: boolean;
 }
 
 const DEFAULT_CODE: Record<string, string> = {
@@ -34,6 +40,10 @@ export default function Editor() {
     const [problemTitle, setProblemTitle] = useState<string>("");
     const [languages, setLanguages] = useState<Language[]>([]);
     const [selectedLanguage, setSelectedLanguage] = useState<string>("bash");
+    const [terminalInput, setTerminalInput] = useState("");
+    const [terminalHistory, setTerminalHistory] = useState<TerminalEntry[]>([]);
+    const [isExecutingTerminal, setIsExecutingTerminal] = useState(false);
+    const terminalEndRef = useRef<HTMLDivElement>(null);
     const { theme } = useContext(ThemeContext);
     const activeProblemId = selectedProblem?.id;
 
@@ -69,6 +79,7 @@ export default function Editor() {
                 body: JSON.stringify({
                     code,
                     language: selectedLanguage,
+                    containerId: containerId, // Use persistent container
                 }),
             });
             const data = await response.json();
@@ -129,6 +140,44 @@ export default function Editor() {
         };
         fetchLanguages();
     }, []);
+
+    // Auto-scroll terminal to bottom
+    useEffect(() => {
+        terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [terminalHistory]);
+
+    // Execute terminal command
+    const executeTerminalCommand = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!terminalInput.trim() || !containerId || isExecutingTerminal) return;
+
+        const command = terminalInput.trim();
+        setTerminalInput("");
+        setIsExecutingTerminal(true);
+
+        try {
+            const response = await fetch(`/api/containers/${containerId}/exec`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ command }),
+            });
+            const result = await response.json();
+            const output = result.stdout || result.stderr || "(no output)";
+            const isError = result.exitCode !== 0;
+            
+            setTerminalHistory(prev => [
+                ...prev,
+                { command, output, isError }
+            ]);
+        } catch (err) {
+            setTerminalHistory(prev => [
+                ...prev,
+                { command, output: `Error: ${err}`, isError: true }
+            ]);
+        } finally {
+            setIsExecutingTerminal(false);
+        }
+    };
 
     useEffect(() => {
         if (!containerId && !isCreatingContainer) {
@@ -234,19 +283,85 @@ export default function Editor() {
 
                             <ResizeHandle />
 
-                            {/* Bottom: Terminal Placeholder */}
+                            {/* Bottom: Interactive Terminal */}
                             <Panel defaultSize={30} minSize={15}>
-                                <div className="terminal-area" style={{ height: "100%", backgroundColor: "#000", padding: "1rem", fontFamily: "monospace", overflowY: "auto", boxSizing: "border-box" }}>
-                                    <h4 style={{ margin: "0 0 1rem 0", color: "#aaa" }}>Terminal Output</h4>
-                                    <div className="terminal-placeholder" style={{ color: "#fff" }}>
-                                        {containerId ? `user@container-${containerId.slice(0, 4)}:~$ ` : "Starting container..."}
+                                <div className="terminal-area" style={{ height: "100%", backgroundColor: "#1a1a1a", padding: "1rem", fontFamily: "monospace", overflowY: "auto", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                                        <h4 style={{ margin: 0, color: "#aaa" }}>Terminal</h4>
+                                        <span style={{ color: "#666", fontSize: "12px" }}>
+                                            {containerId ? `container-${containerId.slice(0, 8)}` : "No container"}
+                                        </span>
                                     </div>
-                                    {runError && (
-                                        <pre style={{ color: "#ff8f8f", whiteSpace: "pre-wrap", marginTop: "1rem" }}>{runError}</pre>
+                                    
+                                    {/* Terminal Output History */}
+                                    <div style={{ flex: 1, overflowY: "auto", marginBottom: "0.5rem" }}>
+                                        {terminalHistory.map((entry, index) => (
+                                            <div key={index} style={{ marginBottom: "0.5rem" }}>
+                                                <div style={{ color: "#4ade80" }}>
+                                                    <span style={{ color: "#9ca3af" }}>$ </span>
+                                                    {entry.command}
+                                                </div>
+                                                <pre style={{ 
+                                                    color: entry.isError ? "#f87171" : "#e5e7eb", 
+                                                    whiteSpace: "pre-wrap", 
+                                                    margin: "0.25rem 0 0 0",
+                                                    fontFamily: "monospace",
+                                                    fontSize: "13px"
+                                                }}>{entry.output}</pre>
+                                            </div>
+                                        ))}
+                                        <div ref={terminalEndRef} />
+                                    </div>
+
+                                    {/* Run Code Output */}
+                                    {(runError || runOutput) && (
+                                        <div style={{ borderTop: "1px solid #333", paddingTop: "0.5rem", marginBottom: "0.5rem" }}>
+                                            <div style={{ color: "#fbbf24", marginBottom: "0.25rem", fontSize: "12px" }}>Run Code Output:</div>
+                                            {runError && (
+                                                <pre style={{ color: "#f87171", whiteSpace: "pre-wrap", margin: 0, fontSize: "13px" }}>{runError}</pre>
+                                            )}
+                                            {runOutput && (
+                                                <pre style={{ color: "#9fd3ff", whiteSpace: "pre-wrap", margin: 0, fontSize: "13px" }}>{runOutput}</pre>
+                                            )}
+                                        </div>
                                     )}
-                                    {runOutput && (
-                                        <pre style={{ color: "#9fd3ff", whiteSpace: "pre-wrap", marginTop: "1rem" }}>{runOutput}</pre>
-                                    )}
+
+                                    {/* Terminal Input */}
+                                    <form onSubmit={executeTerminalCommand} style={{ display: "flex", alignItems: "center" }}>
+                                        <span style={{ color: "#4ade80", marginRight: "0.5rem" }}>$</span>
+                                        <input
+                                            type="text"
+                                            value={terminalInput}
+                                            onChange={(e) => setTerminalInput(e.target.value)}
+                                            placeholder={containerId ? "Type a command..." : "Container starting..."}
+                                            disabled={!containerId || isExecutingTerminal}
+                                            style={{
+                                                flex: 1,
+                                                background: "transparent",
+                                                border: "none",
+                                                color: "#e5e7eb",
+                                                fontFamily: "monospace",
+                                                fontSize: "14px",
+                                                outline: "none"
+                                            }}
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={!containerId || isExecutingTerminal || !terminalInput.trim()}
+                                            style={{
+                                                background: "#374151",
+                                                border: "none",
+                                                color: "#e5e7eb",
+                                                padding: "0.25rem 0.75rem",
+                                                borderRadius: "4px",
+                                                cursor: "pointer",
+                                                fontSize: "12px",
+                                                marginLeft: "0.5rem"
+                                            }}
+                                        >
+                                            {isExecutingTerminal ? "..." : "Run"}
+                                        </button>
+                                    </form>
                                 </div>
                             </Panel>
 

@@ -178,6 +178,60 @@ export class ContainerService {
     }
 
     /**
+     * Executes a single shell command in the container (for interactive terminal).
+     * @param {string} containerId The ID of the container.
+     * @param {string} command The command to execute.
+     * @returns {Promise<object>} The execution result with stdout/stderr.
+     */
+    async runCommand(containerId, command) {
+        if (!this.containers.has(containerId)) {
+            throw new Error(`Container ${containerId} not found or already destroyed.`);
+        }
+
+        console.log(`[ContainerService] Terminal command in ${containerId}: ${command}`);
+
+        const container = this.docker.getContainer(containerId);
+        const encoded = Buffer.from(String(command || ""), "utf-8").toString("base64");
+        const shellCmd = `echo ${encoded} | base64 -d | /bin/sh`;
+
+        const exec = await container.exec({
+            Cmd: ["/bin/sh", "-lc", shellCmd],
+            AttachStdout: true,
+            AttachStderr: true,
+            AttachStdin: false,
+            Tty: false,
+        });
+
+        const stream = await exec.start({ hijack: false, stdin: false });
+        const stdoutChunks = [];
+        const stderrChunks = [];
+
+        await new Promise((resolve, reject) => {
+            const stdoutStream = new PassThrough();
+            const stderrStream = new PassThrough();
+
+            stdoutStream.on("data", (chunk) => stdoutChunks.push(Buffer.from(chunk)));
+            stderrStream.on("data", (chunk) => stderrChunks.push(Buffer.from(chunk)));
+
+            this.docker.modem.demuxStream(stream, stdoutStream, stderrStream);
+
+            stream.on('error', reject);
+            stream.on('end', resolve);
+            stream.on('close', resolve);
+        });
+
+        const inspect = await exec.inspect();
+        const stdout = Buffer.concat(stdoutChunks).toString('utf-8');
+        const stderr = Buffer.concat(stderrChunks).toString('utf-8');
+
+        return {
+            exitCode: inspect.ExitCode ?? 0,
+            stdout,
+            stderr
+        };
+    }
+
+    /**
      * Stops a running container process.
      * @param {string} containerId The container ID.
      */
