@@ -1,10 +1,5 @@
 import { Visibility } from '../types/problem.types.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { supabaseAdmin } from '../config/supabase.config.js';
 
 /**
  * Problem Service
@@ -34,97 +29,38 @@ const __dirname = path.dirname(__filename);
  * - Must not mutate stored problems
  */
 export class ProblemService {
-    // In a real application, this would be a database connection.
-    // We'll use a static in-memory store for this implementation.
     constructor(initialProblems = []) {
         this.problems = new Map();
         for (const problem of initialProblems) {
             this.problems.set(problem.id, problem);
         }
-        this.loadProblemsFromData();
     }
 
-    /**
-     * Loads problem JSON files from the data/problems directory into the in-memory store.
-     */
-    loadProblemsFromData() {
-        const dataDir = path.resolve(__dirname, '../data/problems');
-        if (!fs.existsSync(dataDir)) {
-            console.warn(`[ProblemService] Data directory not found: ${dataDir}`);
-            return;
-        }
-        const files = this.collectJsonFiles(dataDir);
-        for (const filePath of files) {
-            try {
-                const raw = fs.readFileSync(filePath, 'utf-8');
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed.problems)) {
-                    const inferredDifficulty = this.inferDifficulty(filePath);
-                    const inferredType = this.inferType(filePath);
-                    for (const prob of parsed.problems) {
-                        // Ensure required fields exist, add defaults if missing
-                        const enriched = {
-                            ...prob,
-                            difficulty: prob.difficulty ?? inferredDifficulty ?? 'easy',
-                            type: prob.type ?? inferredType ?? 'unix',
-                            constraint: prob.constraint ?? { timeLimitMs: 5000, memoryLimitBytes: 256 * 1024 * 1024 },
-                            visibility: prob.visibility ?? 'public',
-                            testCases: prob.tests?.map((t) => ({
-                                id: t.id ?? `${prob.id}_tc_${Math.random().toString(36).substr(2, 5)}`,
-                                input: t.input,
-                                expected_stdout: t.expected_stdout,
-                                setup_files: t.setup_files,
-                                cwd: t.cwd,
-                                files: t.files,
-                                isHidden: t.isHidden ?? false
-                            })) ?? []
-                        };
-                        this.problems.set(enriched.id, enriched);
-                    }
-                }
-            } catch (e) {
-                console.error(`[ProblemService] Failed to load ${filePath}:`, e);
-            }
-        }
-    }
-
-    collectJsonFiles(dir) {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        const files = [];
-        for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            if (entry.isDirectory()) {
-                files.push(...this.collectJsonFiles(fullPath));
-            } else if (entry.isFile() && entry.name.endsWith('.json')) {
-                files.push(fullPath);
-            }
-        }
-        return files;
-    }
-
-    inferDifficulty(filePath) {
-        const lower = filePath.toLowerCase();
-        if (lower.includes(`${path.sep}easy${path.sep}`)) return 'easy';
-        if (lower.includes(`${path.sep}medium${path.sep}`)) return 'medium';
-        if (lower.includes(`${path.sep}hard${path.sep}`)) return 'hard';
-        return null;
-    }
-
-    inferType(filePath) {
-        const base = path.basename(filePath).toLowerCase();
-        if (base.includes('awk')) return 'awk';
-        if (base.includes('bash')) return 'bash';
-        if (base.includes('unix')) return 'unix';
-        return null;
-    }
+    // JSON loading removed; problems are now sourced from Supabase.
 
     /**
      * Retrieves a problem by its ID.
      * @param {string} problemId The ID of the problem to retrieve.
      * @returns {object|null} The problem metadata and formulation, or null if not found.
      */
-    getProblem(problemId) {
-        return this.problems.get(problemId) || null;
+    async getProblem(problemId) {
+        if (!supabaseAdmin) {
+            console.error('[ProblemService] supabaseAdmin is not configured');
+            return null;
+        }
+        const { data, error } = await supabaseAdmin
+            .from('problems')
+            .select('id,title,instructions,difficulty,language,tests,starter_code')
+            .eq('id', problemId)
+            .single();
+        if (error) {
+            console.error('[ProblemService] Failed to fetch problem from Supabase:', error.message);
+            return null;
+        }
+        return {
+            ...data,
+            starterCode: data.starter_code ?? null,
+        };
     }
 
     /**
@@ -133,41 +69,128 @@ export class ProblemService {
      * @param {string} visibility Limit to PUBLIC or return both (HIDDEN assumes full access, e.g., during execution).
      * @returns {Array} An array of test cases. Never returns null; returns empty array if problem missing.
      */
-    getTestCases(problemId, visibility) {
-        const problem = this.problems.get(problemId);
-        if (!problem) {
+    async getTestCases(problemId, visibility) {
+        if (!supabaseAdmin) {
+            console.error('[ProblemService] supabaseAdmin is not configured');
             return [];
         }
-
-        if (visibility === Visibility.PUBLIC) {
-            // Only return test cases that are strictly NOT hidden.
-            return problem.testCases.filter((tc) => !tc.isHidden);
+        const { data, error } = await supabaseAdmin
+            .from('problems')
+            .select('tests')
+            .eq('id', problemId)
+            .single();
+        if (error || !data) {
+            console.error('[ProblemService] Failed to fetch tests from Supabase:', error?.message);
+            return [];
         }
-        // Context requests HIDDEN, meaning we provide all test cases including hidden ones.
-        return [...problem.testCases];
+        const tests = Array.isArray(data.tests) ? data.tests : [];
+        if (visibility === Visibility.PUBLIC) {
+            return tests.filter((tc) => !tc.isHidden);
+        }
+        return tests;
     }
 
     /**
-     * Returns a list of problems with optional filtering and pagination.
+     * Returns a list of problems with optional filtering and pagination, backed by Supabase.
      * @param {object} filters Object containing optional search, difficulty, and type filters.
      * @param {object} pagination Object containing page (1-indexed) and limit.
      */
-    listProblems(filters, pagination) {
-        let results = Array.from(this.problems.values());
+    async listProblems(filters, pagination) {
+        if (!supabaseAdmin) {
+            console.error('[ProblemService] supabaseAdmin is not configured');
+            return { problems: [], total: 0, page: pagination.page, limit: pagination.limit };
+        }
+
+        let queryBuilder = supabaseAdmin
+            .from('problems')
+            .select('id,title,instructions,difficulty,language,tests,starter_code', { count: 'exact' });
+
         if (filters.search) {
-            const lower = filters.search.toLowerCase();
-            results = results.filter(p => p.title.toLowerCase().includes(lower) || p.id.toLowerCase().includes(lower));
+            const term = `%${filters.search.toLowerCase()}%`;
+            queryBuilder = queryBuilder.or(
+                `id.ilike.${term},title.ilike.${term}`
+            );
         }
         if (filters.difficulty) {
-            results = results.filter(p => p.difficulty === filters.difficulty);
+            queryBuilder = queryBuilder.eq('difficulty', filters.difficulty);
         }
         if (filters.type) {
-            results = results.filter(p => p.type === filters.type);
+            queryBuilder = queryBuilder.eq('language', filters.type);
         }
-        const total = results.length;
-        const start = (pagination.page - 1) * pagination.limit;
-        const end = start + pagination.limit;
-        const paged = results.slice(start, end);
-        return { problems: paged, total, page: pagination.page, limit: pagination.limit };
+
+        const from = (pagination.page - 1) * pagination.limit;
+        const to = from + pagination.limit - 1;
+        const { data, error, count } = await queryBuilder
+            .order('difficulty', { ascending: true })
+            .order('id', { ascending: true })
+            .range(from, to);
+
+        if (error) {
+            console.error('[ProblemService] Failed to list problems from Supabase:', error.message);
+            return { problems: [], total: 0, page: pagination.page, limit: pagination.limit };
+        }
+
+        const difficultyOrder = { learn: 0, easy: 1, medium: 2, hard: 3 };
+        const problems = (data ?? [])
+            .map((p) => ({
+                ...p,
+                starterCode: p.starter_code ?? null,
+            }))
+            .sort((a, b) => {
+                const da = difficultyOrder[a.difficulty] ?? 99;
+                const db = difficultyOrder[b.difficulty] ?? 99;
+                if (da !== db) return da - db;
+                return String(a.id).localeCompare(String(b.id));
+            });
+
+        return {
+            problems,
+            total: count ?? problems.length,
+            page: pagination.page,
+            limit: pagination.limit,
+        };
     }
+
+    /**
+     * Deterministically selects a "problem of the day" based on the current date.
+     * Backed by Supabase problems table.
+     */
+    async getProblemOfTheDay(currentDate = new Date()) {
+        if (!supabaseAdmin) {
+            console.error('[ProblemService] supabaseAdmin is not configured');
+            return null;
+        }
+
+        const { data, error } = await supabaseAdmin
+            .from('problems')
+            .select('id,title,instructions,difficulty,language,tests,starter_code');
+
+        if (error) {
+            console.error('[ProblemService] Failed to fetch problems for problem of the day:', error.message);
+            return null;
+        }
+
+        const all = Array.isArray(data) ? data : [];
+        if (all.length === 0) {
+            return null;
+        }
+
+        // Stable order so the same date always maps to the same problem
+        all.sort((a, b) => a.id.localeCompare(b.id));
+
+        const dateKey = currentDate.toISOString().slice(0, 10); // YYYY-MM-DD
+        let hash = 0;
+        for (let i = 0; i < dateKey.length; i++) {
+            hash = (hash * 31 + dateKey.charCodeAt(i)) >>> 0;
+        }
+        const index = hash % all.length;
+        const chosen = all[index];
+
+        return {
+            ...chosen,
+            starterCode: chosen.starter_code ?? null,
+        };
+    }
+
+    // syncProblemToDatabase removed: Supabase is now the primary source of truth.
 }

@@ -41,22 +41,27 @@ export class ProblemController {
                 return;
             }
 
-            const problem = this.problemService.getProblem(problemId);
+            const problem = await this.problemService.getProblem(problemId);
             if (!problem) {
                 res.status(404).json({ error: `Problem with ID ${problemId} not found` });
                 return;
             }
 
             // Only fetch public test cases for the API response to prevent leaking hidden ones
-            const publicTestCases = this.problemService.getTestCases(problemId, Visibility.PUBLIC);
+            const publicTestCases = await this.problemService.getTestCases(problemId, Visibility.PUBLIC);
 
-            // Construct sanitized response
+            // Construct sanitized response aligned with the new problem schema
             const sanitizedProblem = {
                 id: problem.id,
                 title: problem.title,
-                description: problem.description,
-                constraint: problem.constraint,
-                testCases: publicTestCases
+                instructions: problem.instructions,
+                difficulty: problem.difficulty,
+                language: problem.language ?? problem.type ?? 'any',
+                starterCode: problem.starterCode ?? null,
+                tests: publicTestCases.map((tc) => ({
+                    input: tc.input,
+                    expected_stdout: tc.expected_stdout,
+                })),
             };
 
             res.status(200).json({ problem: sanitizedProblem });
@@ -83,24 +88,23 @@ export class ProblemController {
             if (search) filters.search = search;
             if (difficultyRaw) {
                 const normalized = difficultyRaw.toLowerCase();
-                if (['easy', 'medium', 'hard'].includes(normalized)) {
+                if (['learn', 'easy', 'medium', 'hard'].includes(normalized)) {
                     filters.difficulty = normalized;
                 }
             }
             if (typeRaw) {
                 const normalized = typeRaw.toLowerCase();
-                if (['unix', 'awk', 'bash'].includes(normalized)) {
+                if (['unix', 'awk', 'bash', 'cuda'].includes(normalized)) {
                     filters.type = normalized;
                 }
             }
 
-            const result = this.problemService.listProblems(filters, { page, limit });
+            const result = await this.problemService.listProblems(filters, { page, limit });
             const sanitizedProblems = result.problems.map((problem) => ({
                 id: problem.id,
                 title: problem.title,
-                description: problem.description,
                 difficulty: problem.difficulty,
-                type: problem.type,
+                language: problem.language ?? problem.type ?? 'any',
             }));
             res.status(200).json({
                 problems: sanitizedProblems,
@@ -111,6 +115,32 @@ export class ProblemController {
         } catch (error) {
             console.error(`[ProblemController] Error listing problems:`, error);
             res.status(500).json({ error: 'Internal server error while listing problems' });
+        }
+    }
+
+    /**
+     * Returns the "problem of the day", selected once per calendar day.
+     */
+    async getProblemOfTheDay(req, res) {
+        try {
+            const problem = await this.problemService.getProblemOfTheDay(new Date());
+            if (!problem) {
+                res.status(404).json({ error: 'No problems available' });
+                return;
+            }
+
+            const sanitized = {
+                id: problem.id,
+                title: problem.title,
+                instructions: problem.instructions,
+                difficulty: problem.difficulty,
+                language: problem.language ?? problem.type ?? 'any',
+            };
+
+            res.status(200).json({ problem: sanitized });
+        } catch (error) {
+            console.error('[ProblemController] Error fetching problem of the day:', error);
+            res.status(500).json({ error: 'Internal server error while fetching problem of the day' });
         }
     }
 }
