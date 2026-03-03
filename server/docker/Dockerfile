@@ -5,7 +5,9 @@ FROM alpine:latest
 RUN apk add --no-cache \
     bash \
     gawk \
-    coreutils
+    coreutils \
+    nano \
+    vim
 # Create working directory
 WORKDIR /app
 

@@ -28,39 +28,34 @@ import { ContainerService } from '../services/container.service.js';
  * - Do not instantiate services here 
  */
 
-// Note: To remain purely functional we export a factory, or rely on a centralized DI system.
-// Given node/express patterns, we will instantiate it here if DI isn't available,
-// but the instructions say "Do not instantiate services here".
-// A typical pattern is exporting a function setupRouter(controller).
-// To satisfy "Export a configured router instance", we will export the router directly,
-// and instantiate dependencies here. If strictly "do not instantiate services here",
-// we would have another file `dependencies.ts` or `app.ts` register it. Let's do a simple DI approach if possible, or build it locally.
-// Creating singletons here for simplicity across this project structure.
+/**
+ * @param {import('../services/container.service.js').ContainerService} containerService
+ * @returns {import('express').Router}
+ */
+export function createContainerRouter(containerService) {
+    const containerController = new ContainerController(containerService);
+    const router = Router();
 
-const containerService = new ContainerService();
-const containerController = new ContainerController(containerService);
+    router.get("/", (req, res) => { res.send("Container route works!"); });
+    router.post('/', (req, res) => containerController.createContainer(req, res));
+    router.post('/create', (req, res) => containerController.createContainer(req, res));
+    router.delete('/:containerId', (req, res) => containerController.destroyContainer(req, res));
 
-export const containerRouter = Router();
+    router.post('/:containerId/exec', async (req, res) => {
+        const { containerId } = req.params;
+        const { command } = req.body;
 
-// Wrap inside arrow functions to preserve 'this' context in the controller
-containerRouter.get("/", (req, res) => { res.send("Container route works!"); });
-containerRouter.post('/', (req, res) => containerController.createContainer(req, res));
-containerRouter.post('/create', (req, res) => containerController.createContainer(req, res));
-containerRouter.delete('/:containerId', (req, res) => containerController.destroyContainer(req, res));
+        if (!command) {
+            return res.status(400).json({ error: 'Command is required' });
+        }
 
-// Terminal execution endpoint
-containerRouter.post('/:containerId/exec', async (req, res) => {
-    const { containerId } = req.params;
-    const { command } = req.body;
-    
-    if (!command) {
-        return res.status(400).json({ error: 'Command is required' });
-    }
+        try {
+            const result = await containerService.runCommand(containerId, command);
+            res.json(result);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
 
-    try {
-        const result = await containerService.runCommand(containerId, command);
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+    return router;
+}

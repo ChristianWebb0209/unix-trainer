@@ -178,7 +178,7 @@ export class ContainerService {
     }
 
     /**
-     * Executes a single shell command in the container (for interactive terminal).
+     * Executes a single shell command in the container (for one-off exec - kept for backwards compat).
      * @param {string} containerId The ID of the container.
      * @param {string} command The command to execute.
      * @returns {Promise<object>} The execution result with stdout/stderr.
@@ -232,6 +232,33 @@ export class ContainerService {
     }
 
     /**
+     * Creates a persistent PTY shell session attached to the container.
+     * Returns a duplex stream - write to send stdin, read 'data' for stdout/stderr.
+     * Use this for a real interactive terminal (ls, cd, nano, vim, etc.).
+     * @param {string} containerId The ID of the container.
+     * @returns {Promise<import('stream').Duplex>} The PTY stream (write stdin, listen to 'data' for output).
+     */
+    async attachPTY(containerId) {
+        if (!this.containers.has(containerId)) {
+            throw new Error(`Container ${containerId} not found or already destroyed.`);
+        }
+
+        console.log(`[ContainerService] Attaching PTY to container ${containerId}`);
+
+        const container = this.docker.getContainer(containerId);
+        const exec = await container.exec({
+            Cmd: ["/bin/sh"],
+            AttachStdin: true,
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: true,
+        });
+
+        const stream = await exec.start({ hijack: true, stdin: true });
+        return stream;
+    }
+
+    /**
      * Stops a running container process.
      * @param {string} containerId The container ID.
      */
@@ -246,9 +273,17 @@ export class ContainerService {
      * @param {string} containerId The container ID.
      */
     async destroy(containerId) {
-        if (this.containers.has(containerId)) {
-            this.containers.delete(containerId);
+        if (!this.containers.has(containerId)) {
+            return;
+        }
+        this.containers.delete(containerId);
+        try {
+            const container = this.docker.getContainer(containerId);
+            await container.stop({ t: 2 });
+            await container.remove({ force: true });
             console.log(`[ContainerService] Destroyed container: ${containerId}`);
+        } catch (err) {
+            console.error(`[ContainerService] Error destroying ${containerId}:`, err.message);
         }
     }
 
