@@ -8,7 +8,8 @@
     "dev": "nodemon src/index.js",
     "db:init": "node src/db/init.js",
     "db:migrate": "node src/db/migrate.js",
-    "db:sync-problems": "node src/db/sync-problems.js"
+    "db:sync-problems": "node src/db/sync-problems.js",
+    "db:cleanup-completions": "node src/db/cleanup-completions.js"
   },
   "keywords": [],
   "author": "",

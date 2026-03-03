@@ -67,7 +67,7 @@ function inferType(filePath) {
 
 // Load problems from JSON files
 function loadProblemsFromJson() {
-  const dataDir = path.resolve(__dirname, '../../data/problems');
+  const dataDir = path.resolve(__dirname, '../../src/data/problems');
   if (!fs.existsSync(dataDir)) {
     console.error(`[Sync] Data directory not found: ${dataDir}`);
 
