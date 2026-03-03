@@ -1,6 +1,7 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, Navigate } from "react-router-dom"
 import Home from "./pages/Home"
 import Editor from "./pages/Editor"
+import Account from "./pages/Account"
 import { useEffect } from "react"
 import { pingServer } from "./api/test"
 
@@ -12,7 +13,9 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/editor" element={<Editor />} />
+      <Route path="/account" element={<Account />} />
+      <Route path="/editor" element={<Navigate to="/editor/unix" replace />} />
+      <Route path="/editor/:workspace" element={<Editor />} />
     </Routes>
   )
 }
