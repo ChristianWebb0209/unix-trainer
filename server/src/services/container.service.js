@@ -30,31 +30,59 @@ import { PassThrough } from "stream";
  */
 export class ContainerService {
     constructor() {
-        this.containers = new Set();
+        /**
+         * Map of containerId -> metadata
+         * metadata: { workspace, ownerKey, lastActivity }
+         */
+        this.containers = new Map();
         this.containerCounter = 0;
         this.docker = new Docker();
-        this.imageName = 'unix-trainer:latest';
+        this.imageNames = {
+            unix: 'unix-workspace:latest',
+            cuda: 'cuda-workspace:latest',
+        };
+
+        // Periodic cleanup for idle containers
+        const CLEANUP_INTERVAL_MS = 60_000; // 1 minute
+        this.idleTimeoutMs = 15 * 60_000; // 15 minutes
+        this.cleanupTimer = setInterval(() => {
+            void this.cleanupIdleContainers();
+        }, CLEANUP_INTERVAL_MS).unref?.();
+
+        // Best-effort cleanup of any leftover project containers on startup
+        void this.reapExistingProjectContainers();
+    }
+
+    getImageNameForWorkspace(workspace = 'unix') {
+        return this.imageNames[workspace] || this.imageNames.unix;
+    }
+
+    getDockerfileForWorkspace(workspace = 'unix') {
+        if (workspace === 'cuda') return 'Dockerfile.cuda';
+        return 'Dockerfile.unix';
     }
 
     /**
-     * Ensures the Docker image is built.
+     * Ensures the Docker image for a given workspace is built.
      */
-    async ensureImage() {
+    async ensureImage(workspace = 'unix') {
+        const imageName = this.getImageNameForWorkspace(workspace);
+        const dockerfile = this.getDockerfileForWorkspace(workspace);
         try {
             // Check if image exists
             const images = await this.docker.listImages();
-            const exists = images.some(img => img.RepoTags && img.RepoTags.includes(this.imageName));
+            const exists = images.some(img => img.RepoTags && img.RepoTags.includes(imageName));
             
             if (!exists) {
-                console.log(`[ContainerService] Building image ${this.imageName}...`);
+                console.log(`[ContainerService] Building image ${imageName} using ${dockerfile}...`);
                 // Build from the docker directory
                 await new Promise((resolve, reject) => {
                     this.docker.buildImage(
                         {
                             context: './docker',
-                            src: ['Dockerfile']
+                            src: [dockerfile]
                         },
-                        { t: this.imageName },
+                        { t: imageName, dockerfile },
                         (err, stream) => {
                             if (err) return reject(err);
                             this.docker.modem.followProgress(stream, (err, output) => {
@@ -64,9 +92,9 @@ export class ContainerService {
                         }
                     );
                 });
-                console.log(`[ContainerService] Image built successfully`);
+                console.log(`[ContainerService] Image ${imageName} built successfully`);
             } else {
-                console.log(`[ContainerService] Image ${this.imageName} already exists`);
+                console.log(`[ContainerService] Image ${imageName} already exists`);
             }
         } catch (err) {
             console.error(`[ContainerService] Failed to ensure image: ${err.message}`);
@@ -80,12 +108,27 @@ export class ContainerService {
      * @returns {Promise<string>} The generated container ID from docker.
      */
     async createContainer(config) {
-        // Ensure image exists (build if needed)
-        await this.ensureImage();
+        const workspace = config?.workspace === 'cuda' ? 'cuda' : 'unix';
+        const ownerKey = typeof config?.ownerKey === 'string' && config.ownerKey.trim()
+            ? config.ownerKey.trim()
+            : 'anonymous';
 
-        console.log(`[ContainerService] Creating container from ${this.imageName}...`);
+        // Reuse existing container for this owner + workspace if present
+        for (const [id, meta] of this.containers.entries()) {
+            if (meta.workspace === workspace && meta.ownerKey === ownerKey) {
+                console.log(`[ContainerService] Reusing container ${id} for owner=${ownerKey}, workspace=${workspace}`);
+                this.recordActivity(id);
+                return id;
+            }
+        }
+
+        // Ensure image exists (build if needed)
+        await this.ensureImage(workspace);
+
+        const imageName = this.getImageNameForWorkspace(workspace);
+        console.log(`[ContainerService] Creating container from ${imageName} (workspace=${workspace})...`);
         const container = await this.docker.createContainer({
-            Image: this.imageName,
+            Image: imageName,
             Cmd: ["tail", "-f", "/dev/null"], // keep it alive
             Tty: true,
             HostConfig: {
@@ -96,9 +139,20 @@ export class ContainerService {
         await container.start();
 
         const id = container.id;
-        this.containers.add(id);
-        console.log(`[ContainerService] Created and started container: ${id}`);
+        this.containers.set(id, {
+            workspace,
+            ownerKey,
+            lastActivity: Date.now(),
+        });
+        console.log(`[ContainerService] Created and started container: ${id} (owner=${ownerKey}, workspace=${workspace})`);
         return id;
+    }
+
+    recordActivity(containerId) {
+        const meta = this.containers.get(containerId);
+        if (meta) {
+            meta.lastActivity = Date.now();
+        }
     }
 
     /**
@@ -114,6 +168,7 @@ export class ContainerService {
         }
 
         console.log(`[ContainerService] Running command in ${containerId}: ${command}, input length: ${input.length}`);
+        this.recordActivity(containerId);
 
         const container = this.docker.getContainer(containerId);
         const codeEncoded = Buffer.from(String(code || ""), "utf-8").toString("base64");
@@ -189,6 +244,7 @@ export class ContainerService {
         }
 
         console.log(`[ContainerService] Terminal command in ${containerId}: ${command}`);
+        this.recordActivity(containerId);
 
         const container = this.docker.getContainer(containerId);
         const encoded = Buffer.from(String(command || ""), "utf-8").toString("base64");
@@ -244,6 +300,7 @@ export class ContainerService {
         }
 
         console.log(`[ContainerService] Attaching PTY to container ${containerId}`);
+        this.recordActivity(containerId);
 
         const container = this.docker.getContainer(containerId);
         const exec = await container.exec({
@@ -284,6 +341,38 @@ export class ContainerService {
             console.log(`[ContainerService] Destroyed container: ${containerId}`);
         } catch (err) {
             console.error(`[ContainerService] Error destroying ${containerId}:`, err.message);
+        }
+    }
+
+    async cleanupIdleContainers() {
+        const now = Date.now();
+        for (const [id, meta] of this.containers.entries()) {
+            if (now - meta.lastActivity > this.idleTimeoutMs) {
+                console.log(`[ContainerService] Container ${id} idle for more than 15 minutes. Destroying...`);
+                await this.destroy(id);
+            }
+        }
+    }
+
+    async reapExistingProjectContainers() {
+        try {
+            // On server startup, aggressively clean up ALL containers (running or exited)
+            // so repeated dev runs do not accumulate leftover environments.
+            const containers = await this.docker.listContainers({ all: true });
+            for (const c of containers) {
+                const id = c.Id;
+                const image = c.Image;
+                try {
+                    console.log(`[ContainerService] Cleaning up leftover container ${id} (image=${image})`);
+                    const container = this.docker.getContainer(id);
+                    await container.stop({ t: 2 }).catch(() => { });
+                    await container.remove({ force: true }).catch(() => { });
+                } catch (err) {
+                    console.error(`[ContainerService] Failed to clean leftover container ${id}:`, err.message);
+                }
+            }
+        } catch (err) {
+            console.error("[ContainerService] Failed to scan for leftover containers:", err.message);
         }
     }
 

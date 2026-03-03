@@ -1,0 +1,15 @@
+# Unix workspace image
+FROM alpine:latest
+
+# Install Unix tooling
+RUN apk add --no-cache \
+    bash \
+    gawk \
+    coreutils \
+    nano \
+    vim
+
+WORKDIR /app
+
+CMD ["tail", "-f", "/dev/null"]
+

@@ -41,6 +41,7 @@ async function handleTerminalConnection(ws, containerId, containerService) {
             ptyStream = await containerService.attachPTY(containerId);
 
             ptyStream.on("data", (chunk) => {
+                containerService.recordActivity(containerId);
                 if (ws.readyState === 1) {
                     ws.send(chunk);
                 }
@@ -60,6 +61,7 @@ async function handleTerminalConnection(ws, containerId, containerService) {
             });
 
             ws.on("message", (data) => {
+                containerService.recordActivity(containerId);
                 if (ptyStream && !ptyStream.destroyed) {
                     const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
                     ptyStream.write(buf);
