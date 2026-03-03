@@ -1,0 +1,129 @@
+{
+  "problems": [
+    {
+      "id": "awk_medium_001",
+      "title": "AWK (medium): average a numeric column with missing values",
+      "language": "awk",
+      "difficulty": "medium",
+      "instructions": "You receive tabular data where the **second field** may be empty or non‑numeric.\n\n**Task**: Compute the average of all **valid numeric values** in the second field and print it as a single number followed by a newline.\n\nRules:\n\n- Ignore lines where the second field is empty.\n- Ignore lines where the second field is not a valid number.\n- If there are no valid numbers, print `0`.\n\nExample input:\n\n```text\nuser1 10\nuser2 -\nuser3 20\nuser4 not_a_number\n```\n\nOutput:\n\n```text\n15\n```\n\n{hints: Use a regular expression like `$2 ~ /^-?[0-9]+(\\.[0-9]+)?$/` to detect numeric values. Track `sum` and `count`, then compute `sum / count` in `END`.}",
+      "starterCode": "# Compute average of numeric values in the second field\n{\n    # validate $2 and update sum/count\n}\nEND {\n    # print average or 0\n}\n",
+      "tests": [
+        {
+          "id": "awk_med_001_basic",
+          "input": "u1 10\nu2 -\nu3 20\n",
+          "expected_stdout": "15\n"
+        },
+        {
+          "id": "awk_med_001_no_valid",
+          "input": "a -\nb x\n",
+          "expected_stdout": "0\n"
+        },
+        {
+          "id": "awk_med_001_single",
+          "input": "only 5\n",
+          "expected_stdout": "5\n"
+        }
+      ]
+    },
+    {
+      "id": "awk_medium_002",
+      "title": "AWK (medium): group and sum by category",
+      "language": "awk",
+      "difficulty": "medium",
+      "instructions": "Each input line has a **category** in the first field and a **numeric amount** in the second field.\n\nExample:\n\n```text\nfood 10\nrent 500\nfood 5\n```\n\n**Task**: For each category, compute the sum of its amounts and print one line per category in the form:\n\n```text\nCATEGORY TOTAL\n```\n\nThe order of categories does not matter.\n\n{hints: Use an associative array: `sum[$1] += $2`. In `END`, iterate `for (cat in sum)` and print the results.}",
+      "starterCode": "# Group by first field and sum the numeric second field\n{\n    # accumulate into sum[$1]\n}\nEND {\n    # print CATEGORY TOTAL per entry\n}\n",
+      "tests": [
+        {
+          "id": "awk_med_002_basic",
+          "input": "food 10\nrent 500\nfood 5\n",
+          "expected_stdout_regex": "food 15\\nrent 500\\n|rent 500\\nfood 15\\n"
+        },
+        {
+          "id": "awk_med_002_single_category",
+          "input": "a 1\na 2\na 3\n",
+          "expected_stdout": "a 6\n"
+        },
+        {
+          "id": "awk_med_002_empty",
+          "input": "",
+          "expected_stdout": ""
+        }
+      ]
+    },
+    {
+      "id": "awk_medium_003",
+      "title": "AWK (medium): filter on field count and value",
+      "language": "awk",
+      "difficulty": "medium",
+      "instructions": "You are given lines with a user id, status, and optional message.\n\nFormat:\n\n```text\nID STATUS [MESSAGE...]\n```\n\n**Task**: Print only those lines where:\n\n- There are at least 3 fields (`NF >= 3`).\n- The second field (`STATUS`) is exactly `ERROR`.\n\nExample input:\n\n```text\n1 OK all good\n2 ERROR disk full\n3 ERROR\n4 OK ignored\n```\n\nOutput:\n\n```text\n2 ERROR disk full\n3 ERROR\n```\n\n{hints: Combine conditions in a pattern: `NF >= 3 && $2 == \"ERROR\" { print }`.}",
+      "starterCode": "# Print only lines with NF>=3 and second field ERROR\nNF >= 3 && $2 == \"ERROR\" {\n    # print matching records\n}\n",
+      "tests": [
+        {
+          "id": "awk_med_003_basic",
+          "input": "1 OK all good\n2 ERROR disk full\n3 ERROR\n4 OK ignored\n",
+          "expected_stdout": "2 ERROR disk full\n3 ERROR\n"
+        },
+        {
+          "id": "awk_med_003_too_few_fields",
+          "input": "x ERROR\n",
+          "expected_stdout": ""
+        },
+        {
+          "id": "awk_med_003_no_error",
+          "input": "1 OK hi\n",
+          "expected_stdout": ""
+        }
+      ]
+    },
+    {
+      "id": "awk_medium_004",
+      "title": "AWK (medium): reformat fields with OFS",
+      "language": "awk",
+      "difficulty": "medium",
+      "instructions": "`OFS` is the **output field separator** used by `print` when you separate arguments with commas.\n\n**Task**: Read space‑separated input with three fields per line: `first last age`.\n\nReformat and print each line as:\n\n```text\nlast,first,age\n```\n\nUse a single comma as the separator (no extra spaces).\n\nExample input:\n\n```text\nAlice Smith 30\nBob Lee 25\n```\n\nOutput:\n\n```text\nSmith,Alice,30\nLee,Bob,25\n```\n\n{hints: Set `OFS = \",\"` in `BEGIN` and then `print $2, $1, $3` in the main block.}",
+      "starterCode": "# Swap field order and emit CSV using OFS\nBEGIN {\n    # set OFS to comma\n}\n{\n    # print last, first, age\n}\n",
+      "tests": [
+        {
+          "id": "awk_med_004_basic",
+          "input": "Alice Smith 30\nBob Lee 25\n",
+          "expected_stdout": "Smith,Alice,30\nLee,Bob,25\n"
+        },
+        {
+          "id": "awk_med_004_single",
+          "input": "X Y 1\n",
+          "expected_stdout": "Y,X,1\n"
+        },
+        {
+          "id": "awk_med_004_empty_input",
+          "input": "",
+          "expected_stdout": ""
+        }
+      ]
+    },
+    {
+      "id": "awk_medium_005",
+      "title": "AWK (medium): bucket numbers into ranges",
+      "language": "awk",
+      "difficulty": "medium",
+      "instructions": "You will build a tiny numeric histogram.\n\n**Task**: Read integers from the first field and count how many fall into each range:\n\n- `low` for values < 10\n- `mid` for values from 10 to 99 (inclusive)\n- `high` for values >= 100\n\nAt the end, print three lines in this exact order:\n\n```text\nlow COUNT\nmid COUNT\nhigh COUNT\n```\n\nExample input:\n\n```text\n1\n5\n10\n20\n100\n```\n\nOutput:\n\n```text\nlow 2\nmid 2\nhigh 1\n```\n\n{hints: Use three counters (e.g., `low`, `mid`, `high`) and increment based on the numeric value of `$1`.}",
+      "starterCode": "# Bucket integer values into low/mid/high ranges\n{\n    # update range counters\n}\nEND {\n    # print low, mid, high counts in order\n}\n",
+      "tests": [
+        {
+          "id": "awk_med_005_basic",
+          "input": "1\n5\n10\n20\n100\n",
+          "expected_stdout": "low 2\nmid 2\nhigh 1\n"
+        },
+        {
+          "id": "awk_med_005_all_low",
+          "input": "0\n9\n",
+          "expected_stdout": "low 2\nmid 0\nhigh 0\n"
+        },
+        {
+          "id": "awk_med_005_empty",
+          "input": "",
+          "expected_stdout": "low 0\nmid 0\nhigh 0\n"
+        }
+      ]
+    }
+  ]
+}
