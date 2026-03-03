@@ -134,10 +134,9 @@ CREATE INDEX idx_problems_visibility ON problems(visibility);
 | id | UUID | PRIMARY KEY | Unique completion record ID |
 | user_id | UUID | FOREIGN KEY → users(id), NOT NULL | Reference to user |
 | problem_id | VARCHAR(50) | FOREIGN KEY → problems(id), NOT NULL | Reference to problem |
-| solution_code | TEXT | NOT NULL | User's final working solution |
+| solution_code | TEXT | NOT NULL | User's latest saved solution |
 | language | VARCHAR(20) | NOT NULL | Language used: "bash", "awk", etc. |
-| attempts_count | INTEGER | NOT NULL DEFAULT 1 | Number of attempts before success |
-| completed_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | When problem was solved |
+| completed_at | TIMESTAMP | NULLABLE | When problem was solved; NULL means "attempted but not completed" |
 
 ```sql
 CREATE TABLE problem_completions (
@@ -146,8 +145,7 @@ CREATE TABLE problem_completions (
     problem_id VARCHAR(50) NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
     solution_code TEXT NOT NULL,
     language VARCHAR(20) NOT NULL,
-    attempts_count INTEGER NOT NULL DEFAULT 1,
-    completed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMP,
     
     -- One completion per user per problem
     UNIQUE(user_id, problem_id)
@@ -161,42 +159,11 @@ CREATE INDEX idx_completions_completed_at ON problem_completions(completed_at DE
 
 ---
 
-### 4. submissions (Optional - Future Extension)
+### 4. submissions (Removed)
 
-**Purpose:** Stores detailed history of every submission attempt.
-
-**Justification:**
-- **Optional for v1** - If you only care about completed solutions, skip this
-- **Enable later:** Analytics on failure patterns, "try again" features
-- More storage but invaluable for debugging and improving problems
-
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | UUID | PRIMARY KEY | Unique submission ID |
-| user_id | UUID | FOREIGN KEY → users(id), NOT NULL | User who submitted |
-| problem_id | VARCHAR(50) | FOREIGN KEY → problems(id), NOT NULL | Problem attempted |
-| submitted_code | TEXT | NOT NULL | Code that was submitted |
-| language | VARCHAR(20) | NOT NULL | Language used |
-| status | VARCHAR(30) | NOT NULL | "accepted", "wrong_answer", "runtime_error", etc. |
-| execution_time_ms | INTEGER | | How long execution took |
-| submitted_at | TIMESTAMP | NOT NULL DEFAULT NOW() | When submission was made |
-
-```sql
-CREATE TABLE submissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    problem_id VARCHAR(50) NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
-    submitted_code TEXT NOT NULL,
-    language VARCHAR(20) NOT NULL,
-    status VARCHAR(30) NOT NULL,
-    execution_time_ms INTEGER,
-    submitted_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_submissions_user_id ON submissions(user_id);
-CREATE INDEX idx_submissions_problem_id ON submissions(problem_id);
-CREATE INDEX idx_submissions_status ON submissions(status);
-```
+Earlier versions of the schema proposed a separate `submissions` table for detailed attempt history.  
+For simplicity, this design has been removed: progress is now tracked solely via `problem_completions`, with
+`completed_at` distinguishing **attempted** (NULL) from **completed** (non-NULL) problems.
 
 ---
 
@@ -288,7 +255,6 @@ LIMIT 5;
 |-------|-------------|-----|
 | users | Database | Dynamic, user-specific data |
 | problems | Hybrid (JSON + DB cache) | Static content, but needs DB for queries |
-| problem_completions | Database | Core dynamic tracking |
-| submissions | Database (optional) | Future analytics |
+| problem_completions | Database | Core dynamic tracking (attempted vs completed) |
 
 This schema supports your goal of a **dynamic system** where users can track progress across problems, while keeping **problem management flexible** via JSON files.

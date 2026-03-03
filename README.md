@@ -7,17 +7,11 @@
 - PostgreSQL + Supabase (free tier)
 - Server will be hosted on my local computer, then tunnel using cloudflare
 - - This is more of a learning project, so this will suffice.
-- Authentication: Supabase + google Oauth option
+- - If you want to try this project for yourself, feel free to set it up locally
+- Authentication: Supabase
 - Code Editor: CodeMirror
 - Terminal: Docker container for each client
 
-## Features:
+## About
 
-- list of problems on left, problem description center left, editor to the right
-- - bash, unix, awk sections
-- playground that lets you play around with bash, unix, awk
-
-### Docker Usage:
-
-A client can log on to site, but only when they log in and enter a problem the server will spin up a docker container that will stick with them even when they switch problems, etc.
-lational database
+This is a learning project I made inspired by LeetCode but specifically for systems programming and GPU programming. 

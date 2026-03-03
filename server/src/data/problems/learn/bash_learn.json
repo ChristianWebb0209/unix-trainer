@@ -1,0 +1,256 @@
+{
+  "problems": [
+    {
+      "id": "bash_learn_001",
+      "title": "Learn Bash: echo and newlines",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "In Bash, the `echo` built‑in prints its arguments followed by a newline. For example:\n\n```sh\necho \"Hello\"\n```\n\nprints:\n\n```text\nHello\n```\n\nIf you pass multiple arguments, Bash separates them with a single space:\n\n```sh\necho \"hello\" \"world\"\n```\n\nprints:\n\n```text\nhello world\n```\n\n**Input**: none.\n\n**Output**: exactly the text `Hello from Bash!` followed by a single newline. No extra spaces before or after the text.\n\n{hints: Use `echo` with a quoted string so Bash does not split it into multiple arguments.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Print the required greeting using echo\n",
+      "tests": [
+        {
+          "id": "bash_learn_001_basic",
+          "input": "",
+          "expected_stdout": "Hello from Bash!\n"
+        },
+        {
+          "id": "bash_learn_001_no_extra_spaces",
+          "input": "",
+          "expected_stdout_not_contains": "  "
+        },
+        {
+          "id": "bash_learn_001_exact_line_count",
+          "input": "",
+          "expected_stdout_regex": "^Hello from Bash!\\n$"
+        }
+      ]
+    },
+    {
+      "id": "bash_learn_002",
+      "title": "Learn Bash: defining and using variables",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "Bash variables are created by assignment without a type:\n\n```sh\nname=\"Alice\"\n```\n\nTo **read** the value, you must prefix the name with `$`:\n\n```sh\necho \"$name\"\n```\n\n**Input**: none.\n\n**Task**: Declare a variable named `NAME` with the value `Unix` and then print exactly:\n\n```text\nHello, Unix!\n```\n\nFollowed by a newline.\n\n{hints: Do not put spaces around `=` in the assignment; use `NAME=\"Unix\"`, not `NAME = \"Unix\"`.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Define NAME and use it when printing\n",
+      "tests": [
+        {
+          "id": "bash_learn_002_basic",
+          "input": "",
+          "expected_stdout": "Hello, Unix!\n"
+        },
+        {
+          "id": "bash_learn_002_case_sensitive",
+          "input": "",
+          "expected_stdout_not_contains": "NAME"
+        },
+        {
+          "id": "bash_learn_002_single_line",
+          "input": "",
+          "expected_stdout_regex": "^Hello, Unix!\\n$"
+        }
+      ]
+    },
+    {
+      "id": "bash_learn_003",
+      "title": "Learn Bash: command substitution $( ... )",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "Command substitution runs a command and inserts its output into another command. The modern syntax is:\n\n```sh\nresult=\"Today is $(date +%Y)\"\n```\n\nHere `$(date +%Y)` runs the `date` command and captures just the year.\n\n**Task**: Use command substitution with `pwd` to print:\n\n```text\nYou are in: ACTUAL_PATH\n```\n\nwhere `ACTUAL_PATH` is replaced by the current working directory. End with a newline.\n\n**Input**: none.\n\n{hints: Use `$(pwd)` inside an echo: `echo \"You are in: $(pwd)\"`.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Print the current directory using command substitution\n",
+      "tests": [
+        {
+          "id": "bash_learn_003_structure",
+          "input": "",
+          "expected_stdout_regex": "^You are in: .+\\n$"
+        },
+        {
+          "id": "bash_learn_003_contains_pwd_result",
+          "input": "",
+          "expected_stdout_not_contains": "$(pwd)"
+        },
+        {
+          "id": "bash_learn_003_prefix_text",
+          "input": "",
+          "expected_stdout_regex": "^You are in: "
+        }
+      ]
+    },
+    {
+      "id": "bash_learn_004",
+      "title": "Learn Bash: reading a line from stdin",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "Bash can read from **standard input** using the `read` builtin:\n\n```sh\nread name\n```\n\nThis waits for a line of input and stores it in the variable `name`.\n\n**Task**: Read a single word from stdin into a variable named `word`, then print:\n\n```text\nYou typed: WORD\n```\n\nwhere `WORD` is the exact text the user entered.\n\n**Input**: one line containing a single word.\n\n**Output**: exactly one line with the prefix shown above and a trailing newline.\n\n{hints: Use `read word` and then `echo \"You typed: $word\"`.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Read a word from stdin and print it back with a label\n",
+      "tests": [
+        {
+          "id": "bash_learn_004_basic",
+          "input": "hello\n",
+          "expected_stdout": "You typed: hello\n"
+        },
+        {
+          "id": "bash_learn_004_numbers",
+          "input": "123\n",
+          "expected_stdout": "You typed: 123\n"
+        },
+        {
+          "id": "bash_learn_004_edge_empty",
+          "input": "\n",
+          "expected_stdout": "You typed: \n"
+        }
+      ]
+    },
+    {
+      "id": "bash_learn_005",
+      "title": "Learn Bash: basic if statement",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "Bash `if` syntax looks like this:\n\n```sh\nif [ condition ]; then\n  echo \"true branch\"\nelse\n  echo \"false branch\"\nfi\n```\n\nNote the closing `fi`.\n\n**Task**: Read a single word from stdin.\n\n- If the word is exactly `yes`, print `You said yes`.\n- Otherwise, print `You did not say yes`.\n\nAlways end with a newline.\n\n{hints: After `read answer`, compare using `[ \"$answer\" = \"yes\" ]`. Remember to quote the variable.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Read one word and branch based on its value\n",
+      "tests": [
+        {
+          "id": "bash_learn_005_yes",
+          "input": "yes\n",
+          "expected_stdout": "You said yes\n"
+        },
+        {
+          "id": "bash_learn_005_no",
+          "input": "no\n",
+          "expected_stdout": "You did not say yes\n"
+        },
+        {
+          "id": "bash_learn_005_empty",
+          "input": "\n",
+          "expected_stdout": "You did not say yes\n"
+        }
+      ]
+    },
+    {
+      "id": "bash_learn_006",
+      "title": "Learn Bash: looping over arguments",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "Command‑line arguments to a Bash script are available as `$1`, `$2`, ... and `$@` (all arguments).\n\nA common pattern to loop over them is:\n\n```sh\nfor arg in \"$@\"; do\n  echo \"$arg\"\ndone\n```\n\n**Task**: Print each argument on its own line, prefixed with its 1‑based index.\n\nExample run:\n\n```text\n./script.sh apple banana\n```\n\nExpected output:\n\n```text\n1: apple\n2: banana\n```\n\n{hints: Maintain a counter variable starting at 1 and increment it inside the loop.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Loop over \"$@\" and print index: value for each\n",
+      "tests": [
+        {
+          "id": "bash_learn_006_two_args",
+          "input_args": ["apple", "banana"],
+          "expected_stdout": "1: apple\n2: banana\n"
+        },
+        {
+          "id": "bash_learn_006_no_args",
+          "input_args": [],
+          "expected_stdout": ""
+        },
+        {
+          "id": "bash_learn_006_single_arg",
+          "input_args": ["one"],
+          "expected_stdout": "1: one\n"
+        }
+      ]
+    },
+    {
+      "id": "bash_learn_007",
+      "title": "Learn Bash: using pipes",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "A **pipe** (`|`) sends the stdout of one command into the stdin of another.\n\nExample:\n\n```sh\necho \"a\nb\nc\" | wc -l\n```\n\nprints `3` because there are three lines.\n\n**Task**: Use a single command line that:\n\n1. Produces exactly three lines of text.\n2. Pipes them into `wc -l`.\n3. Prints only the number of lines followed by a newline.\n\nThe final output must be exactly:\n\n```text\n3\n```\n\n{hints: You can use `printf` with embedded `\\n` characters to create multiple lines.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Use a pipe to send multiple lines into wc -l\n",
+      "tests": [
+        {
+          "id": "bash_learn_007_exact",
+          "input": "",
+          "expected_stdout": "3\n"
+        },
+        {
+          "id": "bash_learn_007_single_line",
+          "input": "",
+          "expected_stdout_regex": "^3\\n$"
+        },
+        {
+          "id": "bash_learn_007_not_words",
+          "input": "",
+          "expected_stdout_not_contains": "line"
+        }
+      ]
+    },
+    {
+      "id": "bash_learn_008",
+      "title": "Learn Bash: redirecting stdout to a file",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "Redirection changes where stdout goes.\n\n- `>` writes to a file (truncating it)\n- `>>` appends to a file\n\nExample:\n\n```sh\necho \"hello\" > out.txt\n```\n\ncreates `out.txt` with the contents `hello\\n`.\n\n**Task**: Write a command or short script that writes exactly `log line` followed by a newline into a file named `output.log` in the current directory and prints nothing to stdout.\n\n{hints: Use `echo \"log line\" > output.log`. Do not `cat` the file afterward.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Redirect a simple log message into output.log\n",
+      "tests": [
+        {
+          "id": "bash_learn_008_file_contents",
+          "input": "",
+          "expected_stdout": "",
+          "expected_files": { "output.log": "log line\n" }
+        },
+        {
+          "id": "bash_learn_008_idempotent",
+          "input": "",
+          "run_twice": true,
+          "expected_files": { "output.log": "log line\n" }
+        },
+        {
+          "id": "bash_learn_008_no_extra_files",
+          "input": "",
+          "expected_dir_contains": ["output.log"]
+        }
+      ]
+    },
+    {
+      "id": "bash_learn_009",
+      "title": "Learn Bash: understanding exit status",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "Every command in Bash returns an **exit status**: 0 means success; non‑zero means failure. The special variable `$?` holds the status of the last command.\n\nExample:\n\n```sh\nls nosuchfile\necho $?\n```\n\nwill likely print `2` or another non‑zero value.\n\n**Task**: Run `true` and `false` and print their exit codes on separate lines in this exact format:\n\n```text\ntrue: 0\nfalse: 1\n```\n\nUse `$?` to read the exit code.\n\n{hints: After running a command, read `$?` **before** running anything else that might change it.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Demonstrate exit codes for true and false\n",
+      "tests": [
+        {
+          "id": "bash_learn_009_exact",
+          "input": "",
+          "expected_stdout": "true: 0\nfalse: 1\n"
+        },
+        {
+          "id": "bash_learn_009_two_lines",
+          "input": "",
+          "expected_stdout_regex": "^true: 0\\nfalse: 1\\n$"
+        },
+        {
+          "id": "bash_learn_009_order",
+          "input": "",
+          "expected_stdout_not_contains": "1\ntrue"
+        }
+      ]
+    },
+    {
+      "id": "bash_learn_010",
+      "title": "Learn Bash: while read loop over stdin",
+      "language": "bash",
+      "difficulty": "learn",
+      "instructions": "A common Bash pattern to process each input line is:\n\n```sh\nwhile read line; do\n  echo \"$line\"\ndone\n```\n\nThis reads from stdin until EOF.\n\n**Task**: Read lines from stdin and print only those lines whose length is greater than 3 characters.\n\n**Input**: zero or more newline‑terminated lines.\n\n**Output**: only the lines with more than 3 characters, each followed by a newline, preserving their original order.\n\n{hints: Use `${#line}` to get the length of the line inside the loop.}",
+      "starterCode": "#!/usr/bin/env bash\n\n# Filter stdin, keeping only lines longer than 3 characters\n",
+      "tests": [
+        {
+          "id": "bash_learn_010_mixed",
+          "input": "hi\nhello\nabc\nabcd\n\n",
+          "expected_stdout": "hello\nabcd\n"
+        },
+        {
+          "id": "bash_learn_010_all_short",
+          "input": "a\nbb\nccc\n",
+          "expected_stdout": ""
+        },
+        {
+          "id": "bash_learn_010_empty_input",
+          "input": "",
+          "expected_stdout": ""
+        }
+      ]
+    }
+  ]
+}

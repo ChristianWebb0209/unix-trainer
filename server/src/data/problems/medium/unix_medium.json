@@ -1,0 +1,45 @@
+{
+  "problems": [
+    {
+      "id": "unix_medium_001",
+      "title": "Unix (medium): Filter and sort log lines",
+      "language": "unix",
+      "difficulty": "medium",
+      "instructions": "You are given log data on stdin. Each line may or may not contain the string `ERROR`.\n\nYour task:\n\n1. Keep only lines containing `ERROR`.\n2. Sort those lines alphabetically.\n3. Print the result to stdout.\n\nYou should use a single Unix pipeline.\n\n{hints: This is a combination of `grep` and `sort`. Be careful about case sensitivity; the tests look for `ERROR` exactly.}",
+      "starterCode": "# Filter lines with ERROR then sort them\n"
+    },
+    {
+      "id": "unix_medium_002",
+      "title": "Unix (medium): Find files larger than N bytes",
+      "language": "unix",
+      "difficulty": "medium",
+      "instructions": "Write a command that lists all regular files under the current directory that are **larger than 1 kilobyte** (1024 bytes).\n\nPrint one path per line.\n\n{hints: Use `find . -type f -size +1k`. You do not need to sort the output.}",
+      "starterCode": "# Find files larger than 1KB under the current directory\n"
+    },
+    {
+      "id": "unix_medium_003",
+      "title": "Unix (medium): Tail the last 20 lines",
+      "language": "unix",
+      "difficulty": "medium",
+      "instructions": "You have a log file named `service.log`. Print the **last 20 lines** of this file and then exit.\n\nYou do *not* need to follow the file; just a snapshot is enough.\n\n{hints: `tail -n 20 service.log` is the simplest answer. If the file has fewer than 20 lines, tail will print all of them.}",
+      "starterCode": "# Show the last 20 lines of service.log\n"
+    },
+    {
+      "id": "unix_medium_004",
+      "title": "Unix (medium): sort by a numeric column",
+      "language": "unix",
+      "difficulty": "medium",
+      "instructions": "You receive space‑separated records on stdin where the **third field** is a numeric score.\n\nExample:\n\n```text\nalice user 10\nbob admin 5\ncarol user 20\n```\n\n**Task**: Sort the lines by the third field **numerically descending** (highest score first) and print the result.\n\nFor the example above, the correct output is:\n\n```text\ncarol user 20\nalice user 10\nbob admin 5\n```\n\n{hints: Use `sort -k3,3nr` to sort numerically on the third field in reverse (descending) order.}",
+      "starterCode": "# Read from stdin and sort by the 3rd field numerically, descending\n"
+    },
+    {
+      "id": "unix_medium_005",
+      "title": "Unix (medium): word frequency with pipelines",
+      "language": "unix",
+      "difficulty": "medium",
+      "instructions": "You are given arbitrary text on stdin. Your goal is to compute word frequencies using classic Unix text tools.\n\n**Task**:\n\n1. Normalize input to lower‑case.\n2. Split on non‑alphabetic characters so that words contain only letters `a-z`.\n3. Discard empty entries.\n4. Count how many times each word appears.\n5. Print the results sorted by count descending, then by word ascending.\n\nFormat:\n\n```text\nCOUNT WORD\n```\n\nFor example, given:\n\n```text\nHello, world! Hello.\n```\n\none valid output is:\n\n```text\n2 hello\n1 world\n```\n\n{hints: Use `tr` to map non‑letters to newlines and to lower‑case, then `grep -E` to keep only non‑empty lines. Combine `sort`, `uniq -c`, another `sort -k1,1nr -k2,2`, and finally `awk` to print `COUNT WORD`.}",
+      "starterCode": "# Build a pipeline that emits word frequencies as: COUNT WORD\n"
+    }
+  ]
+}
+

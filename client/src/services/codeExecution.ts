@@ -5,15 +5,15 @@
  * to run in the terminal. Designed for dynamic language support.
  */
 
-export type SupportedLanguage = "unix" | "awk" | "bash";
+export type SupportedLanguage = "unix" | "awk" | "bash" | "cuda";
 
-const SUPPORTED: SupportedLanguage[] = ["unix", "awk", "bash"];
+const SUPPORTED: SupportedLanguage[] = ["unix", "awk", "bash", "cuda"];
 
 export function isSupportedLanguage(lang: string): lang is SupportedLanguage {
   return SUPPORTED.includes(lang as SupportedLanguage);
 }
 
-function toBase64(str: string): string {
+export function toBase64(str: string): string {
   const bytes = new TextEncoder().encode(str);
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -35,9 +35,14 @@ export function buildRunCommand(language: SupportedLanguage, code: string): stri
     case "bash":
       return `echo '${escaped}' | base64 -d > /tmp/run.sh && bash /tmp/run.sh`;
     case "awk":
-      return `echo '${escaped}' | base64 -d > /tmp/run.awk && awk -f /tmp/run.awk < /dev/null`;
+      // Intentionally keep stdin attached so users can paste input (Ctrl-D to end),
+      // or pipe data in the terminal like: `cat file | awk -f /tmp/run.awk`.
+      return `echo '${escaped}' | base64 -d > /tmp/run.awk && /bin/awk -f /tmp/run.awk`;
     case "unix":
       return `echo '${escaped}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
+    case "cuda":
+      // Compile and run a simple CUDA (host-only) program. Assumes nvcc is available in the CUDA image.
+      return `echo '${escaped}' | base64 -d > /tmp/main.cu && nvcc /tmp/main.cu -o /tmp/a.out && /tmp/a.out`;
     default:
       return `echo '${escaped}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
   }

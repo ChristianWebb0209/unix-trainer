@@ -18,20 +18,20 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Collect all JSON files recursively
-async function collectJsonFiles(dir) {
+// Collect all JSON files recursively (synchronous for simplicity)
+function collectJsonFiles(dir) {
   if (!fs.existsSync(dir)) {
     return [];
   }
   
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const files = [];
-  
+
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...(await collectJsonFiles(fullPath)));
-    } else if (entry.isFile() && entry.name.endsWith('.json')) {
+      files.push(...collectJsonFiles(fullPath));
+    } else if (entry.isFile() && entry.name.endsWith(".json")) {
       files.push(fullPath);
     }
   }
@@ -67,7 +67,7 @@ function inferType(filePath) {
 
 // Load problems from JSON files
 function loadProblemsFromJson() {
-  const dataDir = path.resolve(__dirname, '../../data/problems');
+  const dataDir = path.resolve(__dirname, '../../src/data/problems');
   if (!fs.existsSync(dataDir)) {
     console.error(`[Sync] Data directory not found: ${dataDir}`);
 
@@ -77,8 +77,6 @@ function loadProblemsFromJson() {
 
   const files = collectJsonFiles(dataDir);
   console.log(`[Sync] Found ${files.length} problem files`);
-
-
 
   const problems = [];
 
@@ -195,6 +193,24 @@ async function syncProblems() {
   // Ensure table exists
   await ensureTableExists();
 
+  const hardMode = process.argv.includes('--hard');
+
+  if (hardMode) {
+    const validIds = problems.map((p) => p.id);
+    if (validIds.length > 0) {
+      console.log('[Sync] --hard enabled. Deleting problems not present in JSON files...');
+      try {
+        await query(
+          `DELETE FROM Problems WHERE id <> ALL($1::text[])`,
+          [validIds]
+        );
+        console.log('[Sync] Hard cleanup complete.');
+      } catch (err) {
+        console.error('[Sync] Failed during hard cleanup:', err.message);
+      }
+    }
+  }
+
   let synced = 0;
   let errors = 0;
 
@@ -224,7 +240,13 @@ async function syncProblems() {
           prob.time_limit_ms,
           prob.memory_limit_bytes,
           prob.test_case_count,
+          prob.problem_data,
+        ]
+      );
+      synced++;
+    } catch (err) {
       errors++;
+      console.error('[Sync] Failed to upsert problem', prob.id, err.message);
     }
   }
 

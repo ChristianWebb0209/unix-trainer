@@ -1,0 +1,254 @@
+{
+  "problems": [
+    {
+      "id": "awk_learn_001",
+      "title": "Learn AWK: print entire records with $0",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "In AWK, each input line is called a **record** and is available as `$0`.\n\nThe default action is to print `$0`, so this program:\n\n```awk\n{\n  print\n}\n```\n\nprints every line unchanged.\n\n**Task**: Write an AWK program that prints each input line exactly as it was read.\n\n**Input**: zero or more lines on stdin.\n\n**Output**: the same lines, unchanged.\n\n{hints: Use either `print` alone or `print $0` inside the main block.}",
+      "starterCode": "# Run with: awk -f script.awk\n{\n    # print each record as-is\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_001_basic",
+          "input": "a\nb\nc\n",
+          "expected_stdout": "a\nb\nc\n"
+        },
+        {
+          "id": "awk_learn_001_empty",
+          "input": "",
+          "expected_stdout": ""
+        },
+        {
+          "id": "awk_learn_001_spaces",
+          "input": "hello world\n",
+          "expected_stdout": "hello world\n"
+        }
+      ]
+    },
+    {
+      "id": "awk_learn_002",
+      "title": "Learn AWK: fields and default separators",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "AWK splits each line into **fields** using the field separator `FS`. By default, `FS` is any sequence of whitespace.\n\n- `$1` is the first field\n- `$2` is the second field\n- `NF` is the number of fields\n\nExample:\n\n```text\nAlice 30 engineer\n```\n\nHere `$1 == \"Alice\"`, `$2 == 30`, `$3 == \"engineer\"`, and `NF == 3`.\n\n**Task**: For each line, print only the first field.\n\n**Input**: lines with at least one field.\n\n**Output**: just `$1` from each line, followed by a newline.\n\n{hints: Put `print $1` inside the main block.}",
+      "starterCode": "# Print only the first field from each line\n{\n    # use $1 here\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_002_basic",
+          "input": "Alice 30\nBob 25\n",
+          "expected_stdout": "Alice\nBob\n"
+        },
+        {
+          "id": "awk_learn_002_extra_fields",
+          "input": "a b c d\ne f\n",
+          "expected_stdout": "a\ne\n"
+        },
+        {
+          "id": "awk_learn_002_single_field",
+          "input": "solo\n",
+          "expected_stdout": "solo\n"
+        }
+      ]
+    },
+    {
+      "id": "awk_learn_003",
+      "title": "Learn AWK: using the BEGIN block",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "The `BEGIN` block in AWK runs **before** any input is read. It is often used to print headers or initialize variables.\n\nExample:\n\n```awk\nBEGIN {\n  print \"Header\"\n}\n{\n  print $0\n}\n```\n\n**Task**: Print the line `START` once before processing any input, then print each input line as‑is.\n\n**Input**: zero or more lines.\n\n**Output**:\n\n- First line: `START`\n- Then all original input lines.\n\n{hints: Use a `BEGIN` block to print the header, and a main block to print `$0`.}",
+      "starterCode": "# Demonstrate BEGIN plus main block\nBEGIN {\n    # print header once\n}\n{\n    # print each line\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_003_basic",
+          "input": "a\nb\n",
+          "expected_stdout": "START\na\nb\n"
+        },
+        {
+          "id": "awk_learn_003_empty_input",
+          "input": "",
+          "expected_stdout": "START\n"
+        },
+        {
+          "id": "awk_learn_003_whitespace",
+          "input": "  x y\n",
+          "expected_stdout": "START\n  x y\n"
+        }
+      ]
+    },
+    {
+      "id": "awk_learn_004",
+      "title": "Learn AWK: NR line numbers",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "`NR` is a built‑in variable that holds the **current record number**, starting at 1 for the first input line.\n\n**Task**: Prefix each line with its line number and a colon+space.\n\nExample input:\n\n```text\nalpha\nbeta\n```\n\nOutput:\n\n```text\n1: alpha\n2: beta\n```\n\n{hints: Use `print NR \": \" $0`. In AWK, commas or spaces between arguments in `print` automatically insert field separators.}",
+      "starterCode": "# Number each input line using NR\n{\n    # print line number and the line\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_004_basic",
+          "input": "alpha\nbeta\n",
+          "expected_stdout": "1: alpha\n2: beta\n"
+        },
+        {
+          "id": "awk_learn_004_single",
+          "input": "only\n",
+          "expected_stdout": "1: only\n"
+        },
+        {
+          "id": "awk_learn_004_empty_input",
+          "input": "",
+          "expected_stdout": ""
+        }
+      ]
+    },
+    {
+      "id": "awk_learn_005",
+      "title": "Learn AWK: NF number of fields",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "`NF` contains the **number of fields** in the current record.\n\n**Task**: For each line, print the value of `NF` as a single integer.\n\nExample input:\n\n```text\none two\nthree four five\n```\n\nOutput:\n\n```text\n2\n3\n```\n\n{hints: Inside the main block, simply `print NF`.}",
+      "starterCode": "# Print the number of fields (NF) per line\n{\n    # print NF here\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_005_basic",
+          "input": "one two\nthree four five\n",
+          "expected_stdout": "2\n3\n"
+        },
+        {
+          "id": "awk_learn_005_single_field",
+          "input": "solo\n",
+          "expected_stdout": "1\n"
+        },
+        {
+          "id": "awk_learn_005_trailing_space",
+          "input": "a b \n",
+          "expected_stdout": "2\n"
+        }
+      ]
+    },
+    {
+      "id": "awk_learn_006",
+      "title": "Learn AWK: setting FS for CSV",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "You can change AWK's field separator `FS` to split on other characters. For comma‑separated values (CSV), set `FS` to a comma in the `BEGIN` block:\n\n```awk\nBEGIN { FS = \",\" }\n```\n\n**Task**: Treat input lines as simple CSV with fields separated by commas, and print only the **second field** from each line.\n\nExample input:\n\n```text\nname,age,city\nAlice,30,Paris\nBob,25,Berlin\n```\n\nOutput:\n\n```text\nage\n30\n25\n```\n\n{hints: Set `FS` in `BEGIN` and then use `$2` in the main block.}",
+      "starterCode": "# Use FS=\",\" to parse simple CSV and print the second field\nBEGIN {\n    # set field separator\n}\n{\n    # print second field\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_006_basic",
+          "input": "name,age\nAlice,30\nBob,25\n",
+          "expected_stdout": "age\n30\n25\n"
+        },
+        {
+          "id": "awk_learn_006_missing_field",
+          "input": "a,b\nc,\n",
+          "expected_stdout": "b\n\n"
+        },
+        {
+          "id": "awk_learn_006_empty_input",
+          "input": "",
+          "expected_stdout": ""
+        }
+      ]
+    },
+    {
+      "id": "awk_learn_007",
+      "title": "Learn AWK: adding numeric fields",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "AWK treats fields as numbers when used in arithmetic.\n\n**Task**: Assume each line has two numeric fields: a and b. For each line, print their sum.\n\nExample input:\n\n```text\n1 2\n10 5\n```\n\nOutput:\n\n```text\n3\n15\n```\n\n{hints: Use `print $1 + $2`. AWK automatically converts strings that look like numbers into numeric values.}",
+      "starterCode": "# Sum two numeric fields per line\n{\n    # print $1 + $2\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_007_basic",
+          "input": "1 2\n10 5\n",
+          "expected_stdout": "3\n15\n"
+        },
+        {
+          "id": "awk_learn_007_negative",
+          "input": "-1 2\n",
+          "expected_stdout": "1\n"
+        },
+        {
+          "id": "awk_learn_007_zero",
+          "input": "0 0\n",
+          "expected_stdout": "0\n"
+        }
+      ]
+    },
+    {
+      "id": "awk_learn_008",
+      "title": "Learn AWK: computing an average in END",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "A common AWK pattern is to accumulate a total per record and then compute an average in the `END` block.\n\n**Task**: Read numbers from the first column and print their average as a floating‑point number.\n\nRequirements:\n\n- Ignore empty lines.\n- If there are no numbers, print `0`.\n\nExample input:\n\n```text\n1\n2\n3\n```\n\nOutput:\n\n```text\n2\n```\n\n{hints: Keep `sum` and `count` variables in the main block, and in `END` print `sum / count` if `count > 0` else `0`.}",
+      "starterCode": "# Compute the average of numbers in the first column\n{\n    # update sum and count\n}\nEND {\n    # print average or 0\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_008_basic",
+          "input": "1\n2\n3\n",
+          "expected_stdout": "2\n"
+        },
+        {
+          "id": "awk_learn_008_empty_lines",
+          "input": "5\n\n15\n",
+          "expected_stdout": "10\n"
+        },
+        {
+          "id": "awk_learn_008_no_numbers",
+          "input": "\n",
+          "expected_stdout": "0\n"
+        }
+      ]
+    },
+    {
+      "id": "awk_learn_009",
+      "title": "Learn AWK: pattern { action } syntax",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "The core AWK form is `pattern { action }`. The action runs only for lines where the pattern matches.\n\nExample:\n\n```awk\n/ERROR/ { print $0 }\n```\n\nprints only lines containing `ERROR`.\n\n**Task**: Print only lines whose **third field** is the word `OK`.\n\nExample input:\n\n```text\n1 user OK\n2 user FAIL\n3 user OK\n```\n\nOutput:\n\n```text\n1 user OK\n3 user OK\n```\n\n{hints: Use a field‑based pattern: `$3 == \"OK\" { print }`.}",
+      "starterCode": "# Print only lines whose third field equals OK\n$3 == \"OK\" {\n    # print matching lines\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_009_basic",
+          "input": "1 user OK\n2 user FAIL\n3 user OK\n",
+          "expected_stdout": "1 user OK\n3 user OK\n"
+        },
+        {
+          "id": "awk_learn_009_no_match",
+          "input": "a b FAIL\n",
+          "expected_stdout": ""
+        },
+        {
+          "id": "awk_learn_009_missing_field",
+          "input": "short\n",
+          "expected_stdout": ""
+        }
+      ]
+    },
+    {
+      "id": "awk_learn_010",
+      "title": "Learn AWK: counting with associative arrays",
+      "language": "awk",
+      "difficulty": "learn",
+      "instructions": "AWK supports **associative arrays**, where the index is a string.\n\nExample:\n\n```awk\ncounts[$1]++\n```\n\nThis increments a counter for each distinct value in the first field.\n\n**Task**: Count how many times each word appears in the first field and print the counts at the end.\n\nFormat each line as:\n\n```text\nWORD COUNT\n```\n\nThe order of lines does not matter.\n\nExample input:\n\n```text\napple 1\nbanana 2\napple 3\n```\n\nPossible output:\n\n```text\napple 2\nbanana 1\n```\n\n{hints: Use an array like `counts[$1]++` in the main block and a `for (key in counts)` loop in `END` to print results.}",
+      "starterCode": "# Count occurrences of the first field using an associative array\n{\n    # increment counts[$1]\n}\nEND {\n    # print key and count for each entry\n}\n",
+      "tests": [
+        {
+          "id": "awk_learn_010_basic",
+          "input": "apple 1\nbanana 2\napple 3\n",
+          "expected_stdout_regex": "apple 2\\nbanana 1\\n|banana 1\\napple 2\\n"
+        },
+        {
+          "id": "awk_learn_010_single",
+          "input": "x\n",
+          "expected_stdout": "x 1\n"
+        },
+        {
+          "id": "awk_learn_010_empty",
+          "input": "",
+          "expected_stdout": ""
+        }
+      ]
+    }
+  ]
+}

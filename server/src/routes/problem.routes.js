@@ -26,5 +26,6 @@ const problemController = new ProblemController(problemService);
 
 export const problemRouter = Router();
 
+problemRouter.get('/of-the-day', (req, res) => problemController.getProblemOfTheDay(req, res));
 problemRouter.get('/:problemId', (req, res) => problemController.getProblem(req, res));
 problemRouter.get('/', (req, res) => problemController.listProblems(req, res));

@@ -1,39 +1,148 @@
 {
-    "problems": [
+  "problems": [
+    {
+      "id": "unix_easy_001",
+      "title": "Unix: Print Hello, World!",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Write a simple Unix shell command (or script) that prints exactly:\n\nHello, World!\n\nwith a trailing newline.\n\n{hints: Use echo with quotes; remember that the shell itself can run the command without a script file.}",
+      "starterCode": "# Write a Unix shell command that prints Hello, World!\n",
+      "tests": [
         {
-            "id": "unix_001",
-            "title": "Print Hello",
-            "description": "Write a command that prints exactly: Hello, World!",
-            "difficulty": "easy",
-            "tests": [
-                {
-                    "input": "",
-                    "expected_stdout": "Hello, World!\n"
-                }
-            ]
+          "input": "",
+          "expected_stdout": "Hello, World!\n"
+        }
+      ]
+    },
+    {
+      "id": "unix_easy_002",
+      "title": "Unix: Count files in current directory",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Count how many **regular files** are in the current directory and print the count as a number.\n\nWe will create a few test files; your command should output only the count, followed by a newline.\n\n{hints: Combine ls or find with wc -l; be careful to only count files in the current directory, not subdirectories.}",
+      "starterCode": "# Count regular files in the current directory\n",
+      "tests": [
+        {
+          "setup_files": ["a.txt", "b.txt", "c.txt"],
+          "expected_stdout": "3\n"
         },
         {
-            "id": "unix_002",
-            "title": "Count Files",
-            "description": "Count how many files are in the current directory.",
-            "difficulty": "easy",
-            "tests": [
-                {
-                    "setup_files": [
-                        "a.txt",
-                        "b.txt",
-                        "c.txt"
-                    ],
-                    "expected_stdout": "3\n"
-                },
-                {
-                    "setup_files": [
-                        "one",
-                        "two"
-                    ],
-                    "expected_stdout": "2\n"
-                }
-            ]
+          "setup_files": ["one", "two"],
+          "expected_stdout": "2\n"
         }
-    ]
+      ]
+    },
+    {
+      "id": "unix_easy_003",
+      "title": "Unix: Show current user",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Print the username of the current user running the command.\n\n{hints: The whoami command prints the effective username.}",
+      "starterCode": "# Print the current username\n",
+      "tests": [
+        {
+          "input": "",
+          "expected_stdout_regex": ".+\n"
+        }
+      ]
+    },
+    {
+      "id": "unix_easy_004",
+      "title": "Unix: Show the current shell",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Print the value of the SHELL environment variable, followed by a newline.\n\n{hints: Use echo with $SHELL; environment variables are expanded by the shell.}",
+      "starterCode": "# Print the SHELL environment variable\n",
+      "tests": [
+        {
+          "input": "",
+          "expected_stdout_regex": ".*/.*\n"
+        }
+      ]
+    },
+    {
+      "id": "unix_easy_005",
+      "title": "Unix: Grep for a pattern",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Given input text on stdin, print only the lines that contain the word error (case-sensitive).\n\n{hints: Pipe stdin into grep 'error' or use grep 'error' without filenames.}",
+      "starterCode": "# Read from stdin and print lines containing the word 'error'\n",
+      "tests": [
+        {
+          "input": "ok\nerror: something broke\nwarning\nanother error\n",
+          "expected_stdout": "error: something broke\nanother error\n"
+        }
+      ]
+    },
+    {
+      "id": "unix_easy_006",
+      "title": "Unix: Sort unique lines",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Read lines from stdin, sort them alphabetically, and remove duplicates.\n\n{hints: The sort command and uniq work well together; sort | uniq is a common idiom.}",
+      "starterCode": "# Sort and deduplicate lines from stdin\n",
+      "tests": [
+        {
+          "input": "b\na\nb\nc\na\n",
+          "expected_stdout": "a\nb\nc\n"
+        }
+      ]
+    },
+    {
+      "id": "unix_easy_007",
+      "title": "Unix: Show top 3 lines of a file",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Given a file named log.txt, print only the first 3 lines of the file.\n\n{hints: Use head -n 3 log.txt.}",
+      "starterCode": "# Print the first three lines of log.txt\n",
+      "tests": [
+        {
+          "setup_files": { "log.txt": "line1\nline2\nline3\nline4\n" },
+          "expected_stdout": "line1\nline2\nline3\n"
+        }
+      ]
+    },
+    {
+      "id": "unix_easy_008",
+      "title": "Unix: Count matching lines",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Count how many lines in stdin contain the string TODO and print only that count.\n\n{hints: grep -c TODO will count matching lines; use stdin instead of filenames.}",
+      "starterCode": "# Count lines containing TODO\n",
+      "tests": [
+        {
+          "input": "TODO: one\nok\nTODO: two\n",
+          "expected_stdout": "2\n"
+        }
+      ]
+    },
+    {
+      "id": "unix_easy_009",
+      "title": "Unix: Show disk usage for current directory",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Print a single-line summary of disk usage for the current directory (the . entry).\n\n{hints: du -sh . prints a human-readable summary; focus on invoking du correctly, not on matching exact sizes.}",
+      "starterCode": "# Show disk usage for the current directory\n",
+      "tests": [
+        {
+          "input": "",
+          "expected_stdout_regex": ".+\\s+\\.\\n"
+        }
+      ]
+    },
+    {
+      "id": "unix_easy_010",
+      "title": "Unix: Replace text in a file with sed",
+      "language": "unix",
+      "difficulty": "easy",
+      "instructions": "Using sed or a similar tool, read stdin and replace every occurrence of cat with dog.\n\n{hints: sed 's/cat/dog/g' is the classic pattern; remember the g to replace all occurrences per line.}",
+      "starterCode": "# Replace 'cat' with 'dog' on each line from stdin\n",
+      "tests": [
+        {
+          "input": "my cat\nconcatenate\ncat cat\n",
+          "expected_stdout": "my dog\ncondogenate\ndog dog\n"
+        }
+      ]
+    }
+  ]
 }

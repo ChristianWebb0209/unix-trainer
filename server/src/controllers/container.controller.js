@@ -33,8 +33,12 @@ export class ContainerController {
             const { EXECUTION_DEFAULTS, ALLOWED_LANGUAGES } = await import('../config/execution.config.js');
             const body = req.body || {};
             const rawLang = body.language;
+            const rawClientId = body.clientId;
+            const rawWorkspace = body.workspace;
             const candidateLang = typeof rawLang === 'string' ? rawLang.toLowerCase() : '';
             const language = ALLOWED_LANGUAGES.includes(candidateLang) ? candidateLang : EXECUTION_DEFAULTS.language;
+
+            const workspace = rawWorkspace === 'cuda' ? 'cuda' : 'unix';
 
             const memoryLimitBytes = EXECUTION_DEFAULTS.memoryLimitBytes;
             const timeLimitMs = EXECUTION_DEFAULTS.timeLimitMs;
@@ -42,7 +46,9 @@ export class ContainerController {
             const containerId = await this.containerService.createContainer({
                 language,
                 memoryLimitBytes,
-                timeLimitMs
+                timeLimitMs,
+                workspace,
+                ownerKey: typeof rawClientId === 'string' && rawClientId.trim() ? rawClientId.trim() : undefined,
             });
 
             res.status(200).json({ containerId });
