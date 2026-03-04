@@ -15,3 +15,16 @@
 ## About
 
 This is a learning project I made inspired by LeetCode but specifically for systems programming and GPU programming. 
+
+## Potential Future Expansions:
+
+- WebGPU
+- SQL
+- MongoDB Query Language
+- Rust
+- Go
+- C / C++ with focus on low-level / memory management
+- Docker
+- Terraform
+- Vulkan
+- SYCL
