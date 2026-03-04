@@ -1,5 +1,17 @@
 
-# UNIX TRAINER
+# Unix Trainer
+
+Learn what LeetCode doesn't teach.
+
+Interactive coding challenges for more specific frameworks and languages that other platforms don't target.
+
+Currently supporting:
+- Systems Programming
+- - Unix
+- - Bash
+- - Awk
+- GPU Programming
+- - Just CUDA for now
 
 ## Tech Stack:
 - React (TypeScript)
@@ -11,10 +23,6 @@
 - Authentication: Supabase
 - Code Editor: CodeMirror
 - Terminal: Docker container for each client
-
-## About
-
-This is a learning project I made inspired by LeetCode but specifically for systems programming and GPU programming. 
 
 ## Potential Future Expansions:
 
