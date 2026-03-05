@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { listProblems, type Difficulty, type ProblemSummary, type ProblemLanguage, type ProblemCompletionState } from "../api/problems";
+import { listProblems, type Difficulty, type ProblemSummary, type ProblemLanguage, type ProblemCompletionState } from "../../api/problems";
+// Shared problem configuration (workspaces, languages, difficulties)
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error – external ESM config module without bundled types
+import * as problemConfig from "../../../../problem-config.mjs";
 
-type Workspace = "unix" | "cuda";
+type Workspace = ReturnType<typeof problemConfig.getWorkspaceIds>[number];
 
 interface SidebarProps {
     selectedProblemId?: string | null;
@@ -25,8 +29,7 @@ export default function Sidebar({ selectedProblemId, onSelectProblem, onProblems
 
     const filters = useMemo(() => {
         const baseLanguage = language;
-        const effectiveLanguage: "all" | ProblemLanguage =
-            workspace === "cuda" ? "cuda" : baseLanguage;
+        const effectiveLanguage: "all" | ProblemLanguage = baseLanguage;
 
         return {
             search: search.trim() ? search.trim() : undefined,
@@ -35,10 +38,8 @@ export default function Sidebar({ selectedProblemId, onSelectProblem, onProblems
         };
     }, [search, difficulty, language, workspace]);
 
-    const allowedLanguagesForWorkspace: Record<Workspace, ProblemLanguage[]> = {
-        unix: ["unix", "awk", "bash", "any"],
-        cuda: ["cuda"],
-    };
+    const getWorkspaceLanguages = (ws: Workspace): ProblemLanguage[] =>
+        (problemConfig.getLanguagesForWorkspace(ws) as ProblemLanguage[]) ?? [];
 
     const FILTER_STORAGE_KEY = `sidebar_filters_v1_${workspace}`;
 
@@ -55,12 +56,13 @@ export default function Sidebar({ selectedProblemId, onSelectProblem, onProblems
             if (typeof parsed.search === "string") {
                 setSearch(parsed.search);
             }
-            if (parsed.difficulty === "all" || ["learn", "easy", "medium", "hard"].includes(parsed.difficulty as string)) {
+            if (parsed.difficulty === "all" || problemConfig.DIFFICULTIES.includes(parsed.difficulty as Difficulty)) {
                 setDifficulty(parsed.difficulty as "all" | Difficulty);
             }
+            const workspaceLanguages = getWorkspaceLanguages(workspace);
             if (
                 parsed.language === "all" ||
-                ["unix", "awk", "bash", "cuda", "any"].includes(parsed.language as string)
+                workspaceLanguages.includes(parsed.language as ProblemLanguage)
             ) {
                 setLanguage(parsed.language as "all" | ProblemLanguage);
             }
@@ -88,20 +90,15 @@ export default function Sidebar({ selectedProblemId, onSelectProblem, onProblems
             try {
                 const data = await listProblems({ ...filters, limit: 50, page: 1 });
                 if (!active) return;
+                const workspaceLanguages = getWorkspaceLanguages(workspace);
                 const allowed = data.problems.filter((p) =>
-                    allowedLanguagesForWorkspace[workspace].includes(p.language)
+                    workspaceLanguages.includes(p.language)
                 );
 
                 // Ensure difficulty ordering is Learn → Easy → Medium → Hard even if server changes.
-                const difficultyOrder: Record<Difficulty, number> = {
-                    learn: 0,
-                    easy: 1,
-                    medium: 2,
-                    hard: 3,
-                };
                 allowed.sort((a, b) => {
-                    const da = difficultyOrder[a.difficulty];
-                    const db = difficultyOrder[b.difficulty];
+                    const da = problemConfig.DIFFICULTY_ORDER[a.difficulty];
+                    const db = problemConfig.DIFFICULTY_ORDER[b.difficulty];
                     if (da !== db) return da - db;
                     return a.id.localeCompare(b.id);
                 });
@@ -129,8 +126,9 @@ export default function Sidebar({ selectedProblemId, onSelectProblem, onProblems
             const cached = window.localStorage.getItem("problems_cache_v1");
             if (cached) {
                 const all = JSON.parse(cached) as ProblemSummary[];
+                const workspaceLanguages = getWorkspaceLanguages(workspace);
                 const filtered = all.filter((p) => {
-                    if (!allowedLanguagesForWorkspace[workspace].includes(p.language)) {
+                    if (!workspaceLanguages.includes(p.language)) {
                         return false;
                     }
                     if (filters.search) {
@@ -303,6 +301,7 @@ export default function Sidebar({ selectedProblemId, onSelectProblem, onProblems
                                     const number = String(index + 1).padStart(2, "0");
                                     const status = completionStatuses?.[problem.id];
                                     const isSelected = selectedProblemId === problem.id;
+                                    const isCompleted = status === "completed";
                                     const difficultyColors: Record<Difficulty, { bg: string; text: string }> = {
                                         learn: { bg: "#06b6d4", text: "#e0f2f1" },
                                         easy: { bg: "#1b5e20", text: "#dcedc8" },
@@ -325,10 +324,18 @@ export default function Sidebar({ selectedProblemId, onSelectProblem, onProblems
                                             borderBottom: "1px solid var(--border-color)",
                                             cursor: "pointer",
                                             color: "var(--text-primary)",
-                                            backgroundColor: isSelected ? "var(--bg-tertiary)" : "transparent",
+                                            backgroundColor: isCompleted
+                                                ? "rgba(22, 163, 74, 0.15)"
+                                                : isSelected
+                                                    ? "var(--bg-tertiary)"
+                                                    : "transparent",
                                             borderRadius: "8px",
                                             marginBottom: "0.3rem",
-                                            boxShadow: isSelected ? "0 0 0 1px var(--accent-color)" : "none",
+                                            boxShadow: isCompleted
+                                                ? "0 0 0 1px rgba(22,163,74,0.8)"
+                                                : isSelected
+                                                    ? "0 0 0 1px var(--accent-color)"
+                                                    : "none",
                                             position: "relative",
                                         }}
                                         title={`${problem.title} (${problem.difficulty}, ${problem.language})`}
@@ -354,7 +361,7 @@ export default function Sidebar({ selectedProblemId, onSelectProblem, onProblems
                                             {status && (
                                                 <span
                                                     aria-label={status === "completed" ? "Completed" : "Attempted"}
-                                                    title={status === "completed" ? "+" : "-"}
+                                                    title={status === "completed" ? "Completed" : "Attempted"}
                                                     style={{
                                                         display: "inline-flex",
                                                         alignItems: "center",
@@ -368,7 +375,7 @@ export default function Sidebar({ selectedProblemId, onSelectProblem, onProblems
                                                         boxSizing: "border-box",
                                                     }}
                                                 >
-                                                    {status === "completed" ? "+" : "-"}
+                                                    {status === "completed" ? "✓" : "•"}
                                                 </span>
                                             )}
                                             <span style={{ fontSize: "0.95rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
