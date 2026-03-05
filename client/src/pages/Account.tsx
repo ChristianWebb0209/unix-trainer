@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import type { Difficulty, ProblemLanguage, ProblemSummary, ProblemCompletionState, ProblemCompletion } from "../api/problems";
+import type { ProblemLanguage, ProblemSummary, ProblemCompletionState, ProblemCompletion } from "../api/problems";
 import { listProblems, fetchProblemCompletions } from "../api/problems";
+import AppHeader from "../components/ui/AppHeader";
+// Shared problem configuration
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error – external ESM config module without bundled types
+import * as problemConfigModule from "../../../problem-config.mjs";
+const problemConfig = problemConfigModule as {
+  PROBLEM_LANGUAGE_IDS: string[];
+};
 
 export default function Account() {
   const navigate = useNavigate();
@@ -70,7 +78,9 @@ export default function Account() {
     return map;
   }, [completions]);
 
-  const languages: ProblemLanguage[] = ["bash", "awk", "unix", "cuda"];
+  const languages: ProblemLanguage[] = problemConfig.PROBLEM_LANGUAGE_IDS.filter(
+    (lang): lang is ProblemLanguage => lang !== "any"
+  );
 
   const statsByLanguage = useMemo(() => {
     const result: Record<
@@ -137,7 +147,7 @@ export default function Account() {
         setUserId(user.id);
         setUserName(trimmedName || "User");
       }
-      navigate("/account", { replace: true });
+      navigate("/choose-technology", { replace: true });
     } finally {
       setSubmitting(false);
     }
@@ -180,190 +190,182 @@ export default function Account() {
     }
   };
 
-  const renderAuthCard = () => {
-    return (
+  const renderAuthCard = () => (
+    <div
+      style={{
+        width: "100%",
+        maxWidth: "460px",
+        padding: "2rem",
+        borderRadius: "12px",
+        backgroundColor: "var(--bg-secondary)",
+        boxShadow: "0 18px 40px rgba(0,0,0,0.5)",
+      }}
+    >
       <div
         style={{
-          width: "100%",
-          maxWidth: "460px",
-          padding: "2rem",
-          borderRadius: "12px",
-          backgroundColor: "var(--bg-secondary)",
-          boxShadow: "0 18px 40px rgba(0,0,0,0.5)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1.25rem",
         }}
       >
-        <div
+        <h2 style={{ margin: 0 }}>{mode === "login" ? "Log in" : "Create account"}</h2>
+      </div>
+      <p
+        style={{
+          marginTop: 0,
+          marginBottom: "1.5rem",
+          fontSize: "0.9rem",
+          color: "var(--text-secondary)",
+        }}
+      >
+        Use an account to track which problems you&apos;ve attempted and completed.
+      </p>
+
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+        <button
+          onClick={() => setMode("login")}
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "1.25rem",
+            flex: 1,
+            padding: "0.4rem 0.9rem",
+            borderRadius: "999px",
+            border: "1px solid var(--border-color)",
+            backgroundColor: mode === "login" ? "var(--accent-color)" : "transparent",
+            color: mode === "login" ? "var(--button-text)" : "var(--text-secondary)",
+            fontSize: "0.85rem",
           }}
         >
-          <h2 style={{ margin: 0 }}>{mode === "login" ? "Log in" : "Create account"}</h2>
-          <button
-            onClick={() => navigate("/editor/unix")}
+          Log in
+        </button>
+        <button
+          onClick={() => setMode("signup")}
+          style={{
+            flex: 1,
+            padding: "0.4rem 0.9rem",
+            borderRadius: "999px",
+            border: "1px solid var(--border-color)",
+            backgroundColor: mode === "signup" ? "var(--accent-color)" : "transparent",
+            color: mode === "signup" ? "var(--button-text)" : "var(--text-secondary)",
+            fontSize: "0.85rem",
+          }}
+        >
+          Sign up
+        </button>
+      </div>
+
+      <form
+        onSubmit={mode === "login" ? handleLogin : handleCreateAccount}
+        style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+      >
+        {mode === "signup" && (
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.35rem",
+                fontSize: "0.8rem",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Name
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              style={{
+                width: "100%",
+                padding: "0.45rem 0.6rem",
+                borderRadius: "6px",
+                border: "1px solid var(--border-color)",
+                backgroundColor: "var(--bg-tertiary)",
+                color: "var(--text-primary)",
+              }}
+            />
+          </div>
+        )}
+        <div>
+          <label
             style={{
-              padding: "0.3rem 0.9rem",
+              display: "block",
+              marginBottom: "0.35rem",
               fontSize: "0.8rem",
-              borderRadius: "999px",
-              border: "1px solid var(--border-color)",
-              backgroundColor: "transparent",
               color: "var(--text-secondary)",
             }}
           >
-            Back to editor
-          </button>
-        </div>
-        <p style={{ marginTop: 0, marginBottom: "1.5rem", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
-          Use an account to track which problems you&apos;ve attempted and completed.
-        </p>
-
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-          <button
-            onClick={() => setMode("login")}
+            Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
             style={{
-              flex: 1,
-              padding: "0.4rem 0.9rem",
-              borderRadius: "999px",
+              width: "100%",
+              padding: "0.45rem 0.6rem",
+              borderRadius: "6px",
               border: "1px solid var(--border-color)",
-              backgroundColor: mode === "login" ? "var(--accent-color)" : "transparent",
-              color: mode === "login" ? "var(--button-text)" : "var(--text-secondary)",
-              fontSize: "0.85rem",
+              backgroundColor: "var(--bg-tertiary)",
+              color: "var(--text-primary)",
+            }}
+          />
+        </div>
+        <div>
+          <label
+            style={{
+              display: "block",
+              marginBottom: "0.35rem",
+              fontSize: "0.8rem",
+              color: "var(--text-secondary)",
             }}
           >
-            Log in
-          </button>
-          <button
-            onClick={() => setMode("signup")}
+            Password
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={mode === "login" ? "Your password" : "Choose a strong password"}
             style={{
-              flex: 1,
-              padding: "0.4rem 0.9rem",
-              borderRadius: "999px",
+              width: "100%",
+              padding: "0.45rem 0.6rem",
+              borderRadius: "6px",
               border: "1px solid var(--border-color)",
-              backgroundColor: mode === "signup" ? "var(--accent-color)" : "transparent",
-              color: mode === "signup" ? "var(--button-text)" : "var(--text-secondary)",
-              fontSize: "0.85rem",
+              backgroundColor: "var(--bg-tertiary)",
+              color: "var(--text-primary)",
             }}
-          >
-            Sign up
-          </button>
+          />
         </div>
-
-        <form
-          onSubmit={mode === "login" ? handleLogin : handleCreateAccount}
-          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+        {error && (
+          <div style={{ color: "var(--danger-color)", fontSize: "0.8rem" }}>
+            {error}
+          </div>
+        )}
+        <button
+          type="submit"
+          style={{
+            marginTop: "0.5rem",
+            padding: "0.4rem 0.9rem",
+            borderRadius: "999px",
+            border: "1px solid var(--border-color)",
+            backgroundColor: "var(--accent-color)",
+            color: "var(--button-text)",
+            cursor: submitting ? "default" : "pointer",
+            fontSize: "0.9rem",
+          }}
+          disabled={submitting}
         >
-          {mode === "signup" && (
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.35rem",
-                  fontSize: "0.8rem",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                Name
-              </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                style={{
-                  width: "100%",
-                  padding: "0.45rem 0.6rem",
-                  borderRadius: "6px",
-                  border: "1px solid var(--border-color)",
-                  backgroundColor: "var(--bg-tertiary)",
-                  color: "var(--text-primary)",
-                }}
-              />
-            </div>
-          )}
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.35rem",
-                fontSize: "0.8rem",
-                color: "var(--text-secondary)",
-              }}
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              style={{
-                width: "100%",
-                padding: "0.45rem 0.6rem",
-                borderRadius: "6px",
-                border: "1px solid var(--border-color)",
-                backgroundColor: "var(--bg-tertiary)",
-                color: "var(--text-primary)",
-              }}
-            />
-          </div>
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.35rem",
-                fontSize: "0.8rem",
-                color: "var(--text-secondary)",
-              }}
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === "login" ? "Your password" : "Choose a strong password"}
-              style={{
-                width: "100%",
-                padding: "0.45rem 0.6rem",
-                borderRadius: "6px",
-                border: "1px solid var(--border-color)",
-                backgroundColor: "var(--bg-tertiary)",
-                color: "var(--text-primary)",
-              }}
-            />
-          </div>
-          {error && (
-            <div style={{ color: "#f97373", fontSize: "0.8rem" }}>
-              {error}
-            </div>
-          )}
-          <button
-            type="submit"
-            style={{
-              marginTop: "0.5rem",
-              padding: "0.4rem 0.9rem",
-              borderRadius: "999px",
-              border: "1px solid var(--border-color)",
-              backgroundColor: "var(--accent-color)",
-              color: "var(--button-text)",
-              cursor: submitting ? "default" : "pointer",
-              fontSize: "0.9rem",
-            }}
-            disabled={submitting}
-          >
-            {submitting
-              ? mode === "login"
-                ? "Logging in..."
-                : "Creating account..."
-              : mode === "login"
-                ? "Log in"
-                : "Create account & continue"}
-          </button>
-        </form>
-      </div>
-    );
-  };
+          {submitting
+            ? mode === "login"
+              ? "Logging in..."
+              : "Creating account..."
+            : mode === "login"
+              ? "Log in"
+              : "Create account & continue"}
+        </button>
+      </form>
+    </div>
+  );
 
   const renderStats = () => {
     return (
@@ -376,39 +378,12 @@ export default function Account() {
           color: "var(--text-primary)",
         }}
       >
-        <header
-          style={{
-            height: "40px",
-            backgroundColor: "var(--bg-secondary)",
-            borderBottom: "1px solid var(--border-color)",
-            display: "flex",
-            alignItems: "center",
-            padding: "0 1.5rem",
-            gap: "0.75rem",
-          }}
-        >
-          <button
-            onClick={() => navigate("/editor/unix")}
-            style={{
-              padding: "0.2rem 0.7rem",
-              fontSize: "0.8rem",
-              borderRadius: "999px",
-              border: "1px solid var(--border-color)",
-              backgroundColor: "var(--bg-tertiary)",
-              color: "var(--text-secondary)",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.25rem",
-            }}
-          >
-            <span style={{ fontSize: "0.9rem" }}>←</span>
-            <span style={{ fontSize: "0.75rem" }}>Back to editor</span>
-          </button>
-          <span style={{ marginLeft: "0.75rem", fontSize: "0.85rem" }}>Account & statistics</span>
+        <AppHeader>
+          <span style={{ marginLeft: "0.75rem", fontSize: "0.85rem" }}>Account &amp; statistics</span>
           <span style={{ marginLeft: "auto", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
             Signed in as {userName || "User"}
           </span>
-        </header>
+        </AppHeader>
         <main
           style={{
             flex: 1,
@@ -476,7 +451,7 @@ export default function Account() {
                       <div
                         style={{
                           width: `${completedPct}%`,
-                          backgroundColor: "#16a34a",
+                          backgroundColor: "var(--status-completed-text)",
                         }}
                       />
                     )}
@@ -484,7 +459,7 @@ export default function Account() {
                       <div
                         style={{
                           width: `${attemptedPct}%`,
-                          backgroundColor: "#eab308",
+                          backgroundColor: "var(--status-attempted-text)",
                         }}
                       />
                     )}
@@ -527,20 +502,33 @@ export default function Account() {
     );
   };
 
-  return (
+  return !userId ? (
     <div
       style={{
         minHeight: "100vh",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        flexDirection: "column",
         backgroundColor: "var(--bg-primary)",
         color: "var(--text-primary)",
-        padding: "1.5rem",
       }}
     >
-      {!userId ? renderAuthCard() : renderStats()}
+      <AppHeader>
+        <span style={{ marginLeft: "0.75rem", fontSize: "0.85rem" }}>Account</span>
+      </AppHeader>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "1.5rem",
+        }}
+      >
+        {renderAuthCard()}
+      </div>
     </div>
+  ) : (
+    renderStats()
   );
 }
 

@@ -1,0 +1,19 @@
+[
+  {
+    "id": "systems",
+    "title": "Systems Programming",
+    "description": "Learn Unix shell, Bash, and Awk the way they are actually used on real servers: pipelines, text processing, and everyday ops tooling.",
+    "languages": ["unix", "bash", "awk"],
+    "workspace": "unix",
+    "icon": "systems-icon.svg"
+  },
+  {
+    "id": "gpu",
+    "title": "GPU Programming",
+    "description": "Explore CUDA and WebGPU-style shader programming in an isolated environment built for low-level experimentation.",
+    "languages": ["cuda", "webgpu"],
+    "workspace": "cuda",
+    "icon": "gpu-icon.svg"
+  }
+]
+

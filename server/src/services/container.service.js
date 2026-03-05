@@ -1,5 +1,6 @@
 import Docker from "dockerode";
 import { PassThrough } from "stream";
+import * as workspaceConfig from "../../../problem-config.mjs";
 
 /**
  * Container Service
@@ -37,10 +38,6 @@ export class ContainerService {
         this.containers = new Map();
         this.containerCounter = 0;
         this.docker = new Docker();
-        this.imageNames = {
-            unix: 'unix-workspace:latest',
-            cuda: 'cuda-workspace:latest',
-        };
 
         // Periodic cleanup for idle containers
         const CLEANUP_INTERVAL_MS = 60_000; // 1 minute
@@ -53,19 +50,20 @@ export class ContainerService {
         void this.reapExistingProjectContainers();
     }
 
-    getImageNameForWorkspace(workspace = 'unix') {
-        return this.imageNames[workspace] || this.imageNames.unix;
+    getImageNameForWorkspace(workspace = workspaceConfig.DEFAULT_WORKSPACE) {
+        const ws = workspaceConfig.WORKSPACES[workspace] ?? workspaceConfig.WORKSPACES[workspaceConfig.DEFAULT_WORKSPACE];
+        return ws.dockerImageName;
     }
 
-    getDockerfileForWorkspace(workspace = 'unix') {
-        if (workspace === 'cuda') return 'Dockerfile.cuda';
-        return 'Dockerfile.unix';
+    getDockerfileForWorkspace(workspace = workspaceConfig.DEFAULT_WORKSPACE) {
+        const ws = workspaceConfig.WORKSPACES[workspace] ?? workspaceConfig.WORKSPACES[workspaceConfig.DEFAULT_WORKSPACE];
+        return ws.dockerfileName;
     }
 
     /**
      * Ensures the Docker image for a given workspace is built.
      */
-    async ensureImage(workspace = 'unix') {
+    async ensureImage(workspace = workspaceConfig.DEFAULT_WORKSPACE) {
         const imageName = this.getImageNameForWorkspace(workspace);
         const dockerfile = this.getDockerfileForWorkspace(workspace);
         try {
@@ -108,7 +106,13 @@ export class ContainerService {
      * @returns {Promise<string>} The generated container ID from docker.
      */
     async createContainer(config) {
-        const workspace = config?.workspace === 'cuda' ? 'cuda' : 'unix';
+        const rawWorkspace = typeof config?.workspace === 'string'
+            ? config.workspace.toLowerCase()
+            : workspaceConfig.DEFAULT_WORKSPACE;
+        const knownWorkspaces = workspaceConfig.getWorkspaceIds();
+        const workspace = knownWorkspaces.includes(rawWorkspace)
+            ? rawWorkspace
+            : workspaceConfig.DEFAULT_WORKSPACE;
         const ownerKey = typeof config?.ownerKey === 'string' && config.ownerKey.trim()
             ? config.ownerKey.trim()
             : 'anonymous';
@@ -172,22 +176,8 @@ export class ContainerService {
 
         const container = this.docker.getContainer(containerId);
         const codeEncoded = Buffer.from(String(code || ""), "utf-8").toString("base64");
-        
-        // Build command based on language
-        let shellCmd;
-        if (language === 'awk') {
-            // For AWK: write script to file, then pipe input to awk
-            const inputEncoded = Buffer.from(String(input || ""), "utf-8").toString("base64");
-            shellCmd = `echo ${codeEncoded} | base64 -d > /tmp/exec.sh && echo ${inputEncoded} | base64 -d | /bin/awk -f /tmp/exec.sh`;
-        } else if (language === 'bash') {
-            // For bash: write script and run with input as stdin
-            const inputEncoded = Buffer.from(String(input || ""), "utf-8").toString("base64");
-            shellCmd = `echo ${codeEncoded} | base64 -d > /tmp/exec.sh && echo ${inputEncoded} | base64 -d | /bin/bash /tmp/exec.sh`;
-        } else {
-            // For other languages: write script and run with input
-            const inputEncoded = Buffer.from(String(input || ""), "utf-8").toString("base64");
-            shellCmd = `echo ${codeEncoded} | base64 -d > /tmp/exec.sh && echo ${inputEncoded} | base64 -d | /bin/sh /tmp/exec.sh`;
-        }
+        const inputEncoded = Buffer.from(String(input || ""), "utf-8").toString("base64");
+        const shellCmd = workspaceConfig.getValidationCommand(language, codeEncoded, inputEncoded);
 
         console.log(`[ContainerService] Executing: ${shellCmd.substring(0, 100)}...`);
 

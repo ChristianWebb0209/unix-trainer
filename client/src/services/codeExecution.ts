@@ -7,7 +7,12 @@
 
 export type SupportedLanguage = "unix" | "awk" | "bash" | "cuda";
 
-const SUPPORTED: SupportedLanguage[] = ["unix", "awk", "bash", "cuda"];
+// Shared problem configuration (ESM module at repo root)
+import * as problemConfig from "problem-config";
+
+const SUPPORTED: SupportedLanguage[] = problemConfig.PROBLEM_LANGUAGE_IDS.filter(
+  (id): id is SupportedLanguage => id !== "any"
+);
 
 export function isSupportedLanguage(lang: string): lang is SupportedLanguage {
   return SUPPORTED.includes(lang as SupportedLanguage);
@@ -28,28 +33,67 @@ export function toBase64(str: string): string {
  */
 export function buildRunCommand(language: SupportedLanguage, code: string): string {
   const encoded = toBase64(code);
-  // base64 is A-Za-z0-9+/= so no single quotes; keep as-is for sh
   const escaped = encoded.replace(/'/g, "'\"'\"'");
 
   switch (language) {
     case "bash":
       return `echo '${escaped}' | base64 -d > /tmp/run.sh && bash /tmp/run.sh`;
     case "awk":
-      // Intentionally keep stdin attached so users can paste input (Ctrl-D to end),
-      // or pipe data in the terminal like: `cat file | awk -f /tmp/run.awk`.
-      return `echo '${escaped}' | base64 -d > /tmp/run.awk && /bin/awk -f /tmp/run.awk`;
+      return `echo '${escaped}' | base64 -d > /tmp/run.awk && awk -f /tmp/run.awk`;
     case "unix":
       return `echo '${escaped}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
     case "cuda":
-      // Compile and run a simple CUDA (host-only) program. Assumes nvcc is available in the CUDA image.
       return `echo '${escaped}' | base64 -d > /tmp/main.cu && nvcc /tmp/main.cu -o /tmp/a.out && /tmp/a.out`;
     default:
       return `echo '${escaped}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
   }
 }
 
-export const TERMINAL_LANGUAGES: { id: SupportedLanguage; name: string }[] = [
-  { id: "unix", name: "Unix Shell" },
-  { id: "awk", name: "AWK" },
-  { id: "bash", name: "Bash" },
-];
+export type TerminalRunPayload = {
+  /** If set, run this via /exec first (e.g. write script to /tmp) so the terminal only shows the run command. */
+  prepareCommand: string | null;
+  /** String to send to the terminal (e.g. command + \\r\\n). */
+  payload: string;
+};
+
+/**
+ * Returns what to run in the terminal for the given language and code.
+ * prepareCommand writes the script via /exec so the server is hit immediately and
+ * the terminal only shows the run command. If the WebSocket isn't open yet, the
+ * pending payload is sent when it connects.
+ */
+export function getTerminalRunPayload(language: SupportedLanguage, code: string): TerminalRunPayload {
+  const encoded = toBase64(code);
+  const escaped = encoded.replace(/'/g, "'\"'\"'");
+
+  switch (language) {
+    case "awk":
+      return {
+        prepareCommand: `echo '${escaped}' | base64 -d > /tmp/run.awk`,
+        payload: "printf '\\n' | awk -f /tmp/run.awk\r\n",
+      };
+    case "bash":
+      return {
+        prepareCommand: `echo '${escaped}' | base64 -d > /tmp/run.sh`,
+        payload: "bash /tmp/run.sh\r\n",
+      };
+    case "unix":
+      return {
+        prepareCommand: `echo '${escaped}' | base64 -d > /tmp/run.sh`,
+        payload: "sh /tmp/run.sh\r\n",
+      };
+    default:
+      return {
+        prepareCommand: null,
+        payload: buildRunCommand(language, code) + "\r\n",
+      };
+  }
+}
+
+export const TERMINAL_LANGUAGES: { id: SupportedLanguage; name: string }[] = SUPPORTED
+  // CUDA gets its own workspace pill; keep dropdown focused on shell-y languages.
+  .filter((id) => id !== "cuda")
+  .map((id) => ({
+    id,
+    name: problemConfig.PROBLEM_LANGUAGES[id].label || id,
+  }));

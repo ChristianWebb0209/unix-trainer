@@ -1,13 +1,43 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ProblemOfTheDay } from "../api/problems";
+import CodeMirror from "@uiw/react-codemirror";
+import { python } from "@codemirror/lang-python";
+import { oneDark } from "@codemirror/theme-one-dark";
+import TextType from "../components/effects/TextType.tsx";
+import * as problemConfig from "problem-config";
+import type { ProblemOfTheDay, Difficulty } from "../api/problems";
 import { getProblemOfTheDay } from "../api/problems";
+import { DIFFICULTY_TAG_STYLES } from "../uiStyles";
+import technologies from "../assets/technologies.json";
+import systemsIcon from "../assets/icons/systems-icon.svg";
+import gpuIcon from "../assets/icons/gpu-icon.svg";
+
+type WorkspaceId = ReturnType<typeof problemConfig.getWorkspaceIds>[number];
+
+type Technology = {
+    id: string;
+    title: string;
+    description: string;
+    languages: string[];
+    workspace: WorkspaceId;
+    icon: string; // filename from technologies.json
+};
 
 export default function Home() {
     const navigate = useNavigate();
     const [pod, setPod] = useState<ProblemOfTheDay | null>(null);
+    const [podStarterCode, setPodStarterCode] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [homeCode, setHomeCode] = useState("");
+    const techs = useMemo(() => technologies as Technology[], []);
+    const ICON_MAP: Record<string, string> = useMemo(
+        () => ({
+            "systems-icon.svg": systemsIcon,
+            "gpu-icon.svg": gpuIcon,
+        }),
+        []
+    );
 
     useEffect(() => {
         let active = true;
@@ -18,6 +48,25 @@ export default function Home() {
                 const problem = await getProblemOfTheDay();
                 if (!active) return;
                 setPod(problem);
+
+                // Fetch full problem details so we can get starterCode for the inline editor.
+                try {
+                    const res = await fetch(`/api/problems/${problem.id}`);
+                    if (active && res.ok) {
+                        const data = (await res.json()) as {
+                            problem?: { starterCode?: string };
+                        };
+                        const starter =
+                            typeof data.problem?.starterCode === "string" ? data.problem.starterCode : "";
+                        if (starter) {
+                            setPodStarterCode(starter);
+                            setHomeCode(prev => (prev ? prev : starter));
+                        }
+                    }
+                } catch (detailsErr) {
+                    // Non-fatal: inline editor will just start empty if details fail.
+                    console.error("Failed to load full POD details", detailsErr);
+                }
             } catch (e) {
                 if (!active) return;
                 console.error(e);
@@ -26,295 +75,273 @@ export default function Home() {
                 if (active) setLoading(false);
             }
         };
-        load();
+        void load();
         return () => {
             active = false;
         };
     }, []);
 
-    const difficultyColors: Record<string, { bg: string; text: string }> = {
-        learn: { bg: "#06b6d4", text: "#e0f2f1" },
-        easy: { bg: "#1b5e20", text: "#dcedc8" },
-        medium: { bg: "#f9a825", text: "#1b1b1b" },
-        hard: { bg: "#b71c1c", text: "#ffcdd2" },
-    };
-
     const languageLabel = (lang: string) => {
-        switch (lang) {
-            case "bash":
-                return "Bash";
-            case "awk":
-                return "Awk";
-            case "unix":
-                return "Unix Shell";
-            case "any":
-            default:
-                return "Any Shell";
-        }
+        const entry = problemConfig.PROBLEM_LANGUAGES[
+            lang as keyof typeof problemConfig.PROBLEM_LANGUAGES
+        ];
+        return entry?.label ?? lang;
     };
 
-    const ensureAuthedAndGoToEditor = () => {
-        let userId: string | null = null;
-        try {
-            const stored = window.localStorage.getItem("user_id");
-            userId = stored && stored.trim() ? stored.trim() : null;
-        } catch {
-            userId = null;
-        }
+    const workspaceForLanguage = (lang: string): WorkspaceId => {
+        const [first] = problemConfig.getWorkspacesForLanguage(
+            lang as keyof typeof problemConfig.PROBLEM_LANGUAGES
+        );
+        return (first as WorkspaceId) ?? (problemConfig.DEFAULT_WORKSPACE as WorkspaceId);
+    };
 
-        if (!userId && !import.meta.env.DEV) {
-            navigate("/account");
-        } else {
-            navigate("/editor/unix");
-        }
+    const goToEditorAsGuest = (initialFromHome?: {
+        problemId?: string;
+        code?: string;
+        workspace?: WorkspaceId;
+    }) => {
+        const fallbackWorkspace = problemConfig.DEFAULT_WORKSPACE as WorkspaceId;
+        const workspace = initialFromHome?.workspace ?? fallbackWorkspace;
+        navigate(`/editor/${workspace}`, {
+            state: {
+                initialProblemId: initialFromHome?.problemId,
+                initialCode: initialFromHome?.code,
+            },
+        });
     };
 
     const handleLoginClick = () => {
         navigate("/account");
     };
 
-    const handleStart = () => {
-        ensureAuthedAndGoToEditor();
+    const handleContinueAsGuest = () => {
+        navigate("/choose-technology");
+    };
+
+    const handleRunPodCode = () => {
+        if (!pod) {
+            goToEditorAsGuest();
+            return;
+        }
+        const workspace = workspaceForLanguage(pod.language);
+        const codeForNav = homeCode || podStarterCode;
+        goToEditorAsGuest({ problemId: pod.id, code: codeForNav, workspace });
+    };
+
+    const handlePodCardClick = () => {
+        if (!pod) return;
+        const workspace = workspaceForLanguage(pod.language);
+        const codeForNav = homeCode || podStarterCode;
+        goToEditorAsGuest({ problemId: pod.id, code: codeForNav, workspace });
     };
 
     return (
-        <div
-            style={{
-                minHeight: "100vh",
-                display: "flex",
-                flexDirection: "column",
-                background: "radial-gradient(circle at top, #1f2933 0, #111827 55%, #020617 100%)",
-                color: "var(--text-primary)",
-            }}
-        >
-            <header
-                style={{
-                    padding: "1.25rem 3rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    borderBottom: "1px solid var(--border-color)",
-                    backgroundColor: "var(--bg-secondary)",
-                }}
-            >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <div
-                        style={{
-                            width: "32px",
-                            height: "32px",
-                            borderRadius: "8px",
-                            background: "linear-gradient(135deg, #22c55e, #0ea5e9)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 700,
-                            fontSize: "0.9rem",
-                        }}
-                    >
-                        UT
-                    </div>
-                    <span style={{ fontWeight: 600, letterSpacing: "0.06em", fontSize: "0.9rem" }}>UNIX TRAINER</span>
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    <button
-                        onClick={handleLoginClick}
-                        style={{
-                            padding: "0.3rem 0.9rem",
-                            fontSize: "0.8rem",
-                            borderRadius: "999px",
-                            border: "1px solid var(--border-color)",
-                            backgroundColor: "transparent",
-                            color: "var(--text-secondary)",
-                        }}
-                    >
-                        Log in
-                    </button>
-                    <button
-                        onClick={handleLoginClick}
-                        style={{
-                            padding: "0.3rem 0.9rem",
-                            fontSize: "0.8rem",
-                            borderRadius: "999px",
-                            border: "1px solid var(--border-color)",
-                            backgroundColor: "var(--accent-color)",
-                            color: "var(--button-text)",
-                        }}
-                    >
-                        Sign up
-                    </button>
-                </div>
-            </header>
-
-            <main style={{ flex: 1, padding: "2rem 3rem 3rem", display: "flex", gap: "2.5rem", alignItems: "stretch" }}>
-                {/* Left: Hero + CTAs */}
-                <section style={{ flex: 3, display: "flex", flexDirection: "column", gap: "2rem" }}>
-                    <div style={{ maxWidth: "640px" }}>
-                        <h1
-                            style={{
-                                fontSize: "2.6rem",
-                                lineHeight: 1.1,
-                                marginBottom: "1rem",
-                            }}
-                        >
-                            Learn Unix the way it&apos;s meant to be used — in a real shell.
+        <div className="home-page">
+            <main className="home-main">
+                {/* Hero */}
+                <section className="home-hero">
+                    <div className="home-hero-title-wrap">
+                        <h1 className="home-hero-title">
+                            <TextType
+                                text={[
+                                    "Learn what LeetCode doesn't teach.",
+                                    "Real Unix. Real shells.",
+                                    "Master Bash, Awk, and GPU code.",
+                                ]}
+                                typingSpeed={57}
+                                deletingSpeed={63}
+                                pauseDuration={1400}
+                                showCursor
+                                cursorCharacter="▎"
+                                cursorBlinkDuration={0.5}
+                            />
                         </h1>
-                        <p style={{ fontSize: "1rem", color: "var(--text-secondary)", maxWidth: "540px" }}>
-                            Spin up an isolated container, run real commands, and master Bash, Awk, and Unix tooling
-                            through focused micro‑challenges.
-                        </p>
-                        <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem", alignItems: "center" }}>
-                            <button
-                                onClick={handleStart}
-                                style={{
-                                    padding: "0.7rem 1.5rem",
-                                    fontSize: "0.95rem",
-                                    borderRadius: "999px",
-                                    border: "1px solid var(--border-color)",
-                                    backgroundColor: "var(--accent-color)",
-                                    color: "var(--button-text)",
-                                }}
-                            >
-                                Start practicing
-                            </button>
-                            <button
-                                onClick={handleStart}
-                                style={{
-                                    padding: "0.7rem 1.3rem",
-                                    fontSize: "0.9rem",
-                                    borderRadius: "999px",
-                                    backgroundColor: "transparent",
-                                    border: "1px solid var(--border-color)",
-                                    color: "var(--text-secondary)",
-                                }}
-                            >
-                                View all problems
-                            </button>
+                    </div>
+
+
+                    {/* Technologies band */}
+                    {/* Divider above marquee */}
+                    <div className="home-divider" />
+
+                    <div className="tech-marquee" style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
+                        <div className="tech-marquee-track">
+                            {[...techs, ...techs, ...techs, ...techs].map((tech, idx) => {
+                                const iconSrc = ICON_MAP[tech.icon];
+                                return (
+                                    <div className="tech-marquee-item" key={`${tech.id}-${idx}`}>
+                                        {iconSrc && (
+                                            <img
+                                                src={iconSrc}
+                                                alt={tech.title}
+                                                className="tech-marquee-icon home-tech-icon"
+                                            />
+                                        )}
+                                        <span className="tech-marquee-label home-tech-label">
+                                            {tech.title}
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                            gap: "1rem",
-                            maxWidth: "780px",
-                        }}
-                    >
-                        <FeatureCard
-                            title="Real containers"
-                            body="Every run happens inside an isolated Docker container so you can experiment freely."
-                        />
-                        <FeatureCard
-                            title="Focused problems"
-                            body="Short, targeted exercises for Bash, Awk, and core Unix tools — no fluff."
-                        />
-                        <FeatureCard
-                            title="Built for muscle memory"
-                            body="Run code, inspect output in the terminal, and iterate like you would on a real server."
-                        />
+                    {/* Divider below marquee */}
+                    <div className="home-divider" />
+
+                    {/* CTAs */}
+                    <div className="home-cta-row">
+                        <button
+                            onClick={handleContinueAsGuest}
+                            className="home-cta-primary"
+                        >
+                            Continue as Guest
+                        </button>
+                        <button
+                            onClick={handleLoginClick}
+                            className="home-cta-secondary"
+                        >
+                            Sign In / Create Account
+                        </button>
                     </div>
+
+                    {/* Divider */}
+                    <div className="home-divider" />
                 </section>
 
-                {/* Right: Problem of the Day */}
-                <aside
-                    style={{
-                        flex: 2,
-                        minWidth: "260px",
-                        maxWidth: "420px",
-                        background:
-                            "linear-gradient(145deg, rgba(15,23,42,0.95), rgba(15,23,42,0.8))",
-                        borderRadius: "16px",
-                        border: "1px solid rgba(148,163,184,0.35)",
-                        padding: "1.5rem 1.7rem",
-                        boxShadow: "0 18px 40px rgba(15,23,42,0.7)",
-                        display: "flex",
-                        flexDirection: "column",
-                    }}
-                >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <h2 style={{ fontSize: "1.1rem", margin: 0 }}>Problem of the day</h2>
-                        <span
-                            style={{
-                                fontSize: "0.75rem",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.08em",
-                                color: "var(--text-secondary)",
-                            }}
-                        >
+                {/* Problem of the Day + inline editor */}
+                <section>
+                    <div className="home-pod-header">
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: "1.3rem" }}>Problem of the Day</h2>
+                            <p className="home-pod-subtitle">
+                                A single focused shell challenge, refreshed daily.
+                            </p>
+                        </div>
+                        <span className="home-pod-badge">
                             updates daily
                         </span>
                     </div>
 
-                    <div style={{ marginTop: "1.25rem", flex: 1 }}>
-                        {loading && (
-                            <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>Loading today&apos;s challenge…</p>
-                        )}
-                        {!loading && error && (
-                            <p style={{ fontSize: "0.9rem", color: "#f97373" }}>{error}</p>
-                        )}
-                        {!loading && !error && pod && (
-                            <>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                                    <h3 style={{ margin: 0, fontSize: "1.05rem" }}>{pod.title}</h3>
-                                    <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                                        <span
-                                            style={{
-                                                padding: "0.15rem 0.5rem",
-                                                borderRadius: "999px",
-                                                fontSize: "0.7rem",
-                                                letterSpacing: "0.06em",
-                                                textTransform: "uppercase",
-                                                backgroundColor:
-                                                    difficultyColors[pod.difficulty].bg,
-                                                color: difficultyColors[pod.difficulty].text,
-                                            }}
-                                        >
-                                            {pod.difficulty}
-                                        </span>
-                                        <span
-                                            style={{
-                                                padding: "0.15rem 0.5rem",
-                                                borderRadius: "999px",
-                                                fontSize: "0.7rem",
-                                                backgroundColor: "rgba(30,64,175,0.35)",
-                                                color: "#bfdbfe",
-                                            }}
-                                        >
-                                            {languageLabel(pod.language)}
-                                        </span>
-                                    </div>
-                                </div>
-                                <p
-                                    style={{
-                                        marginTop: "0.9rem",
-                                        fontSize: "0.9rem",
-                                        color: "var(--text-secondary)",
-                                    }}
-                                >
-                                    {truncateInstructions(pod.instructions)}
-                                </p>
-                            </>
-                        )}
-                        {!loading && !error && !pod && (
-                            <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>
-                                No problems are available yet. Check back soon.
-                            </p>
-                        )}
-                    </div>
-
+                    {/* Full-width problem card (clickable) */}
                     <button
-                        onClick={handleStart}
-                        style={{
-                            marginTop: "1.25rem",
-                            width: "100%",
-                            padding: "0.75rem 1rem",
-                            borderRadius: "999px",
-                            fontSize: "0.95rem",
-                        }}
+                        type="button"
+                        onClick={handlePodCardClick}
+                        className="home-pod-card"
+                        style={{ cursor: pod ? "pointer" : "default" }}
                     >
-                        Solve today&apos;s problem
+                        <div className="home-pod-card-body">
+                            {loading && (
+                                <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>
+                                    Loading today&apos;s challenge…
+                                </p>
+                            )}
+                            {!loading && error && (
+                                <p style={{ fontSize: "0.9rem", color: "var(--danger-color)" }}>{error}</p>
+                            )}
+                            {!loading && !error && pod && (
+                                <>
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            gap: "1rem",
+                                            alignItems: "flex-start",
+                                        }}
+                                    >
+                                        <div>
+                                            <h3 className="home-pod-title">
+                                                {pod.title}
+                                            </h3>
+                                            <p className="home-pod-description">
+                                                {truncateInstructions(pod.instructions)}
+                                            </p>
+                                        </div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                                            <span
+                                                className="editor-difficulty-pill-small"
+                                                style={{
+                                                    backgroundColor: DIFFICULTY_TAG_STYLES[pod.difficulty as Difficulty].bg,
+                                                    color: DIFFICULTY_TAG_STYLES[pod.difficulty as Difficulty].text,
+                                                    textAlign: "right",
+                                                }}
+                                            >
+                                                {pod.difficulty}
+                                            </span>
+                                            <span
+                                                style={{
+                                                    padding: "0.15rem 0.6rem",
+                                                    borderRadius: "999px",
+                                                    fontSize: "0.7rem",
+                                                    backgroundColor: "rgba(30,64,175,0.35)",
+                                                    color: "#bfdbfe",
+                                                    textAlign: "right",
+                                                }}
+                                            >
+                                                {languageLabel(pod.language)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                            {!loading && !error && !pod && (
+                                <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>
+                                    No problems are available yet. Check back soon.
+                                </p>
+                            )}
+                        </div>
                     </button>
-                </aside>
+
+                    {/* Inline CodeMirror editor */}
+                    <div className="home-inline-editor">
+                        <div className="home-inline-editor-header">
+                            <span className="home-inline-editor-subtitle">
+                                Try your solution here. We&apos;ll move it into the editor when you run it.
+                            </span>
+                            <button
+                                onClick={handleRunPodCode}
+                                className="home-inline-editor-run"
+                            >
+                                Run in workspace
+                            </button>
+                        </div>
+                        <div style={{ height: "260px" }}>
+                            <CodeMirror
+                                value={homeCode}
+                                onChange={setHomeCode}
+                                height="260px"
+                                theme={oneDark}
+                                extensions={[python()]}
+                                style={{ fontSize: "15px" }}
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                {/* Footer */}
+                <footer className="home-footer">
+                    <span>
+                        Check the project out (it&apos;s open source!):{" "}
+                        <a
+                            href="https://github.com/ChristianWebb0209/unix-trainer"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="home-footer-link"
+                        >
+                            github
+                        </a>
+                    </span>
+                    <span>
+                        Check my page out:{" "}
+                        <a
+                            href="https://www.linkedin.com/in/christian-webb-76530928a/"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="home-footer-link"
+                        >
+                            linkedin
+                        </a>
+                    </span>
+                </footer>
             </main>
         </div>
     );
@@ -327,19 +354,4 @@ function truncateInstructions(instructions: string, maxChars = 180): string {
     return clean.slice(0, maxChars).trimEnd() + "…";
 }
 
-function FeatureCard({ title, body }: { title: string; body: string }) {
-    return (
-        <div
-            style={{
-                padding: "1rem 1.1rem",
-                borderRadius: "12px",
-                border: "1px solid rgba(148,163,184,0.4)",
-                background:
-                    "radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 55%)",
-            }}
-        >
-            <h3 style={{ margin: 0, fontSize: "0.95rem", marginBottom: "0.35rem" }}>{title}</h3>
-            <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)" }}>{body}</p>
-        </div>
-    );
-}
+// FeatureCard was used in a previous version of the home layout and is currently unused.

@@ -1,15 +1,22 @@
+import * as sharedConfig from '../../../problem-config.mjs';
+
 export const EXECUTION_DEFAULTS = Object.freeze({
-    language: 'alpine',
+    language: sharedConfig.PROBLEM_LANGUAGES.bash.id,
     timeLimitMs: 10000,
     memoryLimitBytes: 1024 * 1024 * 512, // 512MB
 });
 
-export const ALLOWED_LANGUAGES = Object.freeze(['alpine', 'bash', 'awk', 'unix', 'python', 'javascript', 'cuda']);
+export const ALLOWED_LANGUAGES = Object.freeze([
+    ...sharedConfig.PROBLEM_LANGUAGE_IDS.filter((id) => id !== 'any'),
+    'alpine',
+    'python',
+    'javascript',
+]);
 
 export const LANGUAGE_CONFIG = Object.freeze({
-    bash: { shell: '/bin/bash', displayName: 'Bash' },
-    awk: { shell: '/bin/awk', displayName: 'AWK' },
-    unix: { shell: '/bin/sh', displayName: 'Unix Shell' },
+    bash: { shell: 'bash', displayName: 'Bash' },
+    awk: { shell: 'awk', displayName: 'AWK' },
+    unix: { shell: 'sh', displayName: 'Unix Shell' },
     alpine: { shell: '/bin/sh', displayName: 'Alpine' },
     python: { shell: '/bin/sh', displayName: 'Python' },
   javascript: { shell: '/bin/sh', displayName: 'JavaScript' },
