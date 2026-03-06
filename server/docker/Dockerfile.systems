@@ -1,5 +1,6 @@
 # Systems workspace: Bash, Awk, Shell, C, C++, Rust + LSPs for IntelliSense
-FROM alpine:latest
+# Alpine 3.19+ for Node 20 (bash-language-server requires Node 14+ for optional chaining)
+FROM alpine:3.19
 
 RUN apk add --no-cache \
     bash \
