@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import type { Extension } from "@codemirror/state";
 import { getCodeEditorTheme } from "../editorThemes";
@@ -6,18 +6,19 @@ import { Panel, PanelGroup } from "react-resizable-panels";
 import { Terminal } from "@xterm/xterm";
 import { AttachAddon } from "@xterm/addon-attach";
 import { FitAddon } from "@xterm/addon-fit";
-import Sidebar from "../components/editor/Sidebar.tsx";
 import ProblemDropdown from "../components/editor/ProblemDropdown.tsx";
 import ResizeHandle from "../components/editor/ResizeHandle.tsx";
 import { CodeEditorPane } from "../components/editor/CodeEditorPane.tsx";
 import { TerminalPane } from "../components/editor/TerminalPane.tsx";
+import ProblemDescription from "../components/editor/ProblemDescription.tsx";
 import AppHeader from "../components/ui/AppHeader.tsx";
 import NotificationBanner from "../components/ui/NotificationBanner.tsx";
-import { primaryPillSelected, DIFFICULTY_TAG_STYLES } from "../uiStyles";
-import { getTerminalRunPayload, TERMINAL_LANGUAGES, isSupportedLanguage, toBase64, type SupportedLanguage } from "../services/codeExecution";
-import { runWebGpuProgram } from "../services/webgpuExecution";
+import { primaryPillSelected } from "../uiStyles";
+import { getTerminalRunPayload, TERMINAL_LANGUAGES, isSupportedLanguage, type SupportedLanguage } from "../services/codeExecution";
+import { runWebGpuProgram, runWebGpuAndSampleCenterPixel } from "../services/webgpuExecution";
 import type { ProblemSummary, ProblemLanguage, ProblemCompletionState, ProblemCompletion } from "../api/problems";
-import { fetchProblemCompletions, saveProblemProgress } from "../api/problems";
+import { listProblems, fetchProblemCompletions, saveProblemProgress, validateProblem } from "../api/problems";
+import type { ValidationResult } from "../types/validation";
 import * as problemConfig from "problem-config";
 
 type Workspace = ReturnType<typeof problemConfig.getWorkspaceIds>[number];
@@ -80,6 +81,7 @@ const WORKSPACES: Record<
 type ProblemTestCase = {
     input?: string | null;
     expected_stdout?: string | null;
+    expected_values?: number[];
 };
 const CLIENT_ID_KEY = "editor_client_id";
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -107,15 +109,17 @@ export default function Editor() {
     const navState = (location.state ?? {}) as { initialProblemId?: string; initialCode?: string };
     const rawWorkspace = typeof params.workspace === "string" ? params.workspace.toLowerCase() : problemConfig.DEFAULT_WORKSPACE;
     const knownWorkspaces = problemConfig.getWorkspaceIds() as Workspace[];
-    const workspace: Workspace = knownWorkspaces.includes(rawWorkspace as Workspace)
+    const resolvedWorkspace = knownWorkspaces.includes(rawWorkspace as Workspace)
         ? (rawWorkspace as Workspace)
         : (problemConfig.DEFAULT_WORKSPACE as Workspace);
+    const workspace: Workspace = (WORKSPACES[resolvedWorkspace] ? resolvedWorkspace : knownWorkspaces[0]) as Workspace;
     const [code, setCode] = useState("# Write your bash code here\necho \"Hello from CodeMirror!\"");
     const [containerId, setContainerId] = useState<string | null>(null);
     const [isCreatingContainer, setIsCreatingContainer] = useState(false);
     const [isRunning, setIsRunning] = useState(false);
     const [selectedProblem, setSelectedProblem] = useState<ProblemSummary | null>(null);
     const [problemDescription, setProblemDescription] = useState<string>("");
+    const [problemSolution, setProblemSolution] = useState<string | null>(null);
     const [problemTitle, setProblemTitle] = useState<string>("");
     const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
         const ws = problemConfig.WORKSPACES[workspace as keyof typeof problemConfig.WORKSPACES];
@@ -132,7 +136,9 @@ export default function Editor() {
     const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
     const [activeCudaView, setActiveCudaView] = useState<TerminalViewMode>("terminal");
     const [problemTests, setProblemTests] = useState<ProblemTestCase[]>([]);
+    const [problemValidation, setProblemValidation] = useState<{ kind: string } | null>(null);
     const [isValidating, setIsValidating] = useState(false);
+    const [lastValidationResult, setLastValidationResult] = useState<ValidationResult | null>(null);
     const [showCelebration, setShowCelebration] = useState(false);
     const [showNextHint, setShowNextHint] = useState(false);
     const initialProblemIdRef = useRef<string | null>(navState.initialProblemId ?? null);
@@ -145,8 +151,8 @@ export default function Editor() {
     const debounceSaveTimeoutRef = useRef<number | null>(null);
     const [now, setNow] = useState(() => Date.now());
 
-    const workspaceDefinition = WORKSPACES[workspace];
     const workspaceOptions = Object.values(WORKSPACES);
+    const workspaceDefinition = WORKSPACES[workspace] ?? workspaceOptions[0];
 
     // Bump cache key version so old local completion state does not incorrectly mark problems as attempted.
     const COMPLETION_CACHE_PREFIX = "problem_completions_v2_";
@@ -245,61 +251,6 @@ export default function Editor() {
         if (canvas && WORKSPACES[workspace]?.isGpu) void runWebGpuProgram(canvas, code);
     };
 
-    const buildValidationCommand = (language: string, userCode: string, testInput: string): string => {
-        return problemConfig.getValidationCommand(
-            language,
-            toBase64(userCode),
-            toBase64(testInput)
-        );
-    };
-
-    const runTestsForCurrentSolution = async () => {
-        if (!selectedProblem || problemTests.length === 0) {
-            return { allPassed: false, passedCount: 0, total: 0 };
-        }
-        if (!isSupportedLanguage(selectedLanguage)) {
-            return { allPassed: false, passedCount: 0, total: problemTests.length };
-        }
-
-        let id = containerId;
-        if (!id) {
-            id = await createContainer();
-        }
-        if (!id) {
-            return { allPassed: false, passedCount: 0, total: problemTests.length };
-        }
-
-        let passed = 0;
-        for (const test of problemTests) {
-            const input = typeof test.input === "string" ? test.input : "";
-            const expected = typeof test.expected_stdout === "string" ? test.expected_stdout : "";
-            const command = buildValidationCommand(selectedLanguage, code, input);
-
-            try {
-                const res = await fetch(`/api/containers/${id}/exec`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ command }),
-                });
-                if (!res.ok) {
-                    return { allPassed: false, passedCount: passed, total: problemTests.length };
-                }
-                const data = await res.json();
-                const actual = String(data.stdout ?? "");
-                const exitCode = typeof data.exitCode === "number" ? data.exitCode : 0;
-                if (exitCode !== 0 || actual !== expected) {
-                    return { allPassed: false, passedCount: passed, total: problemTests.length };
-                }
-                passed += 1;
-            } catch (err) {
-                console.error("Validation run failed", err);
-                return { allPassed: false, passedCount: passed, total: problemTests.length };
-            }
-        }
-
-        return { allPassed: true, passedCount: passed, total: problemTests.length };
-    };
-
     const markProblemCompleted = async () => {
         const userId = cacheUserIdRef.current ?? loadUserIdFromStorage();
         cacheUserIdRef.current = userId;
@@ -324,101 +275,6 @@ export default function Editor() {
         }
     };
 
-    const goToPreviousProblem = async () => {
-        if (!selectedProblem) return;
-        const idx = visibleProblems.findIndex((p) => p.id === selectedProblem.id);
-        if (idx <= 0) return;
-        const prev = visibleProblems[idx - 1];
-        await handleSelectProblem(prev);
-    };
-
-    const goToNextProblem = async () => {
-        if (!selectedProblem) return;
-        const idx = visibleProblems.findIndex((p) => p.id === selectedProblem.id);
-        if (idx === -1 || idx >= visibleProblems.length - 1) return;
-        const next = visibleProblems[idx + 1];
-        await handleSelectProblem(next);
-    };
-
-    const handleRunCode = async () => {
-        // Best-effort save of current attempt whenever the user runs code.
-        await saveProgress("run");
-        const wasCompletedBefore =
-            selectedProblem && completionStatuses[selectedProblem.id] === "completed";
-
-        if (selectedProblem && problemTests.length > 0 && isSupportedLanguage(selectedLanguage)) {
-            setIsValidating(true);
-            try {
-                const result = await runTestsForCurrentSolution();
-                if (result.allPassed) {
-                    if (!wasCompletedBefore) {
-                        setShowCelebration(true);
-                        setShowNextHint(true);
-                    }
-                    void markProblemCompleted();
-                    window.setTimeout(() => setShowCelebration(false), 3500);
-                }
-            } finally {
-                setIsValidating(false);
-            }
-        }
-
-        if (WORKSPACES[workspace]?.isGpu && activeCudaView === "webgpu") {
-            runInWebGPU();
-        } else {
-            await runInTerminal();
-        }
-    };
-
-    // Global keyboard shortcuts:
-    // - Ctrl+' => Run Code
-    // - Ctrl+Left / Ctrl+Right => Previous / Next problem
-    useEffect(() => {
-        const handler = (event: KeyboardEvent) => {
-            const ctrl = event.ctrlKey || event.metaKey;
-            if (!ctrl) return;
-
-            if (event.key === "'" || event.code === "Quote") {
-                event.preventDefault();
-                void handleRunCode();
-                return;
-            }
-
-            if (event.key === "ArrowLeft") {
-                event.preventDefault();
-                void goToPreviousProblem();
-                return;
-            }
-
-            if (event.key === "ArrowRight") {
-                event.preventDefault();
-                void goToNextProblem();
-                return;
-            }
-        };
-
-        window.addEventListener("keydown", handler);
-        return () => window.removeEventListener("keydown", handler);
-    }, [handleRunCode, goToPreviousProblem, goToNextProblem]);
-
-    // Ctrl+Enter-to-next: when a problem is completed, pressing Ctrl+Enter
-    // advances to the next visible problem (regardless of current focus).
-    useEffect(() => {
-        const handler = (event: KeyboardEvent) => {
-            const ctrl = event.ctrlKey || event.metaKey;
-            if (!ctrl || event.key !== "Enter") return;
-
-            if (!selectedProblem) return;
-            if (completionStatuses[selectedProblem.id] !== "completed") return;
-
-            event.preventDefault();
-            void goToNextProblem();
-        };
-
-        window.addEventListener("keydown", handler);
-        return () => window.removeEventListener("keydown", handler);
-    }, [selectedProblem, completionStatuses, goToNextProblem]);
-
     const loadProblem = async (problemId: string) => {
         try {
             const response = await fetch(`/api/problems/${problemId}`);
@@ -435,25 +291,34 @@ export default function Editor() {
                 setProblemTests([]);
                 return null;
             }
-            const asAny = data as { problem?: { title?: string; instructions?: string; starterCode?: string; language?: string; tests?: ProblemTestCase[] } };
-            if (asAny?.problem) {
-                setProblemTitle(asAny.problem.title ?? "");
-                setProblemDescription(asAny.problem.instructions ?? "");
-                const tests = Array.isArray(asAny.problem.tests) ? (asAny.problem.tests as ProblemTestCase[]) : [];
+            const res = data as { problem?: { title?: string; instructions?: string; solution?: string | null; starterCode?: string; language?: string; tests?: unknown; validation?: { kind: string } } };
+            if (res?.problem) {
+                setProblemTitle(res.problem.title ?? "");
+                setProblemDescription(res.problem.instructions ?? "");
+                setProblemSolution(res.problem.solution ?? null);
+                const tests = Array.isArray(res.problem.tests) ? (res.problem.tests as ProblemTestCase[]) : [];
                 setProblemTests(tests);
+                setProblemValidation(res.problem.validation ?? null);
                 return {
-                    starterCode: typeof asAny.problem.starterCode === "string" ? asAny.problem.starterCode : undefined,
-                    language: asAny.problem.language as string | undefined,
+                    starterCode: typeof res.problem.starterCode === "string" ? res.problem.starterCode : undefined,
+                    language: res.problem.language as string | undefined,
                 };
             }
             setProblemTests([]);
+            setProblemValidation(null);
             return null;
         } catch (err) {
             console.error("Failed to load problem", err);
             setProblemTests([]);
+            setProblemValidation(null);
             return null;
         }
     };
+
+    // Clear validation result when switching to a different problem.
+    useEffect(() => {
+        setLastValidationResult(null);
+    }, [selectedProblem?.id]);
 
     // Initial load of completion statuses; guests are allowed (no redirect).
     useEffect(() => {
@@ -553,6 +418,7 @@ export default function Editor() {
         setSelectedProblem(null);
         setProblemTitle("");
         setProblemDescription("");
+        setProblemSolution(null);
         setIsTerminalExpanded(false);
         setActiveCudaView("terminal");
         navigate(`/editor/${next}`);
@@ -590,6 +456,181 @@ export default function Editor() {
             setLockedLanguage(null);
         }
     };
+
+    const goToPreviousProblem = useCallback(async () => {
+        if (!selectedProblem) return;
+        const idx = visibleProblems.findIndex((p) => p.id === selectedProblem.id);
+        if (idx <= 0) return;
+        const prev = visibleProblems[idx - 1];
+        await handleSelectProblem(prev);
+    }, [selectedProblem, visibleProblems, handleSelectProblem]);
+
+    const goToNextProblem = useCallback(async () => {
+        if (!selectedProblem) return;
+        const idx = visibleProblems.findIndex((p) => p.id === selectedProblem.id);
+        if (idx === -1 || idx >= visibleProblems.length - 1) return;
+        const next = visibleProblems[idx + 1];
+        await handleSelectProblem(next);
+    }, [selectedProblem, visibleProblems, handleSelectProblem]);
+
+    const handleRunCode = useCallback(async () => {
+        await saveProgress("run");
+        const wasCompletedBefore =
+            selectedProblem && completionStatuses[selectedProblem.id] === "completed";
+
+        const isWebGpuNumeric =
+            selectedProblem &&
+            problemValidation?.kind === "webgpu_numeric" &&
+            WORKSPACES[workspace]?.isGpu &&
+            activeCudaView === "webgpu";
+
+        if (isWebGpuNumeric && selectedProblem) {
+            const canvas = webgpuCanvasRef.current;
+            if (canvas) {
+                runInWebGPU();
+                setIsValidating(true);
+                setLastValidationResult(null);
+                try {
+                    await new Promise((r) => setTimeout(r, 150));
+                    const pixel = await runWebGpuAndSampleCenterPixel(canvas, code);
+                    const testOutputs = pixel
+                        ? [{ testId: "pixel", values: pixel }]
+                        : [];
+                    const result = await validateProblem(selectedProblem.id, {
+                        solutionCode: code,
+                        containerId: null,
+                        language: selectedLanguage,
+                        testOutputs,
+                    });
+                    setLastValidationResult(result);
+                    if (result.passed) {
+                        if (!wasCompletedBefore) {
+                            setShowCelebration(true);
+                            setShowNextHint(true);
+                        }
+                        void markProblemCompleted();
+                        window.setTimeout(() => setShowCelebration(false), 3500);
+                    }
+                } catch (err) {
+                    console.error("Validation failed", err);
+                    setLastValidationResult({
+                        passed: false,
+                        tests: [],
+                        summary: err instanceof Error ? err.message : "Validation failed",
+                    });
+                } finally {
+                    setIsValidating(false);
+                }
+            }
+        } else if (
+            selectedProblem &&
+            problemTests.length > 0 &&
+            isSupportedLanguage(selectedLanguage) &&
+            problemValidation?.kind !== "webgpu_numeric"
+        ) {
+            let id = containerId;
+            if (!id) id = await createContainer();
+            if (id) {
+                setIsValidating(true);
+                setLastValidationResult(null);
+                try {
+                    const result = await validateProblem(selectedProblem.id, {
+                        solutionCode: code,
+                        containerId: id,
+                        language: selectedLanguage,
+                    });
+                    setLastValidationResult(result);
+                    if (result.passed) {
+                        if (!wasCompletedBefore) {
+                            setShowCelebration(true);
+                            setShowNextHint(true);
+                        }
+                        void markProblemCompleted();
+                        window.setTimeout(() => setShowCelebration(false), 3500);
+                    }
+                } catch (err) {
+                    console.error("Validation failed", err);
+                    setLastValidationResult({
+                        passed: false,
+                        tests: [],
+                        summary: err instanceof Error ? err.message : "Validation failed",
+                    });
+                } finally {
+                    setIsValidating(false);
+                }
+            }
+        }
+
+        if (WORKSPACES[workspace]?.isGpu && activeCudaView === "webgpu") {
+            runInWebGPU();
+        } else {
+            await runInTerminal();
+        }
+    }, [
+        saveProgress,
+        selectedProblem,
+        completionStatuses,
+        problemValidation,
+        workspace,
+        activeCudaView,
+        code,
+        containerId,
+        createContainer,
+        selectedLanguage,
+        problemTests,
+        markProblemCompleted,
+        runInWebGPU,
+        runInTerminal,
+    ]);
+
+    // Global keyboard shortcuts:
+    // - Ctrl+' => Run Code
+    // - Ctrl+Left / Ctrl+Right => Previous / Next problem
+    useEffect(() => {
+        const handler = (event: KeyboardEvent) => {
+            const ctrl = event.ctrlKey || event.metaKey;
+            if (!ctrl) return;
+
+            if (event.key === "'" || event.code === "Quote") {
+                event.preventDefault();
+                void handleRunCode();
+                return;
+            }
+
+            if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                void goToPreviousProblem();
+                return;
+            }
+
+            if (event.key === "ArrowRight") {
+                event.preventDefault();
+                void goToNextProblem();
+                return;
+            }
+        };
+
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
+    }, [handleRunCode, goToPreviousProblem, goToNextProblem]);
+
+    // Ctrl+Enter-to-next: when a problem is completed, pressing Ctrl+Enter
+    // advances to the next visible problem (regardless of current focus).
+    useEffect(() => {
+        const handler = (event: KeyboardEvent) => {
+            const ctrl = event.ctrlKey || event.metaKey;
+            if (!ctrl || event.key !== "Enter") return;
+
+            if (!selectedProblem) return;
+            if (completionStatuses[selectedProblem.id] !== "completed") return;
+
+            event.preventDefault();
+            void goToNextProblem();
+        };
+
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
+    }, [selectedProblem, completionStatuses, goToNextProblem]);
 
     // Ticking clock for "Last saved: X ago" label (only meaningful when logged in).
     useEffect(() => {
@@ -656,6 +697,49 @@ export default function Editor() {
                 setCode(problemConfig.getDefaultStarterCode("bash"));
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [workspace]);
+
+    // When workspace loads or changes: fetch problems for this workspace and auto-select first
+    useEffect(() => {
+        let cancelled = false;
+        const wsLangs = problemConfig.getLanguagesForWorkspace(workspace) as ProblemLanguage[];
+        const fetchAndSelect = async () => {
+            try {
+                const data = await listProblems({
+                    languageIn: wsLangs as ProblemLanguage[],
+                    limit: 50,
+                    page: 1,
+                });
+                if (cancelled) return;
+                const allowed = data.problems.filter((p) => wsLangs.includes(p.language));
+                allowed.sort((a, b) => {
+                    const da = problemConfig.DIFFICULTY_ORDER[a.difficulty as keyof typeof problemConfig.DIFFICULTY_ORDER];
+                    const db = problemConfig.DIFFICULTY_ORDER[b.difficulty as keyof typeof problemConfig.DIFFICULTY_ORDER];
+                    if (da !== db) return da - db;
+                    return a.id.localeCompare(b.id);
+                });
+                setVisibleProblems(allowed);
+                if (allowed.length > 0) {
+                    const preferredId = initialProblemIdRef.current;
+                    const match = preferredId ? allowed.find((p) => p.id === preferredId) : null;
+                    if (match) {
+                        const initialCode = initialCodeRef.current;
+                        initialProblemIdRef.current = null;
+                        initialCodeRef.current = null;
+                        void handleSelectProblem(match, { initialCode });
+                    } else {
+                        void handleSelectProblem(allowed[0]);
+                    }
+                }
+            } catch (err) {
+                if (!cancelled) console.error("Failed to fetch problems for workspace", err);
+            }
+        };
+        void fetchAndSelect();
+        return () => {
+            cancelled = true;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workspace]);
 
@@ -893,44 +977,38 @@ export default function Editor() {
     return (
         <div className="editor-page">
 
-            {/* Sidebar Component - base (desktop) */}
-            <div className="editor-sidebar-desktop">
-                <Sidebar
-                    selectedProblemId={selectedProblem?.id ?? null}
-                    onSelectProblem={handleSelectProblem}
-                    onProblemsLoaded={(problems, ws) => {
-                        if (ws !== workspace) return;
-                        setVisibleProblems(problems);
-                        if (!problems.length) {
-                            setSelectedProblem(null);
-                            setProblemTitle("");
-                            setProblemDescription("");
-                            return;
-                        }
-                        const preferredId = initialProblemIdRef.current;
-                        if (preferredId) {
-                            const match = problems.find((p) => p.id === preferredId);
-                            if (match) {
-                                void handleSelectProblem(match, { initialCode: initialCodeRef.current });
-                                initialProblemIdRef.current = null;
-                                initialCodeRef.current = null;
-                                return;
-                            }
-                        }
-                        const stillVisible = selectedProblem && problems.some(p => p.id === selectedProblem.id);
-                        if (!stillVisible) {
-                            void handleSelectProblem(problems[0]);
-                        }
-                    }}
-                    completionStatuses={completionStatuses}
-                    workspace={workspace}
-                    showHeader={true}
-                />
-            </div>
-
-            {/* Main Resizable Area */}
             <div className="editor-main">
                 <AppHeader>
+                    <ProblemDropdown
+                        isOpen={isSidebarOverlayOpen}
+                        onOpenChange={setIsSidebarOverlayOpen}
+                        selectedProblemId={selectedProblem?.id ?? null}
+                        onSelectProblem={handleSelectProblem}
+                        onProblemsLoaded={(problems, ws) => {
+                            if (ws !== workspace) return;
+                            setVisibleProblems(problems);
+                            if (!problems.length) {
+                                setSelectedProblem(null);
+                                setProblemTitle("");
+                                setProblemDescription("");
+                                setProblemSolution(null);
+                                return;
+                            }
+                            const preferredId = initialProblemIdRef.current;
+                            if (preferredId) {
+                                const match = problems.find((p) => p.id === preferredId);
+                                if (match) {
+                                    void handleSelectProblem(match, { initialCode: initialCodeRef.current });
+                                    initialProblemIdRef.current = null;
+                                    initialCodeRef.current = null;
+                                }
+                            }
+                            // Do not auto-change selection when filters change; only when user clicks a problem
+                        }}
+                        completionStatuses={completionStatuses}
+                        workspace={workspace}
+                    />
+
                     {/* Workspace selector (dropdown) */}
                     <div style={{}}>
                         <select
@@ -945,19 +1023,6 @@ export default function Editor() {
                             ))}
                         </select>
                     </div>
-
-                    <ProblemDropdown
-                        isOpen={isSidebarOverlayOpen}
-                        onOpenChange={setIsSidebarOverlayOpen}
-                        selectedProblemId={selectedProblem?.id ?? null}
-                        onSelectProblem={handleSelectProblem}
-                        onProblemsLoaded={(problems, ws) => {
-                            if (ws !== workspace) return;
-                            setVisibleProblems(problems);
-                        }}
-                        completionStatuses={completionStatuses}
-                        workspace={workspace}
-                    />
 
                     <span style={{ marginLeft: "0.75rem" }}>Editor Workspace</span>
                     <div className="editor-header-status-row">
@@ -990,34 +1055,50 @@ export default function Editor() {
                                 return "Unsaved";
                             })()}
                         </span>
-                        {WORKSPACES[workspace]?.allowLanguageSwitch && (
-                            <select
-                                value={selectedLanguage}
-                                disabled={lockedLanguage !== null}
-                                onChange={(e) => {
-                                    const next = e.target.value;
-                                    setSelectedLanguage(next);
-                                    setCode(problemConfig.getDefaultStarterCode(next));
-                                    setLockedLanguage(null);
-                                }}
-                                style={{
-                                    padding: "0.2rem 0.7rem",
-                                    borderRadius: "999px",
-                                    border: "1px solid var(--border-color)",
-                                    backgroundColor: "var(--bg-primary)",
-                                    color: "var(--text-primary)",
-                                    cursor: lockedLanguage ? "not-allowed" : "pointer",
-                                    opacity: lockedLanguage ? 0.7 : 1,
-                                }}
-                            >
-                                {TERMINAL_LANGUAGES.map((lang) => (
-                                    <option key={lang.id} value={lang.id}>
-                                        {lang.name}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                        {WORKSPACES[workspace]?.isGpu && (
+                        {WORKSPACES[workspace]?.allowLanguageSwitch && (() => {
+                            const languageOptions = WORKSPACES[workspace]?.isGpu
+                                ? (problemConfig.getLanguagesForWorkspace(workspace) as string[]).filter((id) => id !== "any").map((id) => ({
+                                    id,
+                                    name: (problemConfig.PROBLEM_LANGUAGES as Record<string, { label?: string }>)[id]?.label ?? id,
+                                }))
+                                : TERMINAL_LANGUAGES;
+                            const singleLanguage = languageOptions.length <= 1;
+                            return (
+                                <select
+                                    value={selectedLanguage}
+                                    disabled={lockedLanguage !== null}
+                                    onChange={(e) => {
+                                        const next = e.target.value;
+                                        setSelectedLanguage(next);
+                                        setCode(problemConfig.getDefaultStarterCode(next));
+                                        setLockedLanguage(null);
+                                    }}
+                                    style={{
+                                        padding: "0.2rem 0.7rem",
+                                        borderRadius: "999px",
+                                        border: "1px solid var(--border-color)",
+                                        backgroundColor: "var(--bg-primary)",
+                                        color: "var(--text-primary)",
+                                        cursor: lockedLanguage ? "not-allowed" : "pointer",
+                                        opacity: lockedLanguage ? 0.7 : 1,
+                                        ...(singleLanguage
+                                            ? {
+                                                appearance: "none" as const,
+                                                WebkitAppearance: "none" as const,
+                                                MozAppearance: "none" as const,
+                                            }
+                                            : {}),
+                                    }}
+                                >
+                                    {languageOptions.map((lang) => (
+                                        <option key={lang.id} value={lang.id}>
+                                            {lang.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            );
+                        })()}
+                        {WORKSPACES[workspace]?.isGpu && !WORKSPACES[workspace]?.allowLanguageSwitch && (
                             <div
                                 style={{
                                     ...primaryPillSelected,
@@ -1034,347 +1115,17 @@ export default function Editor() {
                     {/* Middle: Problem Description */}
                     {!isTerminalExpanded && (
                     <Panel defaultSize={30} minSize={20}>
-                        <div
-                            className="problem-description"
-                            style={{
-                                padding: "2rem",
-                                height: "100%",
-                                overflowY: "auto",
-                                boxSizing: "border-box",
-                                fontSize: "1rem",
-                                lineHeight: 1.6,
-                            }}
-                        >
-                            {selectedProblem && (
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "stretch",
-                                        marginBottom: "0.75rem",
-                                        paddingBottom: "0.5rem",
-                                        borderBottom: "1px solid rgba(148,163,184,0.4)",
-                                        overflow: "hidden",
-                                    }}
-                                >
-                                    {/* Previous slot (keeps layout even if empty) */}
-                                    <div style={{ flex: 1, display: "flex" }}>
-                                        {(() => {
-                                            const idx = visibleProblems.findIndex(p => p.id === selectedProblem.id);
-                                            if (idx <= 0) {
-                                                return (
-                                                    <div style={{ visibility: "hidden", pointerEvents: "none" }}>
-                                                        <button />
-                                                    </div>
-                                                );
-                                            }
-                                            const prev = visibleProblems[idx - 1];
-                                            const prevCompleted = completionStatuses[prev.id];
-                                            const diffColors = DIFFICULTY_TAG_STYLES[prev.difficulty];
-                                            const truncateTitle = (title: string) =>
-                                                title.length > 22 ? `${title.slice(0, 22)}...` : title;
-                                            return (
-                                                <button
-                                                    onClick={() => void handleSelectProblem(prev)}
-                                                    className="editor-problem-nav-button"
-                                                >
-                                                    <div className="editor-problem-nav-meta">
-                                                        <span style={{ fontSize: "0.9rem" }}>← Previous</span>
-                                                        <span
-                                                            className="editor-difficulty-pill-small"
-                                                            style={{
-                                                                backgroundColor: diffColors.bg,
-                                                                color: diffColors.text,
-                                                            }}
-                                                        >
-                                                            {prev.difficulty}
-                                                        </span>
-                                                        {prevCompleted && (
-                                                            <span
-                                                                className="editor-completion-pill"
-                                                                style={{
-                                                                    backgroundColor:
-                                                                        prevCompleted === "completed"
-                                                                            ? "var(--status-completed-bg)"
-                                                                            : "var(--status-attempted-bg)",
-                                                                    color:
-                                                                        prevCompleted === "completed"
-                                                                            ? "var(--status-completed-text)"
-                                                                            : "var(--status-attempted-text)",
-                                                                    border: `1px solid ${
-                                                                        prevCompleted === "completed"
-                                                                            ? "var(--status-completed-border)"
-                                                                            : "var(--status-attempted-border)"
-                                                                    }`,
-                                                                }}
-                                                            >
-                                                                {prevCompleted === "completed" ? "+" : "-"}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="editor-problem-nav-title">
-                                                        {truncateTitle(prev.title)}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })()}
-                                    </div>
-                                    {/* Next slot (right aligned) */}
-                                    <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
-                                        {(() => {
-                                            const idx = visibleProblems.findIndex(p => p.id === selectedProblem.id);
-                                            if (idx === -1 || idx >= visibleProblems.length - 1) {
-                                                return (
-                                                    <div style={{ visibility: "hidden", pointerEvents: "none" }}>
-                                                        <button />
-                                                    </div>
-                                                );
-                                            }
-                                            const next = visibleProblems[idx + 1];
-                                            const nextCompleted = completionStatuses[next.id];
-                                            const diffColors = DIFFICULTY_TAG_STYLES[next.difficulty];
-                                            const truncateTitle = (title: string) =>
-                                                title.length > 22 ? `${title.slice(0, 22)}...` : title;
-                                            return (
-                                                <button
-                                                    onClick={() => void handleSelectProblem(next)}
-                                                    className="editor-problem-nav-button"
-                                                >
-                                                    <div className="editor-problem-nav-meta">
-                                                        <span style={{ fontSize: "0.9rem" }}>Next →</span>
-                                                        <span
-                                                            className="editor-difficulty-pill-small"
-                                                            style={{
-                                                                backgroundColor: diffColors.bg,
-                                                                color: diffColors.text,
-                                                            }}
-                                                        >
-                                                            {next.difficulty}
-                                                        </span>
-                                                        {nextCompleted && (
-                                                            <span
-                                                                className="editor-completion-pill"
-                                                                style={{
-                                                                    backgroundColor:
-                                                                        nextCompleted === "completed"
-                                                                            ? "var(--status-completed-bg)"
-                                                                            : "var(--status-attempted-bg)",
-                                                                    color:
-                                                                        nextCompleted === "completed"
-                                                                            ? "var(--status-completed-text)"
-                                                                            : "var(--status-attempted-text)",
-                                                                    border: `1px solid ${
-                                                                        nextCompleted === "completed"
-                                                                            ? "var(--status-completed-border)"
-                                                                            : "var(--status-attempted-border)"
-                                                                    }`,
-                                                                }}
-                                                            >
-                                                                {nextCompleted === "completed" ? "+" : "-"}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="editor-problem-nav-title">
-                                                        {truncateTitle(next.title)}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-                            )}
-                            <div
-                                style={{
-                                    marginBottom: "1.1rem",
-                                }}
-                            >
-                                <h3
-                                    style={{
-                                        margin: 0,
-                                        fontSize: "1.3rem",
-                                        letterSpacing: "0.02em",
-                                        wordBreak: "break-word",
-                                    }}
-                                >
-                                    {problemTitle || "Select a problem"}
-                                </h3>
-                                {selectedProblem && (
-                                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-                                        {(() => {
-                                            const diffColors = DIFFICULTY_TAG_STYLES[selectedProblem.difficulty];
-                                            return (
-                                                <span
-                                                    style={{
-                                                        padding: "0.2rem 0.7rem",
-                                                        borderRadius: "999px",
-                                                        fontSize: "0.8rem",
-                                                        textTransform: "uppercase",
-                                                        letterSpacing: "0.08em",
-                                                        backgroundColor: diffColors.bg,
-                                                        color: diffColors.text,
-                                                    }}
-                                                >
-                                                    {selectedProblem.difficulty}
-                                                </span>
-                                            );
-                                        })()}
-                                        {completionStatuses[selectedProblem.id] && (
-                                            <span
-                                                style={{
-                                                    padding: "0.2rem 0.7rem",
-                                                    borderRadius: "999px",
-                                                    fontSize: "0.8rem",
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: "0.08em",
-                                                    backgroundColor:
-                                                        completionStatuses[selectedProblem.id] === "completed"
-                                                            ? "var(--status-completed-bg)"
-                                                            : "var(--status-attempted-bg)",
-                                                    color:
-                                                        completionStatuses[selectedProblem.id] === "completed"
-                                                            ? "var(--status-completed-text)"
-                                                            : "var(--status-attempted-text)",
-                                                    border: `1px solid ${
-                                                        completionStatuses[selectedProblem.id] === "completed"
-                                                            ? "var(--status-completed-border)"
-                                                            : "var(--status-attempted-border)"
-                                                    }`,
-                                                }}
-                                            >
-                                                {completionStatuses[selectedProblem.id] === "completed" ? "Completed" : "Attempted"}
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            {(() => {
-                                if (!problemDescription) {
-                                    return <p>Choose a problem from the left to view its description.</p>;
-                                }
-
-                                const hintsMatch = problemDescription.match(/\{hints:\s*([^}]+)\}/i);
-                                const hintsText = hintsMatch ? hintsMatch[1].trim() : "";
-                                const mainText = hintsMatch
-                                    ? problemDescription.replace(hintsMatch[0], "").trim()
-                                    : problemDescription;
-
-                                const renderRichText = (text: string) => {
-                                    const parts = text.split(/```/);
-                                    const nodes: React.ReactNode[] = [];
-                                    parts.forEach((part, idx) => {
-                                        if (idx % 2 === 1) {
-                                            // code block
-                                            nodes.push(
-                                                <pre
-                                                    key={`code-${idx}`}
-                                                    style={{
-                                                        backgroundColor: "var(--bg-tertiary)",
-                                                        padding: "0.75rem 1rem",
-                                                        borderRadius: "6px",
-                                                        overflowX: "auto",
-                                                        fontSize: "0.9rem",
-                                                    }}
-                                                >
-                                                    <code>{part.trim()}</code>
-                                                </pre>
-                                            );
-                                        } else {
-                                            const paragraphs = part.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-                                            paragraphs.forEach((p, pIdx) => {
-                                                const raw = p;
-                                                const lower = raw.toLowerCase();
-
-                                                if (lower.startsWith("input:") || lower.startsWith("output:")) {
-                                                    const [label, ...restParts] = raw.split(":");
-                                                    const rest = restParts.join(":").trim();
-                                                    nodes.push(
-                                                        <div
-                                                            key={`io-${idx}-${pIdx}`}
-                                                            style={{
-                                                                margin: "1rem 0 0.75rem",
-                                                                padding: "0.6rem 0.8rem",
-                                                                borderRadius: "6px",
-                                                                backgroundColor: "rgba(148, 163, 184, 0.12)",
-                                                                border: "1px solid var(--border-color)",
-                                                                display: "flex",
-                                                                alignItems: "baseline",
-                                                                gap: "0.5rem",
-                                                                fontSize: "1.02rem",
-                                                            }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    fontWeight: 650,
-                                                                    textTransform: "uppercase",
-                                                                    letterSpacing: "0.06em",
-                                                                    fontSize: "0.9rem",
-                                                                }}
-                                                            >
-                                                                {label}:
-                                                            </span>
-                                                            {rest && <span>{rest}</span>}
-                                                        </div>
-                                                    );
-                                                } else {
-                                                    const withBold = raw.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-                                                    const withItalics = withBold.replace(/\*(.+?)\*/g, "<em>$1</em>");
-                                                    nodes.push(
-                                                        <p
-                                                            key={`p-${idx}-${pIdx}`}
-                                                            style={{ marginBottom: "0.9rem" }}
-                                                            dangerouslySetInnerHTML={{ __html: withItalics }}
-                                                        />
-                                                    );
-                                                }
-                                            });
-                                        }
-                                    });
-                                    return nodes;
-                                };
-
-                                return (
-                                    <>
-                                        {mainText && renderRichText(mainText)}
-                                        {hintsText && (
-                                            <details
-                                                style={{
-                                                    marginTop: "1.25rem",
-                                                    borderTop: "1px dashed var(--border-color)",
-                                                    paddingTop: "0.75rem",
-                                                }}
-                                            >
-                                                <summary
-                                                    style={{
-                                                        cursor: "pointer",
-                                                        display: "inline-flex",
-                                                        alignItems: "center",
-                                                        padding: "0.35rem 0.7rem",
-                                                        borderRadius: "999px",
-                                                        backgroundColor: "rgba(56, 189, 248, 0.18)",
-                                                        color: "var(--text-primary)",
-                                                        fontWeight: 600,
-                                                        fontSize: "0.95rem",
-                                                    }}
-                                                >
-                                                    Show hint
-                                                </summary>
-                                                <div
-                                                    style={{
-                                                        marginTop: "0.75rem",
-                                                        fontSize: "0.95rem",
-                                                        backgroundColor: "rgba(15, 23, 42, 0.7)",
-                                                        borderRadius: "6px",
-                                                        padding: "0.75rem 1rem",
-                                                    }}
-                                                >
-                                                    {hintsText}
-                                                </div>
-                                            </details>
-                                        )}
-                                    </>
-                                );
-                            })()}
-                        </div>
+                        <ProblemDescription
+                            selectedProblem={selectedProblem}
+                            problemTitle={problemTitle}
+                            problemDescription={problemDescription}
+                            visibleProblems={visibleProblems}
+                            completionStatuses={completionStatuses}
+                            onSelectProblem={(p) => void handleSelectProblem(p)}
+                            lastValidationResult={lastValidationResult}
+                            codeTheme={workspaceDefinition.codeTheme}
+                            solution={problemSolution}
+                        />
                     </Panel>
                     )}
 
@@ -1392,6 +1143,7 @@ export default function Editor() {
                                         onChange={handleCodeChange}
                                         onRun={handleRunCode}
                                         theme={workspaceDefinition.codeTheme}
+                                        language={selectedLanguage}
                                         isRunning={isRunning}
                                         isCreatingContainer={isCreatingContainer}
                                         isValidating={isValidating}
@@ -1411,8 +1163,8 @@ export default function Editor() {
                                     showWebGpuTab={workspaceDefinition.showWebGpuTab}
                                     activeView={activeCudaView}
                                     onActiveViewChange={setActiveCudaView}
-                                    terminalContainerRef={terminalContainerRef as any}
-                                    webgpuCanvasRef={webgpuCanvasRef as any}
+                                    terminalContainerRef={terminalContainerRef}
+                                    webgpuCanvasRef={webgpuCanvasRef}
                                 />
                             </Panel>
 
