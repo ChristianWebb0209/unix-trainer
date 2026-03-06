@@ -1,49 +1,39 @@
 # LSP in the Browser – Implementation Plan
 
-## Static completions vs LSP (why we have both)
+## IntelliSense: LSP only (static completions removed)
 
-**What we have now (static completion files):**
+**Current approach:**
 
-- **CodeMirror** does not provide completion *content* by itself. It only provides the UI (popup, keyboard handling) and helpers like `completeFromList(list)`.
-- **Our completion files** (e.g. `server/src/data/completions/awk_completions.json`) are the *source* of that list: keywords, builtins, variables. We fetch them via `GET /api/editor-completions/:language` and pass them to `completeFromList()`.
-- So: **our JSON + API = the completions**. CodeMirror just displays them. No language server involved.
+- **Static completion files and the editor-completions API have been removed.** Completions, hover, diagnostics, and go-to-definition are provided **only** by the Language Server Protocol (LSP).
+- The editor uses **`@codemirror/lsp-client`** and connects to an LSP running inside the user’s container via a WebSocket bridge. When the container is ready and the LSP has started, the user gets full IntelliSense (semantic completions, hover, diagnostics, go-to-definition).
+- **There is no fallback list:** if the container isn’t ready or LSP isn’t connected yet, the user simply waits a moment for the LSP to load. No static keyword/builtin list is shown in the meantime.
 
-**What LSP would add:**
+**What LSP provides:**
 
 - **Semantic** completions (variables in scope, function signatures from real parsing).
 - **Hover** docs (from the language server).
 - **Go to definition** (e.g. Ctrl+Click).
 - **Diagnostics** (squiggles, errors/warnings).
-- Completions can be **context-aware** (e.g. after `str.` show string methods).
-
-**Can we do both?**
-
-Yes. Use **LSP when the WebSocket to the container’s LSP is connected**, and **keep static completions as fallback** when:
-
-- The container isn’t ready yet.
-- LSP isn’t running for that language.
-- The user hasn’t started a run (no container).
-
-So: LSP = “real” IntelliSense when available; static completions = instant, no-container-required list (keywords/builtins/variables). They complement each other.
+- **Context-aware** completions (e.g. after `str.` show string methods).
 
 ---
 
-## Architecture (target)
+## Architecture (implemented)
 
 ```
 Browser
   CodeMirror
-    ├── Static completions (current): fetchEditorCompletions → completeFromList  [always]
     └── LSP client (@codemirror/lsp-client)
-          ↓ WebSocket
-  Node (your backend or same Docker container)
-    LSP WebSocket proxy (stdio ↔ WebSocket)
-          ↓ stdio
-  Language server process (bashls / clangd / rust-analyzer)
+          ↓ WebSocket  ws://host/api/containers/:id/lsp?language=…
+  Node backend
+    LSP WebSocket handler (stdio ↔ WebSocket via docker exec)
+          ↓ docker exec -i … node /workspace/lsp-proxy.js <language>
+  Container
+    LSP process (bash-language-server / clangd / rust-analyzer)
 ```
 
-- One **LSP per language** (or one multi-language setup) inside the **same user container** you already use for runs.
-- Backend (or a small proxy in the container) exposes a **WebSocket endpoint** that the browser connects to; the proxy talks to the LSP over stdio.
+- One **LSP per (container, language)**. The backend runs `lsp-proxy.js` inside the container via `docker exec` and bridges the exec stdio stream to the browser WebSocket.
+- Docker images (systems / gpu) include the LSPs and `lsp-proxy.js`; the backend does not run LSPs on the host.
 
 ---
 
@@ -93,17 +83,12 @@ Browser
      - Create `LSPClient` and connect the transport.
      - Add `client.plugin("file:///workspace/main.<ext>")` (or a virtual path the LSP expects) to CodeMirror’s extensions.
    - When the user **doesn’t** have a container or LSP isn’t available:
-     - Don’t add the LSP plugin; keep only static completions (current behavior).
+     - Don’t add the LSP plugin; the user has no IntelliSense until a container is ready and LSP connects (they may see a short load delay).
 
 4. **Sync document with LSP:**
-   - On `onChange`, send `textDocument/didChange` (the lsp-client usually handles this when you use its plugin with the same document). Ensure the virtual file URI and language match what the LSP server expects.
+   - The lsp-client plugin syncs the document (didOpen/didChange) when bound to the editor; the virtual file URI is `file:///workspace/main.<ext>` and the language ID matches the LSP server.
 
-5. **Keep static completions as fallback:**
-   - When LSP is active, you can either:
-     - Rely on LSP for completions only and remove `autocompletion({ override: [completeFromList(...)] })` for that session, or
-     - Merge both: use LSP as primary and add static completions as an extra source so that even if LSP is slow or misses something, keywords/builtins still show. (Simplest: keep current static completion extension always; LSP will add its own completion source.)
-
-**Deliverable:** In the editor, when a container is running and LSP is connected, you get LSP-driven completions, hover, diagnostics, and go-to-definition; when not, you still get static completions only.
+**Deliverable:** In the editor, when a container is running and LSP is connected, you get LSP-driven completions, hover, diagnostics, and go-to-definition; when not, there is no completion fallback—users wait for LSP to load.
 
 ---
 
@@ -126,25 +111,24 @@ Browser
 4. **Optional: “LSP only when running” vs “LSP when container is ready”:**
    - You can start the container (and LSP) when the user opens the editor, or only when they click Run. Trade-off: faster IntelliSense vs. fewer idle containers.
 
-**Deliverable:** Switching language or container correctly connects/disconnects LSP; static completions still work when LSP is unavailable.
+**Deliverable:** Switching language or container correctly connects/disconnects LSP; when LSP is unavailable, no completions are shown until it connects.
 
 ---
 
 ### Phase 4: Polish and robustness
 
 - **Reconnect:** If the WebSocket drops, optionally reconnect and re-open the document.
-- **Timeouts:** If LSP doesn’t respond in N seconds, fall back to static-only (no blocking).
-- **Errors:** If LSP crashes or returns errors, don’t break the editor; keep static completions and optionally show a “LSP unavailable” hint.
+- **Timeouts:** If LSP doesn’t respond in N seconds, don’t block the editor; optionally show “LSP connecting…” or “LSP unavailable”.
+- **Errors:** If LSP crashes or returns errors, don’t break the editor; optionally show a “LSP unavailable” hint.
 - **Docs:** Document which languages have LSP and how to add new ones (install in container + wire in backend + client).
 
 ---
 
 ## Summary
 
-| Piece              | Purpose |
-|--------------------|--------|
-| **Completion JSON + API** | Static list (keywords, builtins, variables); works with no container; CodeMirror shows them via `completeFromList`. |
-| **LSP in container**      | Real IntelliSense (semantic completions, hover, go-to-definition, diagnostics). |
-| **Both together**         | LSP when connected; static completions as fallback and for languages without LSP. |
+| Piece                 | Purpose |
+|-----------------------|--------|
+| **LSP in container**  | Only source of IntelliSense (completions, hover, go-to-definition, diagnostics). No static completion files. |
+| **WebSocket bridge**  | Backend bridges browser ↔ container LSP stdio via `docker exec` and `lsp-proxy.js`. |
 
-**Suggested order:** Implement Phase 1 (proxy + one LSP, e.g. bash) and Phase 2 (client + Transport + plugin in CodeEditorPane) first. Then add more languages and lifecycle (Phase 3) and finally polish (Phase 4).
+**Status:** Phases 1–3 are implemented (LSP proxy in containers, backend WebSocket, client `@codemirror/lsp-client` and lifecycle). Phase 4 (reconnect, timeouts, “LSP unavailable” hints) can be added as polish.

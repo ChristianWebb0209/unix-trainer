@@ -1,12 +1,19 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { cpp } from "@codemirror/lang-cpp";
 import { rust } from "@codemirror/lang-rust";
 import { StreamLanguage, indentUnit } from "@codemirror/language";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
+import { LSPClient, languageServerExtensions } from "@codemirror/lsp-client";
 import type { Extension } from "@codemirror/state";
 import type { CSSProperties } from "react";
 import * as problemConfig from "problem-config";
+import { simpleWebSocketTransport } from "../../services/lspTransport";
+import {
+    isLspSupported,
+    getLspFileUri,
+    getLspLanguageId,
+} from "../../services/lspFileUri";
 
 const shellLanguage = StreamLanguage.define(shell);
 
@@ -18,6 +25,12 @@ function getLanguageExtension(lang: string): Extension[] {
     }
     if ((problemConfig.C_LIKE_LANGUAGE_IDS as readonly string[]).includes(id)) return [cpp()];
     return [cpp()];
+}
+
+function getLspWebSocketUrl(containerId: string, language: string): string {
+    const protocol = typeof window !== "undefined" && window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = typeof window !== "undefined" ? window.location.host : "localhost:3000";
+    return `${protocol}//${host}/api/containers/${containerId}/lsp?language=${encodeURIComponent(language)}`;
 }
 
 type CodeEditorPaneProps = {
@@ -45,7 +58,51 @@ export function CodeEditorPane({
     isValidating,
     runButtonStyle,
 }: CodeEditorPaneProps) {
-    const extensions = useMemo(() => getLanguageExtension(language), [language]);
+    const [lspExtension, setLspExtension] = useState<Extension | null>(null);
+    const lspClientRef = useRef<LSPClient | null>(null);
+
+    useEffect(() => {
+        if (!containerId || !language || !isLspSupported(language)) {
+            if (lspClientRef.current) {
+                lspClientRef.current.disconnect();
+                lspClientRef.current = null;
+            }
+            setLspExtension(null);
+            return;
+        }
+
+        const uri = getLspFileUri(language);
+        const languageId = getLspLanguageId(language);
+        const url = getLspWebSocketUrl(containerId, language);
+
+        let cancelled = false;
+        simpleWebSocketTransport(url)
+            .then((transport) => {
+                if (cancelled) return;
+                const client = new LSPClient({
+                    extensions: languageServerExtensions(),
+                }).connect(transport);
+                lspClientRef.current = client;
+                setLspExtension(client.plugin(uri, languageId));
+            })
+            .catch((err) => {
+                if (!cancelled) console.warn("[LSP] Failed to connect:", err);
+            });
+
+        return () => {
+            cancelled = true;
+            if (lspClientRef.current) {
+                lspClientRef.current.disconnect();
+                lspClientRef.current = null;
+            }
+            setLspExtension(null);
+        };
+    }, [containerId, language]);
+
+    const extensions = useMemo(() => {
+        const base = getLanguageExtension(language);
+        return lspExtension ? [...base, lspExtension] : base;
+    }, [language, lspExtension]);
 
     const renderLabel = () => {
         if (isValidating) return "Validating...";
