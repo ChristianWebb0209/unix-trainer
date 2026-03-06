@@ -1,24 +1,30 @@
 declare module "problem-config" {
+  export const DIFFICULTIES: Array<"learn" | "easy" | "medium" | "hard">;
+  export type Difficulty = (typeof DIFFICULTIES)[number];
+
+  export const PROBLEM_LANGUAGE_IDS: Array<"bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any">;
+  export type ProblemLanguage = (typeof PROBLEM_LANGUAGE_IDS)[number];
+  export const C_LIKE_LANGUAGE_IDS: Array<"c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl">;
+  export const SHELL_LANGUAGE_IDS: Array<"bash" | "awk" | "unix">;
+
   export interface SharedWorkspace {
-    id: "unix" | "cuda";
+    id: "systems" | "gpu";
     label: string;
-    defaultProblemLanguage: "bash" | "awk" | "unix" | "cuda";
-    problemLanguages: Array<"bash" | "awk" | "unix" | "cuda" | "any">;
+    defaultProblemLanguage: "bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl";
+    problemLanguages: Array<"bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any">;
     dockerImageName: string;
     dockerfileName: string;
-    kind: "shell" | "gpu" | string;
+    kind: string;
     allowLanguageSwitch: boolean;
     showWebGpuTab: boolean;
     codeThemeKey: string;
   }
 
-  export const DIFFICULTIES: Array<"learn" | "easy" | "medium" | "hard">;
   export const DIFFICULTY_ORDER: Record<"learn" | "easy" | "medium" | "hard", number>;
-  export const WORKSPACES: Record<"unix" | "cuda", SharedWorkspace>;
-  export const PROBLEM_LANGUAGE_IDS: Array<"bash" | "awk" | "unix" | "cuda" | "any">;
+  export const WORKSPACES: Record<"systems" | "gpu", SharedWorkspace>;
   export const PROBLEM_LANGUAGES: Record<
-    "bash" | "awk" | "unix" | "cuda" | "any",
-    { id: "bash" | "awk" | "unix" | "cuda" | "any"; label: string; workspace: "unix" | "cuda" | null }
+    "bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any",
+    { id: "bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any"; label: string; workspace: "systems" | "gpu" | null; docs: string | null }
   >;
   export const DEFAULT_WORKSPACE: string;
   export const CODE_EDITOR_THEME_SPECS: Record<
@@ -31,6 +37,7 @@ declare module "problem-config" {
       gutterColor: string;
       gutterBorder: string;
       fontFamily: string;
+      commentColor?: string;
     } | null
   >;
   export const DEFAULT_STARTER_CODE: Record<string, string>;
@@ -41,14 +48,14 @@ declare module "problem-config" {
     inputBase64: string
   ): string;
 
-  export function getWorkspaceIds(): Array<"unix" | "cuda">;
-  export function getWorkspace(id: "unix" | "cuda"): SharedWorkspace | null;
+  export function getWorkspaceIds(): Array<"systems" | "gpu">;
+  export function getWorkspace(id: "systems" | "gpu"): SharedWorkspace | null;
   export function getLanguagesForWorkspace(
-    id: "unix" | "cuda"
-  ): Array<"bash" | "awk" | "unix" | "cuda" | "any">;
-  export function getAllProblemLanguageIds(): Array<"bash" | "awk" | "unix" | "cuda" | "any">;
+    id: "systems" | "gpu"
+  ): Array<"bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any">;
+  export function getAllProblemLanguageIds(): Array<"bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any">;
   export function getWorkspacesForLanguage(
-    langId: "bash" | "awk" | "unix" | "cuda" | "any"
-  ): Array<"unix" | "cuda">;
+    langId: "bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any"
+  ): Array<"systems" | "gpu">;
 }
 
