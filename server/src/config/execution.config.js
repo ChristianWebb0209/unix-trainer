@@ -20,7 +20,12 @@ export const LANGUAGE_CONFIG = Object.freeze({
     alpine: { shell: '/bin/sh', displayName: 'Alpine' },
     python: { shell: '/bin/sh', displayName: 'Python' },
   javascript: { shell: '/bin/sh', displayName: 'JavaScript' },
+  c: { shell: '/bin/sh', displayName: 'C' },
+  cpp: { shell: '/bin/sh', displayName: 'C++' },
+  rust: { shell: '/bin/sh', displayName: 'Rust' },
   cuda: { shell: '/bin/sh', displayName: 'CUDA' },
+  vulkan: { shell: '/bin/sh', displayName: 'Vulkan' },
+  sycl: { shell: '/bin/sh', displayName: 'SYCL' },
 });
 
 // Map problem ID prefixes to languages
@@ -31,5 +36,10 @@ export const LANGUAGE_BY_PREFIX = Object.freeze({
     'py': 'python',
     'js': 'javascript',
   'alpine': 'alpine',
+  'c': 'c',
+  'cpp': 'cpp',
+  'rust': 'rust',
   'cuda': 'cuda',
+  'vulkan': 'vulkan',
+  'sycl': 'sycl',
 });

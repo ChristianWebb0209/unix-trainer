@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { primaryPillSelected, primaryPillUnselected } from "../../uiStyles";
 
@@ -64,7 +64,7 @@ export default function AppHeader({ children }: AppHeaderProps) {
       </button>
 
       <button
-        onClick={() => navigate("/editor/unix")}
+        onClick={() => navigate("/editor/systems")}
         style={{
           ...editorStyle,
           display: "flex",

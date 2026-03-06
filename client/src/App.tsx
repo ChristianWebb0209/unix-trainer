@@ -16,7 +16,7 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/account" element={<Account />} />
       <Route path="/choose-technology" element={<ChooseTechnology />} />
-      <Route path="/editor" element={<Navigate to="/editor/unix" replace />} />
+      <Route path="/editor" element={<Navigate to="/editor/systems" replace />} />
       <Route path="/editor/:workspace" element={<Editor />} />
     </Routes>
   )

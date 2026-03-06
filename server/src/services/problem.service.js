@@ -50,7 +50,7 @@ export class ProblemService {
         }
         const { data, error } = await supabaseAdmin
             .from('problems')
-            .select('id,title,instructions,difficulty,language,tests,starter_code')
+            .select('id,title,instructions,solution,difficulty,language,tests,starter_code,validation')
             .eq('id', problemId)
             .single();
         if (error) {
@@ -60,6 +60,7 @@ export class ProblemService {
         return {
             ...data,
             starterCode: data.starter_code ?? null,
+            solution: data.solution ?? null,
         };
     }
 
@@ -116,6 +117,9 @@ export class ProblemService {
         }
         if (filters.type) {
             queryBuilder = queryBuilder.eq('language', filters.type);
+        }
+        if (filters.languageIn && Array.isArray(filters.languageIn) && filters.languageIn.length > 0) {
+            queryBuilder = queryBuilder.in('language', filters.languageIn);
         }
 
         const from = (pagination.page - 1) * pagination.limit;

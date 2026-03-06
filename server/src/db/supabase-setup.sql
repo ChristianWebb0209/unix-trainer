@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.problems (
     id VARCHAR(50) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     instructions TEXT NOT NULL,
+    solution TEXT DEFAULT NULL,
     difficulty VARCHAR(20) NOT NULL CHECK (difficulty IN ('learn', 'easy', 'medium', 'hard')),
     language VARCHAR(50) NOT NULL,
     tests JSONB NOT NULL DEFAULT '[]'::jsonb,

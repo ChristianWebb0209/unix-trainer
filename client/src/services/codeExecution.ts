@@ -5,7 +5,7 @@
  * to run in the terminal. Designed for dynamic language support.
  */
 
-export type SupportedLanguage = "unix" | "awk" | "bash" | "cuda";
+export type SupportedLanguage = "unix" | "awk" | "bash" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl";
 
 // Shared problem configuration (ESM module at repo root)
 import * as problemConfig from "problem-config";
@@ -44,6 +44,16 @@ export function buildRunCommand(language: SupportedLanguage, code: string): stri
       return `echo '${escaped}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
     case "cuda":
       return `echo '${escaped}' | base64 -d > /tmp/main.cu && nvcc /tmp/main.cu -o /tmp/a.out && /tmp/a.out`;
+    case "vulkan":
+      return `echo '${escaped}' | base64 -d > /tmp/main.cpp && g++ -std=c++17 -o /tmp/a.out /tmp/main.cpp -lvulkan && /tmp/a.out`;
+    case "sycl":
+      return `echo '${escaped}' | base64 -d > /tmp/main.cpp && dpcpp -o /tmp/a.out /tmp/main.cpp && /tmp/a.out`;
+    case "c":
+      return `echo '${escaped}' | base64 -d > /tmp/main.c && gcc -o /tmp/a.out /tmp/main.c && /tmp/a.out`;
+    case "cpp":
+      return `echo '${escaped}' | base64 -d > /tmp/main.cpp && g++ -std=c++17 -o /tmp/a.out /tmp/main.cpp && /tmp/a.out`;
+    case "rust":
+      return `echo '${escaped}' | base64 -d > /tmp/main.rs && rustc -o /tmp/a.out /tmp/main.rs && /tmp/a.out`;
     default:
       return `echo '${escaped}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
   }
@@ -91,8 +101,8 @@ export function getTerminalRunPayload(language: SupportedLanguage, code: string)
 }
 
 export const TERMINAL_LANGUAGES: { id: SupportedLanguage; name: string }[] = SUPPORTED
-  // CUDA gets its own workspace pill; keep dropdown focused on shell-y languages.
-  .filter((id) => id !== "cuda")
+  // GPU languages (cuda, vulkan, sycl) use the GPU workspace dropdown only.
+  .filter((id) => id !== "cuda" && id !== "vulkan" && id !== "sycl")
   .map((id) => ({
     id,
     name: problemConfig.PROBLEM_LANGUAGES[id].label || id,

@@ -6,36 +6,29 @@ import { supabaseAdmin } from "../config/supabase.config.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function collectJsonFiles(dir) {
+/**
+ * Collect JSON files directly under dir (no recursion).
+ * Expected: one file per language, e.g. awk.json, bash.json, unix.json, cuda.json, vulkan.json, sycl.json.
+ */
+function collectProblemJsonFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
     const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...collectJsonFiles(fullPath));
-    } else if (entry.isFile() && entry.name.endsWith(".json")) {
-      files.push(fullPath);
-    }
+    files.push(fullPath);
   }
   return files;
 }
 
-function inferDifficulty(filePath) {
-  const lower = filePath.toLowerCase();
-  if (lower.includes(`${path.sep}learn${path.sep}`)) return "learn";
-  if (lower.includes(`${path.sep}easy${path.sep}`)) return "easy";
-  if (lower.includes(`${path.sep}medium${path.sep}`)) return "medium";
-  if (lower.includes(`${path.sep}hard${path.sep}`)) return "hard";
-  return "easy";
-}
-
-function inferLanguage(filePath) {
-  const base = path.basename(filePath).toLowerCase();
-  if (base.includes("awk")) return "awk";
-  if (base.includes("bash")) return "bash";
-  if (base.includes("unix")) return "unix";
-  if (base.includes("cuda")) return "cuda";
-  return "any";
+/**
+ * Infer language from filename: awk.json -> awk, bash.json -> bash, etc.
+ */
+function inferLanguageFromFileName(filePath) {
+  const base = path.basename(filePath, ".json").toLowerCase();
+  const known = ["awk", "bash", "unix", "c", "cpp", "rust", "cuda", "vulkan", "sycl"];
+  return known.includes(base) ? base : "any";
 }
 
 function chunk(arr, size) {
@@ -47,32 +40,34 @@ function chunk(arr, size) {
 export async function seedProblemsToSupabase() {
   if (!supabaseAdmin) {
     console.warn("[ProblemSeeder] supabaseAdmin is not configured; skipping seed.");
-    return { inserted: 0, skipped: 0 };
+    return { synced: 0 };
   }
 
   const dataDir = path.resolve(__dirname, "../data/problems");
   if (!fs.existsSync(dataDir)) {
     console.warn(`[ProblemSeeder] Problems data directory not found: ${dataDir}`);
-    return { inserted: 0, skipped: 0 };
+    return { synced: 0 };
   }
 
-  const files = collectJsonFiles(dataDir);
+  const files = collectProblemJsonFiles(dataDir);
   const rows = [];
 
   for (const filePath of files) {
     try {
-      const raw = fs.readFileSync(filePath, "utf-8");
+      const raw = fs.readFileSync(filePath, "utf-8").trim();
+      if (!raw) continue;
       const parsed = JSON.parse(raw);
       if (!parsed || !Array.isArray(parsed.problems)) continue;
 
-      const inferredDifficulty = inferDifficulty(filePath);
-      const inferredLanguage = inferLanguage(filePath);
+      const fileLanguage = inferLanguageFromFileName(filePath);
 
       for (const p of parsed.problems) {
         if (!p?.id || !p?.title) continue;
         const instructions = String(p.instructions ?? p.description ?? "");
-        const difficulty = String(p.difficulty ?? inferredDifficulty).toLowerCase();
-        const language = String(p.language ?? inferredLanguage).toLowerCase();
+        const solution =
+          typeof p.solution === "string" ? p.solution : null;
+        const difficulty = String(p.difficulty ?? "easy").toLowerCase();
+        const language = String(p.language ?? fileLanguage).toLowerCase();
         const tests = Array.isArray(p.tests) ? p.tests : [];
         const starterCode =
           typeof p.starterCode === "string"
@@ -81,15 +76,20 @@ export async function seedProblemsToSupabase() {
               ? p.starter_code
               : null;
 
-        rows.push({
+        const row = {
           id: p.id,
           title: p.title,
           instructions,
+          solution,
           difficulty,
           language,
           tests,
           starter_code: starterCode,
-        });
+        };
+        if (p.validation != null && typeof p.validation === "object") {
+          row.validation = p.validation;
+        }
+        rows.push(row);
       }
     } catch (err) {
       console.error("[ProblemSeeder] Failed to parse", filePath, err?.message ?? err);
@@ -98,40 +98,23 @@ export async function seedProblemsToSupabase() {
 
   if (rows.length === 0) {
     console.warn("[ProblemSeeder] No problems found in local JSON files.");
-    return { inserted: 0, skipped: 0 };
+    return { synced: 0 };
   }
 
-  // Fetch existing IDs once, then insert only missing (matches "add if not already there")
-  const { data: existingData, error: existingErr } = await supabaseAdmin
-    .from("problems")
-    .select("id");
-
-  if (existingErr) {
-    console.error("[ProblemSeeder] Failed to fetch existing problem IDs:", existingErr.message);
-    return { inserted: 0, skipped: 0 };
-  }
-
-  const existingIds = new Set((existingData ?? []).map((r) => r.id));
-  const missing = rows.filter((r) => !existingIds.has(r.id));
-
-  if (missing.length === 0) {
-    console.log(`[ProblemSeeder] Supabase already has all ${rows.length} problems. Nothing to seed.`);
-    return { inserted: 0, skipped: rows.length };
-  }
-
-  let inserted = 0;
-  for (const batch of chunk(missing, 200)) {
-    const { error } = await supabaseAdmin.from("problems").insert(batch);
+  // Upsert: insert new problems and update existing ones (same id → overwrite with JSON data)
+  let synced = 0;
+  for (const batch of chunk(rows, 100)) {
+    const { error } = await supabaseAdmin
+      .from("problems")
+      .upsert(batch, { onConflict: "id", ignoreDuplicates: false });
     if (error) {
-      console.error("[ProblemSeeder] Insert batch failed:", error.message);
+      console.error("[ProblemSeeder] Upsert batch failed:", error.message);
       continue;
     }
-    inserted += batch.length;
+    synced += batch.length;
   }
 
-  console.log(
-    `[ProblemSeeder] Seed complete. Inserted ${inserted}, skipped ${rows.length - inserted} (already existed).`
-  );
-  return { inserted, skipped: rows.length - inserted };
+  console.log(`[ProblemSeeder] Synced ${synced} problems from JSON (insert + update by id).`);
+  return { synced };
 }
 

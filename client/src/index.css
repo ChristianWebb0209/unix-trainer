@@ -93,13 +93,6 @@ body {
   flex-direction: column;
 }
 
-.editor-sidebar-desktop {
-  position: relative;
-  width: 260px;
-  flex-shrink: 0;
-  display: none;
-}
-
 /* Home layout */
 .home-page {
   position: relative;
@@ -326,6 +319,37 @@ body {
   padding: 0.12rem 0.45rem;
   border-radius: 999px;
   font-size: 0.7rem;
+}
+
+/* Problem/Solution (and similar) tab buttons – rounded, consistent with app blue when selected */
+.editor-tab-button {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.editor-tab-button:hover {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.editor-tab-button.editor-tab-button--selected {
+  background-color: var(--accent-color);
+  color: var(--button-text);
+  font-weight: 600;
+  border-color: var(--accent-color);
+}
+
+.editor-tab-button.editor-tab-button--selected:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 input,
