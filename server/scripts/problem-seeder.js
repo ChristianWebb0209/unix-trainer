@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { supabaseAdmin } from "../config/supabase.config.js";
+import { supabaseAdmin } from "../src/config/supabase.config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,7 +43,7 @@ export async function seedProblemsToSupabase() {
     return { synced: 0 };
   }
 
-  const dataDir = path.resolve(__dirname, "../data/problems");
+  const dataDir = path.resolve(__dirname, "../src/data/problems");
   if (!fs.existsSync(dataDir)) {
     console.warn(`[ProblemSeeder] Problems data directory not found: ${dataDir}`);
     return { synced: 0 };
@@ -117,4 +117,3 @@ export async function seedProblemsToSupabase() {
   console.log(`[ProblemSeeder] Synced ${synced} problems from JSON (insert + update by id).`);
   return { synced };
 }
-

@@ -14,6 +14,7 @@ import ProblemDescription from "../components/editor/ProblemDescription.tsx";
 import AppHeader from "../components/ui/AppHeader.tsx";
 import NotificationBanner from "../components/ui/NotificationBanner.tsx";
 import { primaryPillSelected } from "../uiStyles";
+import { getApiWsOrigin } from "../services/apiOrigin";
 import { getTerminalRunPayload, TERMINAL_LANGUAGES, isSupportedLanguage, type SupportedLanguage } from "../services/codeExecution";
 import { runWebGpuProgram, runWebGpuAndSampleCenterPixel } from "../services/webgpuExecution";
 import type { ProblemSummary, ProblemLanguage, ProblemCompletionState, ProblemCompletion } from "../api/problems";
@@ -130,6 +131,7 @@ export default function Editor() {
     const [completionDetails, setCompletionDetails] = useState<Record<string, ProblemCompletion>>({});
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "error">("idle");
+    const [showSavedToast, setShowSavedToast] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [visibleProblems, setVisibleProblems] = useState<ProblemSummary[]>([]);
     const [isSidebarOverlayOpen, setIsSidebarOverlayOpen] = useState(false);
@@ -209,6 +211,14 @@ export default function Editor() {
         } catch (err) {
             console.error("Container destroy failed", err);
         }
+    };
+
+    const handleResetContainer = async () => {
+        if (containerId) {
+            await destroyContainer(containerId);
+            setContainerId(null);
+        }
+        await createContainer();
     };
 
     const runInTerminal = async () => {
@@ -394,6 +404,7 @@ export default function Editor() {
             setLastSavedAt(new Date());
             setHasUnsavedChanges(false);
             setSaveStatus("idle");
+            setShowSavedToast(true);
         } catch (err) {
             // For autosaves we just log; UI remains responsive.
             console.error(`Failed to save problem progress (${reason})`, err);
@@ -409,7 +420,7 @@ export default function Editor() {
         }
         debounceSaveTimeoutRef.current = window.setTimeout(() => {
             void saveProgress("debounce");
-        }, 5000);
+        }, 2000);
     };
 
     const handleWorkspaceChange = async (next: Workspace) => {
@@ -747,9 +758,8 @@ export default function Editor() {
     useEffect(() => {
         if (!containerId) return;
 
-        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsHost = window.location.host;
-        const wsUrl = `${wsProtocol}//${wsHost}/api/containers/${containerId}/terminal`;
+        const wsBase = getApiWsOrigin();
+        const wsUrl = `${wsBase}/api/containers/${containerId}/terminal`;
 
         const socket = new WebSocket(wsUrl);
         terminalWsRef.current = socket;
@@ -758,8 +768,10 @@ export default function Editor() {
         let resizeObserver: ResizeObserver | null = null;
         let terminalElement: HTMLElement | null = null;
         let onTerminalContextMenu: ((e: MouseEvent) => void) | null = null;
+        const closedByUs = { current: false };
 
         const cleanup = () => {
+            closedByUs.current = true;
             terminalWsRef.current = null;
             resizeObserver?.disconnect();
             resizeObserver = null;
@@ -946,13 +958,20 @@ export default function Editor() {
         };
 
         socket.onerror = () => {
+                if (closedByUs.current) return;
                 if (terminalContainerRef.current && !term) {
                 terminalContainerRef.current.innerHTML =
                     '<div style="color:var(--danger-color);padding:1rem;">Failed to connect. Is Docker running?</div>';
             }
+                setContainerId(null);
         };
 
-        socket.onclose = () => cleanup();
+        socket.onclose = (ev) => {
+                if (!closedByUs.current && ev.code !== 1000 && ev.code !== 1005) {
+                setContainerId(null);
+            }
+            cleanup();
+        };
 
         return () => cleanup();
     }, [containerId]);
@@ -986,7 +1005,13 @@ export default function Editor() {
                         onSelectProblem={handleSelectProblem}
                         onProblemsLoaded={(problems, ws) => {
                             if (ws !== workspace) return;
-                            setVisibleProblems(problems);
+                            setVisibleProblems((prev) => {
+                                const selectedId = selectedProblem?.id;
+                                if (selectedId && !problems.some((p) => p.id === selectedId)) {
+                                    return prev;
+                                }
+                                return problems;
+                            });
                             if (!problems.length) {
                                 setSelectedProblem(null);
                                 setProblemTitle("");
@@ -1062,7 +1087,12 @@ export default function Editor() {
                                     name: (problemConfig.PROBLEM_LANGUAGES as Record<string, { label?: string }>)[id]?.label ?? id,
                                 }))
                                 : TERMINAL_LANGUAGES;
-                            const singleLanguage = languageOptions.length <= 1;
+                            const uniqueLanguagesInProblems = visibleProblems.length > 0
+                                ? new Set(visibleProblems.map((p) => p.language)).size
+                                : 0;
+                            const singleLanguage =
+                                languageOptions.length <= 1 ||
+                                (uniqueLanguagesInProblems === 1 && visibleProblems.length > 0);
                             return (
                                 <select
                                     value={selectedLanguage}
@@ -1144,6 +1174,7 @@ export default function Editor() {
                                         onRun={handleRunCode}
                                         theme={workspaceDefinition.codeTheme}
                                         language={selectedLanguage}
+                                        containerId={containerId}
                                         isRunning={isRunning}
                                         isCreatingContainer={isCreatingContainer}
                                         isValidating={isValidating}
@@ -1160,6 +1191,8 @@ export default function Editor() {
                                     containerId={containerId}
                                     isExpanded={isTerminalExpanded}
                                     onToggleExpanded={() => setIsTerminalExpanded((v) => !v)}
+                                    onResetContainer={handleResetContainer}
+                                    isCreatingContainer={isCreatingContainer}
                                     showWebGpuTab={workspaceDefinition.showWebGpuTab}
                                     activeView={activeCudaView}
                                     onActiveViewChange={setActiveCudaView}
@@ -1270,6 +1303,13 @@ export default function Editor() {
                     message="Press Ctrl+Enter to jump to the next problem."
                     durationMs={4000}
                     onClose={() => setShowNextHint(false)}
+                />
+            )}
+            {showSavedToast && (
+                <NotificationBanner
+                    message="Progress saved"
+                    durationMs={2000}
+                    onClose={() => setShowSavedToast(false)}
                 />
             )}
         </div>

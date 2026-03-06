@@ -3,8 +3,14 @@ import CodeMirror from "@uiw/react-codemirror";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
-import type { ProblemSummary, ProblemCompletionState, Difficulty } from "../../api/problems";
-import { DIFFICULTY_TAG_STYLES } from "../../uiStyles";
+import type { ProblemSummary, ProblemCompletionState } from "../../api/problems";
+
+/** Same deselected look as the language tag for all tags in the problem description. */
+const tagDeselectedStyle = {
+  backgroundColor: "var(--language-tag-bg, rgba(148, 163, 184, 0.2))",
+  color: "var(--language-tag-text, inherit)",
+  border: "1px solid var(--border-color)",
+} as const;
 import type { ValidationResult } from "../../types/validation";
 
 const READ_ONLY_EXTENSIONS: Extension[] = [
@@ -25,9 +31,26 @@ function ResolvedContentBody({
   content: string;
   codeTheme: Extension;
 }) {
+  const hintContainerRef = useRef<HTMLDivElement | null>(null);
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+
   const hintsMatch = content.match(/\{hints:\s*([^}]+)\}/i);
   const hintsText = hintsMatch ? hintsMatch[1].trim() : "";
   const mainText = hintsMatch ? content.replace(hintsMatch[0], "").trim() : content;
+
+  useEffect(() => {
+    const details = detailsRef.current;
+    if (!details) return;
+    const onToggle = () => {
+      if (details.open && hintContainerRef.current) {
+        requestAnimationFrame(() => {
+          hintContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+        });
+      }
+    };
+    details.addEventListener("toggle", onToggle);
+    return () => details.removeEventListener("toggle", onToggle);
+  }, [hintsText]);
 
   const nodes = useMemo(() => {
     const renderRichText = (text: string): ReactNode[] => {
@@ -120,6 +143,7 @@ function ResolvedContentBody({
       {nodes}
       {hintsText && (
         <details
+          ref={detailsRef}
           style={{
             marginTop: "1.25rem",
             borderTop: "1px dashed var(--border-color)",
@@ -133,21 +157,18 @@ function ResolvedContentBody({
               alignItems: "center",
               padding: "0.35rem 0.7rem",
               borderRadius: "999px",
-              backgroundColor: "rgba(56, 189, 248, 0.18)",
-              color: "var(--text-primary)",
-              fontWeight: 600,
               fontSize: "0.95rem",
+              ...tagDeselectedStyle,
             }}
           >
             Show hint
           </summary>
           <div
+            ref={hintContainerRef}
             style={{
               marginTop: "0.75rem",
               fontSize: "0.95rem",
-              backgroundColor: "rgba(15, 23, 42, 0.7)",
-              borderRadius: "6px",
-              padding: "0.75rem 1rem",
+              padding: "0.75rem 0",
             }}
           >
             {hintsText}
@@ -188,8 +209,6 @@ export default function ProblemDescription({
 }: ProblemDescriptionProps) {
   const [activeTab, setActiveTab] = useState<TabKind>("problem");
   const validationResultRef = useRef<HTMLDivElement | null>(null);
-
-  const diffColors = (d: Difficulty) => DIFFICULTY_TAG_STYLES[d];
 
   useEffect(() => {
     if (!lastValidationResult) return;
@@ -251,10 +270,7 @@ export default function ProblemDescription({
                     <span style={{ fontSize: "0.9rem" }}>← Previous</span>
                     <span
                       className="editor-difficulty-pill-small"
-                      style={{
-                        backgroundColor: diffColors(prev.difficulty).bg,
-                        color: diffColors(prev.difficulty).text,
-                      }}
+                      style={tagDeselectedStyle}
                     >
                       {prev.difficulty}
                     </span>
@@ -310,10 +326,7 @@ export default function ProblemDescription({
                     <span style={{ fontSize: "0.9rem" }}>Next →</span>
                     <span
                       className="editor-difficulty-pill-small"
-                      style={{
-                        backgroundColor: diffColors(next.difficulty).bg,
-                        color: diffColors(next.difficulty).text,
-                      }}
+                      style={tagDeselectedStyle}
                     >
                       {next.difficulty}
                     </span>
@@ -371,8 +384,7 @@ export default function ProblemDescription({
                 fontSize: "0.8rem",
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
-                backgroundColor: diffColors(selectedProblem.difficulty).bg,
-                color: diffColors(selectedProblem.difficulty).text,
+                ...tagDeselectedStyle,
               }}
             >
               {selectedProblem.difficulty}

@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../config/supabase.config.js";
+import { supabaseAdmin } from "../src/config/supabase.config.js";
 
 async function cleanupCompletions() {
   if (!supabaseAdmin) {
@@ -65,4 +65,3 @@ cleanupCompletions().catch((err) => {
   console.error("[cleanup-completions] Unexpected error:", err?.message ?? err);
   process.exit(1);
 });
-

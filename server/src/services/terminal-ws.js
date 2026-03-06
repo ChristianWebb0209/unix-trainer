@@ -6,7 +6,7 @@ import { WebSocketServer } from "ws";
 
 /**
  * @param {import('http').Server} httpServer
- * @param {import('./services/container.service.js').ContainerService} containerService
+ * @param {import('./container.service.js').ContainerService} containerService
  */
 export function setupTerminalWebSocket(httpServer, containerService) {
     const wss = new WebSocketServer({ noServer: true });
@@ -14,10 +14,7 @@ export function setupTerminalWebSocket(httpServer, containerService) {
     httpServer.on("upgrade", (request, socket, head) => {
         const url = new URL(request.url || "", `http://${request.headers.host}`);
         const match = url.pathname.match(/^\/api\/containers\/([^/]+)\/terminal$/);
-        if (!match) {
-            socket.destroy();
-            return;
-        }
+        if (!match) return;
 
         const containerId = match[1];
 

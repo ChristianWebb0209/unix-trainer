@@ -1,15 +1,51 @@
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { supabase } from "../../supabaseClient";
 import { primaryPillSelected, primaryPillUnselected } from "../../uiStyles";
 
 type AppHeaderProps = {
   children?: ReactNode;
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function useAuthLabel(): string {
+  const [label, setLabel] = useState<string>("Sign in");
+
+  useEffect(() => {
+    const update = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const name = session.user.user_metadata?.name;
+        const email = session.user.email;
+        setLabel(name || email?.split("@")[0] || "User");
+        return;
+      }
+      const rawId = window.localStorage.getItem("user_id");
+      const rawName = window.localStorage.getItem("user_name");
+      if (rawId && UUID_REGEX.test(rawId.trim())) {
+        const name = rawName?.trim();
+        setLabel(name || "User");
+      } else {
+        setLabel("Sign in");
+      }
+    };
+    void update();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      void update();
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return label;
+}
+
 export default function AppHeader({ children }: AppHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location.pathname;
+  const accountLabel = useAuthLabel();
 
   const isHome = pathname === "/";
   const isEditor = pathname.startsWith("/editor");
@@ -57,10 +93,10 @@ export default function AppHeader({ children }: AppHeaderProps) {
           justifyContent: "center",
           gap: "0.25rem",
         }}
-        title="Account & stats"
+        title={accountLabel === "Sign in" ? "Sign in" : "Account & stats"}
       >
-        <span style={{ fontSize: "0.9rem", lineHeight: 1 }}>👤</span>
-        <span style={{ fontSize: "0.75rem" }}>Account</span>
+        <span style={{ fontSize: "0.9rem", lineHeight: 1 }}>\o/</span>
+        <span style={{ fontSize: "0.75rem" }}>{accountLabel}</span>
       </button>
 
       <button

@@ -8,9 +8,9 @@
     "dev": "nodemon src/index.js",
     "db:init": "node src/db/init.js",
     "db:migrate": "node src/db/migrate.js",
-    "db:sync-problems": "node src/db/sync-problems.js",
-    "db:sync-problems:hard": "node src/db/sync-problems.js -- --hard",
-    "db:cleanup-completions": "node src/db/cleanup-completions.js",
+    "db:sync-problems": "node scripts/sync-problems.js",
+    "db:sync-problems:hard": "node scripts/sync-problems.js -- --hard",
+    "db:cleanup-completions": "node scripts/cleanup-completions.js",
     "docker:build": "node scripts/build-docker.js",
     "dev:seed-user": "node scripts/create-dev-user.js"
   },

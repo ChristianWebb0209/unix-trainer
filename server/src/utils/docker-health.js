@@ -1,5 +1,6 @@
 import Docker from "dockerode";
 import { exec } from "child_process";
+import { dockerLog, dockerWarn, dockerError } from "./docker-log.js";
 
 const docker = new Docker();
 
@@ -18,13 +19,11 @@ function sleep(ms) {
 
 async function tryStartDockerDaemon() {
   if (process.platform !== "win32") {
-    console.error(
-      "[Docker] Docker daemon is not reachable and automatic startup is only implemented for Windows. Please start Docker manually and restart the server."
-    );
+    dockerError("Docker daemon is not reachable and automatic startup is only implemented for Windows. Please start Docker manually and restart the server.");
     throw new Error("Docker daemon not running");
   }
 
-  console.warn("[Docker] Docker daemon is not reachable. Attempting to start Windows service 'com.docker.service'...");
+  dockerWarn("Docker daemon is not reachable. Attempting to start Windows service 'com.docker.service'...");
 
   await new Promise((resolve, reject) => {
     exec(
@@ -48,7 +47,7 @@ async function tryStartDockerDaemon() {
   while (Date.now() - start < timeoutMs) {
     try {
       await pingDocker();
-      console.log("[Docker] Docker daemon is now reachable.");
+      dockerLog("Docker daemon is now reachable.");
       return;
     } catch {
       await sleep(delay);
@@ -62,10 +61,10 @@ async function tryStartDockerDaemon() {
 export async function ensureDockerRunning() {
   try {
     await pingDocker();
-    console.log("[Docker] Docker daemon is reachable.");
+    dockerLog("Docker daemon is reachable.");
     return;
   } catch (err) {
-    console.warn("[Docker] Initial ping failed:", err?.message ?? err);
+    dockerWarn("Initial ping failed: " + (err?.message ?? err));
   }
 
   // Try to start Docker and wait for it to be healthy.

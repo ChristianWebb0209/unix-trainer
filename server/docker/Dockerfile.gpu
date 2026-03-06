@@ -19,8 +19,20 @@ RUN apt-get update && \
       vulkan-tools \
       wget \
       gnupg \
-      ca-certificates && \
+      ca-certificates \
+      curl \
+      clangd && \
     rm -rf /var/lib/apt/lists/*
+
+# Node 20 from NodeSource (Ubuntu 22.04 default nodejs is 12.x; bash-language-server needs Node 14+)
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# bash-language-server for bash/awk/unix LSP (same as systems so proxy works)
+RUN npm install -g bash-language-server
 
 # Intel oneAPI repo and DPC++ (SYCL)
 RUN wget -qO - https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null && \
@@ -31,6 +43,8 @@ RUN wget -qO - https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-P
 
 # DPC++ compiler on PATH (dpcpp)
 ENV PATH="/opt/intel/oneapi/compiler/latest/linux/bin:${PATH}"
+
+COPY docker/lsp-proxy.js /workspace/lsp-proxy.js
 
 WORKDIR /workspace
 

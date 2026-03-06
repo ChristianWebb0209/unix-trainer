@@ -106,6 +106,7 @@ export default function ProblemDropdown({
                 search?: string;
                 difficulty?: "all" | Difficulty;
                 language?: "all" | ProblemLanguage;
+                page?: number;
             };
             if (typeof parsed.search === "string") setSearch(parsed.search);
             if (parsed.difficulty === "all" || problemConfig.DIFFICULTIES.includes(parsed.difficulty as Difficulty)) {
@@ -115,6 +116,7 @@ export default function ProblemDropdown({
             if (parsed.language === "all" || wsLangs.includes(parsed.language as ProblemLanguage)) {
                 setLanguage(parsed.language as "all" | ProblemLanguage);
             }
+            if (typeof parsed.page === "number" && parsed.page >= 1) setPage(parsed.page);
         } catch {
             // ignore
         }
@@ -123,16 +125,21 @@ export default function ProblemDropdown({
 
     useEffect(() => {
         try {
-            window.localStorage.setItem(storageKey, JSON.stringify({ search, difficulty, language }));
+            window.localStorage.setItem(storageKey, JSON.stringify({ search, difficulty, language, page }));
         } catch {
             // ignore
         }
-    }, [storageKey, search, difficulty, language]);
+    }, [storageKey, search, difficulty, language, page]);
 
-    // Reset to page 1 when filters or workspace change
+    // Reset to page 1 only when filters or workspace change (not when just opening the dropdown)
+    const prevFilterKeyRef = useRef<string | null>(null);
     useEffect(() => {
-        if (isOpen) setPage(1);
-    }, [isOpen, filters, workspace]);
+        const key = JSON.stringify({ ...filters, workspace });
+        if (prevFilterKeyRef.current !== null && prevFilterKeyRef.current !== key) {
+            setPage(1);
+        }
+        prevFilterKeyRef.current = key;
+    }, [filters, workspace]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -176,11 +183,10 @@ export default function ProblemDropdown({
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only refetch when dropdown opens, filters, workspace or page change
     }, [isOpen, filters, workspace, page]);
 
+    // Clamp page to valid range when total count is known (e.g. after filter change or restore from storage)
     useEffect(() => {
-        if (!isOpen || !selectedProblemId || !listContainerRef.current) return;
-        const el = listContainerRef.current.querySelector<HTMLElement>(`[data-problem-id="${selectedProblemId}"]`);
-        if (el) el.scrollIntoView({ block: "center", behavior: "auto" });
-    }, [isOpen, selectedProblemId, problems.length]);
+        if (totalPages > 0 && page > totalPages) setPage(totalPages);
+    }, [totalPages, page]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -378,6 +384,7 @@ export default function ProblemDropdown({
                                     overflowY: "auto",
                                     overscrollBehavior: "contain",
                                     marginTop: "0.75rem",
+                                    paddingLeft: "0.25rem",
                                     paddingRight: "0.25rem",
                                 }}
                             >
@@ -399,7 +406,7 @@ export default function ProblemDropdown({
                                                     data-problem-id={problem.id}
                                                     style={{
                                                         padding: "0.6rem 0.5rem",
-                                                        borderBottom: "1px solid var(--border-color)",
+                                                        borderBottom: isSelected ? undefined : "1px solid var(--border-color)",
                                                         cursor: "pointer",
                                                         color: "var(--text-primary)",
                                                         backgroundColor: isCompleted
@@ -409,29 +416,15 @@ export default function ProblemDropdown({
                                                                 : "transparent",
                                                         borderRadius: "8px",
                                                         marginBottom: "0.3rem",
-                                                        boxShadow: isCompleted
-                                                            ? "0 0 0 1px rgba(22,163,74,0.8)"
-                                                            : isSelected
-                                                                ? "0 0 0 1px var(--accent-color)"
-                                                                : "none",
-                                                        position: "relative",
+                                                        border: isSelected
+                                                            ? "1px solid var(--accent-color)"
+                                                            : "1px solid transparent",
+                                                        boxShadow: isCompleted ? "0 0 0 1px rgba(22,163,74,0.8)" : "none",
+                                                        boxSizing: "border-box",
                                                     }}
                                                     title={`${problem.title} (${problem.difficulty}, ${problem.language})`}
                                                     onClick={() => void handleSelect(problem)}
                                                 >
-                                                    {isSelected && (
-                                                        <div
-                                                            style={{
-                                                                position: "absolute",
-                                                                left: 0,
-                                                                top: 0,
-                                                                bottom: 0,
-                                                                width: "3px",
-                                                                borderRadius: "3px 0 0 3px",
-                                                                backgroundColor: "var(--accent-color)",
-                                                            }}
-                                                        />
-                                                    )}
                                                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                                         <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", minWidth: "2ch", textAlign: "right" }}>
                                                             {number}

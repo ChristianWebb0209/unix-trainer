@@ -9,10 +9,10 @@ import { createContainerRouter } from "./routes/container.routes.js";
 import { problemRouter } from "./routes/problem.routes.js";
 import { createValidationRouter } from "./routes/validation.routes.js";
 import { completionRouter } from "./routes/completion.routes.js";
-import { editorCompletionsRouter } from "./routes/editor-completions.routes.js";
 import { ContainerService } from "./services/container.service.js";
-import { seedProblemsToSupabase } from "./services/problem-seeder.js";
-import { setupTerminalWebSocket } from "./terminal-ws.js";
+import { seedProblemsToSupabase } from "../scripts/problem-seeder.js";
+import { setupLSPWebSocket } from "./services/lsp-ws.js";
+import { setupTerminalWebSocket } from "./services/terminal-ws.js";
 import { ensureDockerRunning } from "./utils/docker-health.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -101,6 +101,7 @@ async function bootstrap() {
 
   const containerService = new ContainerService();
   setupTerminalWebSocket(httpServer, containerService);
+  setupLSPWebSocket(httpServer, containerService);
 
   app.use(cors());
   app.use(express.json());
@@ -109,7 +110,6 @@ async function bootstrap() {
   app.use("/api/problems", problemRouter);
   app.use("/api/problems", createValidationRouter(containerService));
   app.use("/api/completions", completionRouter);
-  app.use("/api/editor-completions", editorCompletionsRouter);
 
   app.get("/", (req, res) => {
     res.send("API running");
