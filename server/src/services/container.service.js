@@ -306,6 +306,42 @@ export class ContainerService {
     }
 
     /**
+     * Attach to LSP proxy inside the container (stdio bridge for Language Server Protocol).
+     * @param {string} containerId The ID of the container.
+     * @param {string} language Language id (e.g. bash, c, cpp, rust, cuda).
+     * @returns {Promise<{ stdin: import('stream').Writable, stdout: import('stream').Readable, destroy: () => void }>}
+     */
+    async attachLSP(containerId, language) {
+        if (!this.containers.has(containerId)) {
+            throw new Error(`Container ${containerId} not found or already destroyed.`);
+        }
+
+        this.recordActivity(containerId);
+        const container = this.docker.getContainer(containerId);
+        const exec = await container.exec({
+            Cmd: ["node", "/workspace/lsp-proxy.js", String(language || "bash")],
+            AttachStdin: true,
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: false,
+        });
+
+        const stream = await exec.start({ hijack: true, stdin: true });
+        const stdoutPT = new PassThrough();
+        const stderrPT = new PassThrough();
+        this.docker.modem.demuxStream(stream, stdoutPT, stderrPT);
+        stderrPT.on("data", (chunk) => console.error("[LSP stderr]", chunk.toString()));
+
+        const destroy = () => {
+            stream.destroy();
+            stdoutPT.destroy();
+            stderrPT.destroy();
+        };
+
+        return { stdin: stream, stdout: stdoutPT, destroy };
+    }
+
+    /**
      * Stops a running container process.
      * @param {string} containerId The container ID.
      */
