@@ -1,5 +1,6 @@
 import { ProblemService } from '../services/problem.service.js';
 import { Visibility } from '../types/problem.types.js';
+import { PROBLEM_LANGUAGE_IDS } from '../../../problem-config.mjs';
 
 /**
  * Problem Controller
@@ -55,13 +56,16 @@ export class ProblemController {
                 id: problem.id,
                 title: problem.title,
                 instructions: problem.instructions,
+                solution: problem.solution ?? null,
                 difficulty: problem.difficulty,
                 language: problem.language ?? problem.type ?? 'any',
                 starterCode: problem.starterCode ?? null,
-                tests: publicTestCases.map((tc) => ({
-                    input: tc.input,
-                    expected_stdout: tc.expected_stdout,
-                })),
+                validation: problem.validation ?? null,
+                tests: publicTestCases.map((tc) => {
+                    const out = { input: tc.input, expected_stdout: tc.expected_stdout };
+                    if (Array.isArray(tc.expected_values)) out.expected_values = tc.expected_values;
+                    return out;
+                }),
             };
 
             res.status(200).json({ problem: sanitizedProblem });
@@ -80,8 +84,11 @@ export class ProblemController {
             const search = typeof req.query.search === 'string' ? req.query.search : undefined;
             const difficultyRaw = typeof req.query.difficulty === 'string' ? req.query.difficulty : undefined;
             const typeRaw = typeof req.query.type === 'string' ? req.query.type : undefined;
+            const languageInRaw = typeof req.query.languageIn === 'string' ? req.query.languageIn : undefined;
             const page = parseInt((req.query.page) || '1', 10) || 1;
             const limit = parseInt((req.query.limit) || '10', 10) || 10;
+
+            const validLanguageSet = new Set(PROBLEM_LANGUAGE_IDS.map((id) => String(id).toLowerCase()));
 
             // Build filters object without undefined properties to satisfy exactOptionalPropertyTypes
             const filters = {};
@@ -94,8 +101,17 @@ export class ProblemController {
             }
             if (typeRaw) {
                 const normalized = typeRaw.toLowerCase();
-                if (['unix', 'awk', 'bash', 'cuda'].includes(normalized)) {
+                if (validLanguageSet.has(normalized)) {
                     filters.type = normalized;
+                }
+            }
+            if (languageInRaw) {
+                const languages = languageInRaw
+                    .split(',')
+                    .map((s) => s.trim().toLowerCase())
+                    .filter((s) => s && validLanguageSet.has(s));
+                if (languages.length > 0) {
+                    filters.languageIn = languages;
                 }
             }
 

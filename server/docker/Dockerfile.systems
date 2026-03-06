@@ -1,15 +1,16 @@
-# Unix workspace image
+# Systems workspace: Bash, Awk, Shell, C, C++, Rust
 FROM alpine:latest
 
-# Install Unix tooling
 RUN apk add --no-cache \
     bash \
     gawk \
     coreutils \
     nano \
-    vim
+    vim \
+    build-base \
+    rust \
+    cargo
 
-WORKDIR /app
+WORKDIR /workspace
 
 CMD ["tail", "-f", "/dev/null"]
-
