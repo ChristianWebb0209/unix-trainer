@@ -20,10 +20,10 @@ RUN apk add --no-cache \
 RUN npm install -g bash-language-server
 
 # clangd for C/C++ (static Linux build from GitHub releases)
-ARG CLANGD_VERSION=18.1.0
+ARG CLANGD_VERSION=18.1.3
 RUN wget -q "https://github.com/clangd/clangd/releases/download/${CLANGD_VERSION}/clangd-linux-${CLANGD_VERSION}.zip" -O /tmp/clangd.zip \
     && unzip -q -o /tmp/clangd.zip -d /opt/clangd \
-    && ln -sf /opt/clangd/bin/clangd /usr/local/bin/clangd \
+    && ln -sf /opt/clangd/clangd-linux-${CLANGD_VERSION}/bin/clangd /usr/local/bin/clangd \
     && rm /tmp/clangd.zip
 
 # rust-analyzer for Rust
@@ -33,7 +33,7 @@ RUN wget -q "https://github.com/rust-lang/rust-analyzer/releases/download/${RUST
     && chmod +x /usr/local/bin/rust-analyzer \
     && rm /tmp/rust-analyzer.gz
 
-COPY lsp-proxy.js /workspace/lsp-proxy.js
+COPY docker/lsp-proxy.js /workspace/lsp-proxy.js
 
 WORKDIR /workspace
 

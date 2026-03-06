@@ -81,6 +81,7 @@ export function CodeEditorPane({
                 if (cancelled) return;
                 const client = new LSPClient({
                     extensions: languageServerExtensions(),
+                    timeout: 20000,
                 }).connect(transport);
                 lspClientRef.current = client;
                 setLspExtension(client.plugin(uri, languageId));

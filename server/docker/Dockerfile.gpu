@@ -35,7 +35,7 @@ RUN wget -qO - https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-P
 # DPC++ compiler on PATH (dpcpp)
 ENV PATH="/opt/intel/oneapi/compiler/latest/linux/bin:${PATH}"
 
-COPY lsp-proxy.js /workspace/lsp-proxy.js
+COPY docker/lsp-proxy.js /workspace/lsp-proxy.js
 
 WORKDIR /workspace
 

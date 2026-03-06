@@ -1062,7 +1062,12 @@ export default function Editor() {
                                     name: (problemConfig.PROBLEM_LANGUAGES as Record<string, { label?: string }>)[id]?.label ?? id,
                                 }))
                                 : TERMINAL_LANGUAGES;
-                            const singleLanguage = languageOptions.length <= 1;
+                            const uniqueLanguagesInProblems = visibleProblems.length > 0
+                                ? new Set(visibleProblems.map((p) => p.language)).size
+                                : 0;
+                            const singleLanguage =
+                                languageOptions.length <= 1 ||
+                                (uniqueLanguagesInProblems === 1 && visibleProblems.length > 0);
                             return (
                                 <select
                                     value={selectedLanguage}

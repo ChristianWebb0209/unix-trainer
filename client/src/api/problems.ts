@@ -26,6 +26,63 @@ export interface ListProblemsParams {
     limit?: number;
 }
 
+const PROBLEMS_LIST_CACHE_PREFIX = "problems_list_v1_";
+const MEMORY_TTL_MS = 5 * 60 * 1000;   // 5 min
+const STORAGE_TTL_MS = 30 * 60 * 1000;  // 30 min
+const MAX_STORAGE_KEYS = 50;
+
+function canonicalCacheKey(p: ListProblemsParams): string {
+    const o: Record<string, string | number | string[] | undefined> = {
+        search: p.search,
+        difficulty: p.difficulty,
+        language: p.language,
+        languageIn: p.languageIn?.length ? p.languageIn.slice().sort().join(",") : undefined,
+        page: p.page ?? 1,
+        limit: p.limit ?? 50,
+    };
+    return JSON.stringify(o);
+}
+
+function getStorageKeys(): string[] {
+    const keys: string[] = [];
+    try {
+        for (let i = 0; i < window.localStorage.length; i++) {
+            const k = window.localStorage.key(i);
+            if (k?.startsWith(PROBLEMS_LIST_CACHE_PREFIX)) keys.push(k);
+        }
+    } catch {
+        // ignore
+    }
+    return keys;
+}
+
+function pruneStorageIfNeeded(): void {
+    try {
+        const keys = getStorageKeys();
+        if (keys.length <= MAX_STORAGE_KEYS) return;
+        const withTs: { key: string; ts: number }[] = [];
+        for (const k of keys) {
+            const raw = window.localStorage.getItem(k);
+            if (!raw) continue;
+            try {
+                const { ts } = JSON.parse(raw) as { ts: number };
+                withTs.push({ key: k, ts });
+            } catch {
+                withTs.push({ key: k, ts: 0 });
+            }
+        }
+        withTs.sort((a, b) => a.ts - b.ts);
+        const toRemove = withTs.length - MAX_STORAGE_KEYS;
+        for (let i = 0; i < toRemove; i++) {
+            window.localStorage.removeItem(withTs[i].key);
+        }
+    } catch {
+        // ignore
+    }
+}
+
+const memoryCache = new Map<string, { data: ListProblemsResponse; ts: number }>();
+
 export interface ProblemOfTheDay {
     id: string;
     title: string;
@@ -46,22 +103,60 @@ export interface ProblemCompletion {
 }
 
 export async function listProblems(params: ListProblemsParams): Promise<ListProblemsResponse> {
+    const cacheKey = canonicalCacheKey(params);
+    const now = Date.now();
+
+    const cached = memoryCache.get(cacheKey);
+    if (cached && now - cached.ts < MEMORY_TTL_MS) {
+        return cached.data;
+    }
+
+    if (typeof window !== "undefined" && window.localStorage) {
+        try {
+            const raw = window.localStorage.getItem(PROBLEMS_LIST_CACHE_PREFIX + cacheKey);
+            if (raw) {
+                const { data, ts } = JSON.parse(raw) as { data: ListProblemsResponse; ts: number };
+                if (now - ts < STORAGE_TTL_MS) {
+                    memoryCache.set(cacheKey, { data, ts });
+                    return data;
+                }
+            }
+        } catch {
+            // ignore
+        }
+    }
+
     const searchParams = new URLSearchParams();
     if (params.search) searchParams.set("search", params.search);
     if (params.difficulty) searchParams.set("difficulty", params.difficulty);
     if (params.language && params.language !== "all") searchParams.set("type", params.language);
     if (params.languageIn?.length) searchParams.set("languageIn", params.languageIn.join(","));
-    if (params.page) searchParams.set("page", params.page.toString());
-    if (params.limit) searchParams.set("limit", params.limit.toString());
+    if (params.page) searchParams.set("page", (params.page ?? 1).toString());
+    if (params.limit) searchParams.set("limit", (params.limit ?? 50).toString());
 
     const query = searchParams.toString();
-    const url = query ? `http://localhost:3000/api/problems?${query}` : "http://localhost:3000/api/problems";
+    const url = query ? `/api/problems?${query}` : "/api/problems";
 
     const res = await fetch(url);
     if (!res.ok) {
         throw new Error(`Failed to fetch problems: ${res.status}`);
     }
-    return res.json();
+    const data = (await res.json()) as ListProblemsResponse;
+
+    memoryCache.set(cacheKey, { data, ts: now });
+    if (typeof window !== "undefined" && window.localStorage) {
+        try {
+            window.localStorage.setItem(
+                PROBLEMS_LIST_CACHE_PREFIX + cacheKey,
+                JSON.stringify({ data, ts: now })
+            );
+            pruneStorageIfNeeded();
+        } catch {
+            // ignore quota or other errors
+        }
+    }
+
+    return data;
 }
 
 export async function getProblemOfTheDay(): Promise<ProblemOfTheDay> {

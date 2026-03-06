@@ -403,6 +403,11 @@ button:focus-visible {
   outline: 2px solid var(--accent-color);
 }
 
+button.editor-problem-nav-button:focus,
+button.editor-problem-nav-button:focus-visible {
+  outline: none;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
