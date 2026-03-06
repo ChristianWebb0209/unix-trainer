@@ -1144,6 +1144,7 @@ export default function Editor() {
                                         onRun={handleRunCode}
                                         theme={workspaceDefinition.codeTheme}
                                         language={selectedLanguage}
+                                        containerId={containerId}
                                         isRunning={isRunning}
                                         isCreatingContainer={isCreatingContainer}
                                         isValidating={isValidating}

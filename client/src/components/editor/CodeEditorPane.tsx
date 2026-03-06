@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { autocompletion, completeFromList } from "@codemirror/autocomplete";
 import { cpp } from "@codemirror/lang-cpp";
 import { rust } from "@codemirror/lang-rust";
 import { StreamLanguage, indentUnit } from "@codemirror/language";
@@ -8,7 +7,6 @@ import { shell } from "@codemirror/legacy-modes/mode/shell";
 import type { Extension } from "@codemirror/state";
 import type { CSSProperties } from "react";
 import * as problemConfig from "problem-config";
-import { fetchEditorCompletions, type EditorCompletionData, type CompletionItem } from "../../api/editorCompletions";
 
 const shellLanguage = StreamLanguage.define(shell);
 
@@ -22,29 +20,13 @@ function getLanguageExtension(lang: string): Extension[] {
     return [cpp()];
 }
 
-function completionOptionsFromData(data: EditorCompletionData): Array<{ label: string; type?: string; detail?: string; info?: string }> {
-    const arr = (x: unknown): CompletionItem[] => (Array.isArray(x) ? x : []);
-    const items = [
-        ...arr(data.keywords),
-        ...arr(data.builtins),
-        ...arr(data.variables),
-    ];
-    return items
-        .filter((x) => x && typeof x === "object" && typeof (x as CompletionItem).label === "string")
-        .map((x) => ({
-            label: (x as CompletionItem).label,
-            type: (x as CompletionItem).type,
-            detail: (x as CompletionItem).detail,
-            info: (x as CompletionItem).info,
-        }));
-}
-
 type CodeEditorPaneProps = {
     code: string;
     onChange: (next: string) => void;
     onRun: () => void;
     theme: Extension;
     language?: string;
+    containerId: string | null;
     isRunning: boolean;
     isCreatingContainer: boolean;
     isValidating: boolean;
@@ -57,35 +39,13 @@ export function CodeEditorPane({
     onRun,
     theme,
     language = "bash",
+    containerId,
     isRunning,
     isCreatingContainer,
     isValidating,
     runButtonStyle,
 }: CodeEditorPaneProps) {
-    const [completionData, setCompletionData] = useState<EditorCompletionData | null>(null);
-
-    useEffect(() => {
-        let cancelled = false;
-        setCompletionData(null);
-        void fetchEditorCompletions(language).then((data) => {
-            if (!cancelled && data) setCompletionData(data);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [language]);
-
-    const extensions = useMemo(() => {
-        const base = getLanguageExtension(language);
-        if (!completionData) return base;
-        try {
-            const options = completionOptionsFromData(completionData);
-            if (options.length === 0) return base;
-            return [...base, autocompletion({ override: [completeFromList(options)] })];
-        } catch {
-            return base;
-        }
-    }, [language, completionData]);
+    const extensions = useMemo(() => getLanguageExtension(language), [language]);
 
     const renderLabel = () => {
         if (isValidating) return "Validating...";
