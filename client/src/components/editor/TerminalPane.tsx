@@ -1,3 +1,5 @@
+import type { RefObject } from "react";
+
 type TerminalViewMode = "terminal" | "webgpu";
 
 type TerminalPaneProps = {
@@ -7,9 +9,8 @@ type TerminalPaneProps = {
     showWebGpuTab: boolean;
     activeView: TerminalViewMode;
     onActiveViewChange: (view: TerminalViewMode) => void;
-    // Use 'any' here to stay flexible with different ref typings from callers.
-    terminalContainerRef: any;
-    webgpuCanvasRef: any;
+    terminalContainerRef: RefObject<HTMLDivElement | null>;
+    webgpuCanvasRef: RefObject<HTMLCanvasElement | null>;
 };
 
 export function TerminalPane({
@@ -55,29 +56,17 @@ export function TerminalPane({
                 </button>
                 <div style={{ display: "flex", gap: "0.25rem" }}>
                     <button
+                        type="button"
+                        className={`editor-tab-button ${activeView === "terminal" && showWebGpuTab ? "editor-tab-button--selected" : ""}`}
                         onClick={() => onActiveViewChange("terminal")}
-                        style={{
-                            padding: "0.15rem 0.6rem",
-                            borderRadius: "999px",
-                            border: "1px solid #444",
-                            backgroundColor: activeView === "terminal" ? "#3b82f6" : "transparent",
-                            color: activeView === "terminal" ? "#fff" : "#aaa",
-                            fontSize: "0.75rem",
-                        }}
                     >
                         Terminal
                     </button>
                     {showWebGpuTab && (
                         <button
+                            type="button"
+                            className={`editor-tab-button ${activeView === "webgpu" ? "editor-tab-button--selected" : ""}`}
                             onClick={() => onActiveViewChange("webgpu")}
-                            style={{
-                                padding: "0.15rem 0.6rem",
-                                borderRadius: "999px",
-                                border: "1px solid #444",
-                                backgroundColor: activeView === "webgpu" ? "#3b82f6" : "transparent",
-                                color: activeView === "webgpu" ? "#fff" : "#aaa",
-                                fontSize: "0.75rem",
-                            }}
                         >
                             WebGPU
                         </button>
