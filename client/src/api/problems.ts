@@ -1,5 +1,6 @@
-export type Difficulty = "learn" | "easy" | "medium" | "hard";
-export type ProblemLanguage = "unix" | "awk" | "bash" | "cuda" | "any";
+import type { Difficulty, ProblemLanguage } from "problem-config";
+
+export type { Difficulty, ProblemLanguage };
 
 export interface ProblemSummary {
     id: string;
@@ -19,6 +20,8 @@ export interface ListProblemsParams {
     search?: string;
     difficulty?: Difficulty;
     language?: ProblemLanguage | "all";
+    /** Restrict results to these languages (server filter). Used e.g. by workspace to show only relevant problems. */
+    languageIn?: ProblemLanguage[];
     page?: number;
     limit?: number;
 }
@@ -47,6 +50,7 @@ export async function listProblems(params: ListProblemsParams): Promise<ListProb
     if (params.search) searchParams.set("search", params.search);
     if (params.difficulty) searchParams.set("difficulty", params.difficulty);
     if (params.language && params.language !== "all") searchParams.set("type", params.language);
+    if (params.languageIn?.length) searchParams.set("languageIn", params.languageIn.join(","));
     if (params.page) searchParams.set("page", params.page.toString());
     if (params.limit) searchParams.set("limit", params.limit.toString());
 
@@ -101,5 +105,33 @@ export async function saveProblemProgress(input: SaveProblemProgressInput): Prom
     }
     const data = await res.json();
     return data.completion as ProblemCompletion;
+}
+
+import type { ValidationResult } from "../types/validation";
+
+export interface ValidateProblemParams {
+    solutionCode: string;
+    containerId: string | null;
+    language: string;
+    /** For webgpu_numeric: client-run output per test (e.g. center pixel [r,g,b]). */
+    testOutputs?: Array<{ testId: string; values: number[] }>;
+}
+
+export async function validateProblem(problemId: string, params: ValidateProblemParams): Promise<ValidationResult> {
+    const res = await fetch(`/api/problems/${problemId}/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            solutionCode: params.solutionCode,
+            containerId: params.containerId,
+            language: params.language,
+            testOutputs: params.testOutputs ?? undefined,
+        }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? `Validation failed: ${res.status}`);
+    }
+    return res.json() as Promise<ValidationResult>;
 }
 

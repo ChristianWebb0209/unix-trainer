@@ -18,7 +18,7 @@ const migrations = [
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
   
-  // 2. Create problems table (slimmed schema, populated from JSON files)
+  // 2. Create problems table (slimmed schema; populated from data/problems/*.json, one file per language)
   `CREATE TABLE IF NOT EXISTS problems (
     id VARCHAR(50) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,

@@ -133,7 +133,7 @@ export default function ChooseTechnology() {
                                         height: "56px",
                                         borderRadius: "16px",
                                         backgroundColor:
-                                            tech.workspace === "cuda"
+                                            tech.workspace === "gpu"
                                                 ? "rgba(248,113,113,0.1)"
                                                 : "rgba(56,189,248,0.1)",
                                         border: "1px solid rgba(148,163,184,0.6)",
@@ -192,7 +192,7 @@ export default function ChooseTechnology() {
                                     color: "var(--text-secondary)",
                                 }}
                             >
-                                {tech.workspace === "cuda" ? "GPU-focused workspace" : "Shell-focused workspace"}
+                                {tech.workspace === "gpu" ? "GPU workspace" : "Systems workspace"}
                             </span>
                         </button>
                     ))}
