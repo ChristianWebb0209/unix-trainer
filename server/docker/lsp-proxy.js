@@ -18,22 +18,29 @@ function resolveCmd(cmd, absolutePaths) {
   return cmd;
 }
 
-function resolveClangd() {
-  const tried = ['/usr/local/bin/clangd', '/usr/bin/clangd', '/opt/clangd/bin/clangd'];
-  for (const p of tried) {
-    if (existsSync(p)) return p;
-  }
+function buildClangdPath() {
+  const parts = ['/usr/local/bin', '/usr/bin'];
   try {
     const opt = '/opt/clangd';
     if (existsSync(opt)) {
       const entries = readdirSync(opt);
       for (const e of entries) {
-        const binPath = join(opt, e, 'bin', 'clangd');
-        if (existsSync(binPath)) return binPath;
+        const binDir = join(opt, e, 'bin');
+        if (existsSync(binDir)) parts.push(binDir);
       }
     }
   } catch (_) {}
-  return 'clangd';
+  return parts.join(':') + (process.env.PATH ? ':' + process.env.PATH : '');
+}
+
+function buildBashLsPath() {
+  const parts = ['/usr/local/bin', '/usr/bin'];
+  try {
+    const npmPrefix = process.env.npm_config_prefix || '/usr/local';
+    const bin = join(npmPrefix, 'bin');
+    if (existsSync(bin)) parts.unshift(bin);
+  } catch (_) {}
+  return parts.join(':') + (process.env.PATH ? ':' + process.env.PATH : '');
 }
 
 function getLSP(lang) {
@@ -43,35 +50,40 @@ function getLSP(lang) {
       return {
         cmd: resolveCmd('bash-language-server', ['/usr/local/bin/bash-language-server', '/usr/bin/bash-language-server']),
         args: ['start'],
+        env: { ...process.env, PATH: buildBashLsPath() },
       };
     case 'awk':
       return {
         cmd: resolveCmd('bash-language-server', ['/usr/local/bin/bash-language-server', '/usr/bin/bash-language-server']),
         args: ['start'],
+        env: { ...process.env, PATH: buildBashLsPath() },
       };
     case 'c':
     case 'cpp':
-      return { cmd: resolveClangd(), args: ['--background-index'] };
+      return { cmd: 'clangd', args: ['--background-index'], env: { ...process.env, PATH: buildClangdPath() } };
     case 'rust':
       return {
         cmd: resolveCmd('rust-analyzer', ['/usr/local/bin/rust-analyzer', '/usr/bin/rust-analyzer']),
         args: [],
+        env: undefined,
       };
     case 'cuda':
     case 'vulkan':
     case 'sycl':
-      return { cmd: resolveClangd(), args: ['--background-index'] };
+      return { cmd: 'clangd', args: ['--background-index'], env: { ...process.env, PATH: buildClangdPath() } };
     default:
       return {
         cmd: resolveCmd('bash-language-server', ['/usr/local/bin/bash-language-server', '/usr/bin/bash-language-server']),
         args: ['start'],
+        env: { ...process.env, PATH: buildBashLsPath() },
       };
   }
 }
 
-const { cmd, args } = getLSP(language);
+const { cmd, args, env } = getLSP(language);
 const child = spawn(cmd, args, {
   stdio: ['pipe', 'pipe', 'pipe'],
+  env: env || process.env,
 });
 
 process.stdin.pipe(child.stdin);
@@ -83,5 +95,5 @@ child.on('error', (err) => {
   process.exit(1);
 });
 child.on('exit', (code) => {
-  process.exit(code ?? 0);
+  process.exit(code != null ? code : 0);
 });

@@ -6,7 +6,7 @@ import { WebSocketServer } from "ws";
 
 /**
  * @param {import('http').Server} httpServer
- * @param {import('./services/container.service.js').ContainerService} containerService
+ * @param {import('./container.service.js').ContainerService} containerService
  */
 export function setupTerminalWebSocket(httpServer, containerService) {
     const wss = new WebSocketServer({ noServer: true });

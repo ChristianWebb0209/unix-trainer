@@ -10,7 +10,7 @@ import type { Transport } from "@codemirror/lsp-client";
  */
 export function simpleWebSocketTransport(
     uri: string,
-    timeoutMs: number = 15_000
+    timeoutMs: number = 30_000
 ): Promise<Transport> {
     const handlers: ((value: string) => void)[] = [];
     const sock = new WebSocket(uri);

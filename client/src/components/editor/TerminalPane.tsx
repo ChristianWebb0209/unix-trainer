@@ -6,6 +6,8 @@ type TerminalPaneProps = {
     containerId: string | null;
     isExpanded: boolean;
     onToggleExpanded: () => void;
+    onResetContainer?: () => void;
+    isCreatingContainer?: boolean;
     showWebGpuTab: boolean;
     activeView: TerminalViewMode;
     onActiveViewChange: (view: TerminalViewMode) => void;
@@ -17,6 +19,8 @@ export function TerminalPane({
     containerId,
     isExpanded,
     onToggleExpanded,
+    onResetContainer,
+    isCreatingContainer = false,
     showWebGpuTab,
     activeView,
     onActiveViewChange,
@@ -54,7 +58,7 @@ export function TerminalPane({
                 >
                     {isExpanded ? "▼" : "▲"}
                 </button>
-                <div style={{ display: "flex", gap: "0.25rem" }}>
+                <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
                     <button
                         type="button"
                         className={`editor-tab-button ${activeView === "terminal" && showWebGpuTab ? "editor-tab-button--selected" : ""}`}
@@ -72,9 +76,29 @@ export function TerminalPane({
                         </button>
                     )}
                 </div>
-                <span style={{ color: "#666", fontSize: "12px", marginLeft: "auto" }}>
-                    {containerId ? `container-${containerId.slice(0, 8)}` : "Click Run Code to start"}
+                <div style={{ flex: 1, minWidth: 0 }} />
+                <span style={{ color: "#666", fontSize: "12px", marginRight: "0.75rem" }}>
+                    {containerId ? `container-${containerId.slice(0, 8)}` : isCreatingContainer ? "Starting…" : "Click Run Code to start"}
                 </span>
+                {onResetContainer && (
+                    <button
+                        type="button"
+                        onClick={() => void onResetContainer()}
+                        disabled={isCreatingContainer}
+                        style={{
+                            padding: "0.25rem 0.6rem",
+                            borderRadius: "999px",
+                            border: "1px solid #444",
+                            background: "transparent",
+                            color: "#aaa",
+                            fontSize: "0.75rem",
+                            cursor: isCreatingContainer ? "not-allowed" : "pointer",
+                        }}
+                        title="Recreate container (fixes broken terminal)"
+                    >
+                        {isCreatingContainer ? "…" : "Reset Terminal"}
+                    </button>
+                )}
             </div>
             {showWebGpuTab && activeView === "webgpu" ? (
                 <canvas
@@ -110,10 +134,16 @@ export function TerminalPane({
                         gap: "0.5rem",
                     }}
                 >
-                    <span>
-                        Click <strong>Run Code</strong> to launch the terminal
-                    </span>
-                    <span style={{ fontSize: "12px" }}>Output will appear here</span>
+                    {isCreatingContainer ? (
+                        <span>Starting container…</span>
+                    ) : (
+                        <>
+                            <span>
+                                Click <strong>Run Code</strong> to launch the terminal
+                            </span>
+                            <span style={{ fontSize: "12px" }}>Output will appear here</span>
+                        </>
+                    )}
                 </div>
             )}
         </div>

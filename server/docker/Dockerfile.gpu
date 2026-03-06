@@ -25,6 +25,9 @@ RUN apt-get update && \
       clangd && \
     rm -rf /var/lib/apt/lists/*
 
+# bash-language-server for bash/awk/unix LSP (same as systems so proxy works)
+RUN npm install -g bash-language-server
+
 # Intel oneAPI repo and DPC++ (SYCL)
 RUN wget -qO - https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null && \
     echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" > /etc/apt/sources.list.d/oneAPI.list && \

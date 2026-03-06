@@ -10,9 +10,9 @@ import { problemRouter } from "./routes/problem.routes.js";
 import { createValidationRouter } from "./routes/validation.routes.js";
 import { completionRouter } from "./routes/completion.routes.js";
 import { ContainerService } from "./services/container.service.js";
-import { seedProblemsToSupabase } from "./services/problem-seeder.js";
-import { setupLSPWebSocket } from "./lsp-ws.js";
-import { setupTerminalWebSocket } from "./terminal-ws.js";
+import { seedProblemsToSupabase } from "../scripts/problem-seeder.js";
+import { setupLSPWebSocket } from "./services/lsp-ws.js";
+import { setupTerminalWebSocket } from "./services/terminal-ws.js";
 import { ensureDockerRunning } from "./utils/docker-health.js";
 
 const __filename = fileURLToPath(import.meta.url);

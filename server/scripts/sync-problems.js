@@ -11,10 +11,10 @@
  *   npm run db:sync-problems -- --hard    Wipe the problems table, then insert exactly what is in the JSON files.
  */
 
-import { query, testConnection, pool } from '../config/database.config.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { query, testConnection, pool } from "../src/config/database.config.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,20 +24,20 @@ function collectProblemJsonFiles(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+    if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
     files.push(path.join(dir, entry.name));
   }
   return files;
 }
 
 function inferLanguageFromFileName(filePath) {
-  const base = path.basename(filePath, '.json').toLowerCase();
-  const known = ['awk', 'bash', 'unix', 'c', 'cpp', 'rust', 'cuda', 'vulkan', 'sycl'];
-  return known.includes(base) ? base : 'unix';
+  const base = path.basename(filePath, ".json").toLowerCase();
+  const known = ["awk", "bash", "unix", "c", "cpp", "rust", "cuda", "vulkan", "sycl"];
+  return known.includes(base) ? base : "unix";
 }
 
 function loadProblemsFromJson() {
-  const dataDir = path.resolve(__dirname, '../../src/data/problems');
+  const dataDir = path.resolve(__dirname, "../src/data/problems");
   if (!fs.existsSync(dataDir)) {
     console.error(`[Sync] Data directory not found: ${dataDir}`);
     return [];
@@ -50,7 +50,7 @@ function loadProblemsFromJson() {
 
   for (const filePath of files) {
     try {
-      const raw = fs.readFileSync(filePath, 'utf-8').trim();
+      const raw = fs.readFileSync(filePath, "utf-8").trim();
       if (!raw) {
         console.warn(`[Sync] Skipping empty file: ${filePath}`);
         continue;
@@ -63,9 +63,9 @@ function loadProblemsFromJson() {
           problems.push({
             id: prob.id,
             title: prob.title || prob.id,
-            instructions: prob.instructions ?? prob.description ?? '',
+            instructions: prob.instructions ?? prob.description ?? "",
             solution: prob.solution ?? null,
-            difficulty: prob.difficulty || 'easy',
+            difficulty: prob.difficulty || "easy",
             language: prob.language ?? fileLanguage,
             tests: Array.isArray(prob.tests) ? prob.tests : [],
             starter_code: prob.starterCode ?? prob.starter_code ?? null,
@@ -108,30 +108,30 @@ async function ensureTableExists() {
     ALTER TABLE public.problems ADD COLUMN IF NOT EXISTS validation JSONB DEFAULT NULL
   `).catch(() => {});
 
-  console.log('[Sync] problems table ensured');
+  console.log("[Sync] problems table ensured");
 }
 
 async function syncProblems() {
   const connected = await testConnection();
   if (!connected) {
-    console.error('[Sync] Cannot proceed without database connection');
+    console.error("[Sync] Cannot proceed without database connection");
     process.exit(1);
   }
 
-  console.log('[Sync] Loading problems from JSON files...');
+  console.log("[Sync] Loading problems from JSON files...");
   const problems = loadProblemsFromJson();
   console.log(`[Sync] Loaded ${problems.length} problems from JSON files`);
 
-  const hardMode = process.argv.includes('--hard');
+  const hardMode = process.argv.includes("--hard");
 
   if (hardMode) {
-    console.log('[Sync] --hard: wiping public.problems table...');
+    console.log("[Sync] --hard: wiping public.problems table...");
     try {
-      const res = await query('DELETE FROM public.problems');
+      const res = await query("DELETE FROM public.problems");
       const deleted = res.rowCount ?? 0;
       console.log(`[Sync] Deleted ${deleted} row(s). Will insert ${problems.length} from JSON.`);
     } catch (err) {
-      console.error('[Sync] Failed to delete existing problems:', err.message);
+      console.error("[Sync] Failed to delete existing problems:", err.message);
       await pool.end();
       process.exit(1);
     }
@@ -140,7 +140,7 @@ async function syncProblems() {
   await ensureTableExists();
 
   if (problems.length === 0) {
-    console.log('[Sync] No problems to sync');
+    console.log("[Sync] No problems to sync");
     await pool.end();
     process.exit(0);
   }
@@ -148,7 +148,7 @@ async function syncProblems() {
   let synced = 0;
   let errors = 0;
 
-  const testsJson = (v) => (v == null ? '[]' : JSON.stringify(Array.isArray(v) ? v : []));
+  const testsJson = (v) => (v == null ? "[]" : JSON.stringify(Array.isArray(v) ? v : []));
   const validationJson = (v) => (v == null ? null : JSON.stringify(v));
 
   for (const prob of problems) {
@@ -180,7 +180,7 @@ async function syncProblems() {
       synced++;
     } catch (err) {
       errors++;
-      console.error('[Sync] Failed to upsert problem', prob.id, err.message);
+      console.error("[Sync] Failed to upsert problem", prob.id, err.message);
     }
   }
 

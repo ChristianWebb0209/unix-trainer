@@ -31,9 +31,26 @@ function ResolvedContentBody({
   content: string;
   codeTheme: Extension;
 }) {
+  const hintContainerRef = useRef<HTMLDivElement | null>(null);
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+
   const hintsMatch = content.match(/\{hints:\s*([^}]+)\}/i);
   const hintsText = hintsMatch ? hintsMatch[1].trim() : "";
   const mainText = hintsMatch ? content.replace(hintsMatch[0], "").trim() : content;
+
+  useEffect(() => {
+    const details = detailsRef.current;
+    if (!details) return;
+    const onToggle = () => {
+      if (details.open && hintContainerRef.current) {
+        requestAnimationFrame(() => {
+          hintContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+        });
+      }
+    };
+    details.addEventListener("toggle", onToggle);
+    return () => details.removeEventListener("toggle", onToggle);
+  }, [hintsText]);
 
   const nodes = useMemo(() => {
     const renderRichText = (text: string): ReactNode[] => {
@@ -126,6 +143,7 @@ function ResolvedContentBody({
       {nodes}
       {hintsText && (
         <details
+          ref={detailsRef}
           style={{
             marginTop: "1.25rem",
             borderTop: "1px dashed var(--border-color)",
@@ -146,12 +164,11 @@ function ResolvedContentBody({
             Show hint
           </summary>
           <div
+            ref={hintContainerRef}
             style={{
               marginTop: "0.75rem",
               fontSize: "0.95rem",
-              backgroundColor: "rgba(15, 23, 42, 0.7)",
-              borderRadius: "6px",
-              padding: "0.75rem 1rem",
+              padding: "0.75rem 0",
             }}
           >
             {hintsText}

@@ -9,6 +9,7 @@ import type { Extension } from "@codemirror/state";
 import type { CSSProperties } from "react";
 import * as problemConfig from "problem-config";
 import { simpleWebSocketTransport } from "../../services/lspTransport";
+import { getApiWsOrigin } from "../../services/apiOrigin";
 import {
     isLspSupported,
     getLspFileUri,
@@ -28,9 +29,8 @@ function getLanguageExtension(lang: string): Extension[] {
 }
 
 function getLspWebSocketUrl(containerId: string, language: string): string {
-    const protocol = typeof window !== "undefined" && window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = typeof window !== "undefined" ? window.location.host : "localhost:3000";
-    return `${protocol}//${host}/api/containers/${containerId}/lsp?language=${encodeURIComponent(language)}`;
+    const base = typeof window !== "undefined" ? getApiWsOrigin() : "ws://localhost:3000";
+    return `${base}/api/containers/${containerId}/lsp?language=${encodeURIComponent(language)}`;
 }
 
 type CodeEditorPaneProps = {
@@ -81,10 +81,11 @@ export function CodeEditorPane({
                 if (cancelled) return;
                 const client = new LSPClient({
                     extensions: languageServerExtensions(),
-                    timeout: 20000,
+                    timeout: 60_000,
                 }).connect(transport);
                 lspClientRef.current = client;
-                setLspExtension(client.plugin(uri, languageId));
+                const plugin = client.plugin(uri, languageId);
+                setLspExtension(plugin);
             })
             .catch((err) => {
                 if (!cancelled) console.warn("[LSP] Failed to connect:", err);
@@ -158,6 +159,25 @@ export function CodeEditorPane({
                     </span>
                 )}
             </button>
+            {lspExtension && (
+                <span
+                    title="IntelliSense is on: autocomplete (Ctrl+Space), hover for docs, Ctrl+Click to go to definition"
+                    style={{
+                        position: "absolute",
+                        top: "8px",
+                        right: "8px",
+                        zIndex: 10,
+                        fontSize: "0.7rem",
+                        color: "var(--text-secondary, #888)",
+                        opacity: 0.9,
+                        padding: "0.2rem 0.5rem",
+                        borderRadius: "4px",
+                        backgroundColor: "var(--bg-tertiary, rgba(0,0,0,0.2))",
+                    }}
+                >
+                    IntelliSense on
+                </span>
+            )}
             {(() => {
                 const langId = language.toLowerCase();
                 const entry = (problemConfig.PROBLEM_LANGUAGES as Record<string, { docs?: string | null }>)[langId];

@@ -1,6 +1,14 @@
 import Docker from "dockerode";
 import { PassThrough } from "stream";
 import * as workspaceConfig from "../../../problem-config.mjs";
+import { lspError } from "../utils/lsp-log.js";
+import {
+    shortId,
+    containerLog,
+    containerLogCreate,
+    containerLogDestroy,
+    containerError,
+} from "../utils/container-log.js";
 
 /**
  * Container Service
@@ -72,7 +80,7 @@ export class ContainerService {
             const exists = images.some(img => img.RepoTags && img.RepoTags.includes(imageName));
             
             if (!exists) {
-                console.log(`[ContainerService] Building image ${imageName} using ${dockerfile}...`);
+                containerLogCreate(`Building image ${imageName} using ${dockerfile}...`);
                 // Build from the docker directory
                 await new Promise((resolve, reject) => {
                     this.docker.buildImage(
@@ -90,12 +98,12 @@ export class ContainerService {
                         }
                     );
                 });
-                console.log(`[ContainerService] Image ${imageName} built successfully`);
+                containerLogCreate(`Image ${imageName} built successfully`);
             } else {
-                console.log(`[ContainerService] Image ${imageName} already exists`);
+                containerLogCreate(`Image ${imageName} already exists`);
             }
         } catch (err) {
-            console.error(`[ContainerService] Failed to ensure image: ${err.message}`);
+            containerError(`Failed to ensure image: ${err.message}`);
             throw err;
         }
     }
@@ -120,7 +128,7 @@ export class ContainerService {
         // Reuse existing container for this owner + workspace if present
         for (const [id, meta] of this.containers.entries()) {
             if (meta.workspace === workspace && meta.ownerKey === ownerKey) {
-                console.log(`[ContainerService] Reusing container ${id} for owner=${ownerKey}, workspace=${workspace}`);
+                containerLogCreate(`Reusing container ${shortId(id)} for owner=${ownerKey}, workspace=${workspace}`);
                 this.recordActivity(id);
                 return id;
             }
@@ -130,7 +138,7 @@ export class ContainerService {
         await this.ensureImage(workspace);
 
         const imageName = this.getImageNameForWorkspace(workspace);
-        console.log(`[ContainerService] Creating container from ${imageName} (workspace=${workspace})...`);
+        containerLogCreate(`Creating container from ${imageName} (workspace=${workspace})...`);
         const container = await this.docker.createContainer({
             Image: imageName,
             Cmd: ["tail", "-f", "/dev/null"], // keep it alive
@@ -148,7 +156,7 @@ export class ContainerService {
             ownerKey,
             lastActivity: Date.now(),
         });
-        console.log(`[ContainerService] Created and started container: ${id} (owner=${ownerKey}, workspace=${workspace})`);
+        containerLogCreate(`Created and started container: ${shortId(id)} (owner=${ownerKey}, workspace=${workspace})`);
         return id;
     }
 
@@ -171,7 +179,7 @@ export class ContainerService {
             throw new Error(`Container ${containerId} not found or already destroyed.`);
         }
 
-        console.log(`[ContainerService] Running command in ${containerId}: ${command}, input length: ${input.length}`);
+        containerLog(`Running command in ${shortId(containerId)}: ${command}, input length: ${input.length}`);
         this.recordActivity(containerId);
 
         const container = this.docker.getContainer(containerId);
@@ -179,7 +187,7 @@ export class ContainerService {
         const inputEncoded = Buffer.from(String(input || ""), "utf-8").toString("base64");
         const shellCmd = workspaceConfig.getValidationCommand(language, codeEncoded, inputEncoded);
 
-        console.log(`[ContainerService] Executing: ${shellCmd.substring(0, 100)}...`);
+            containerLog(`Executing: ${shellCmd.substring(0, 100)}...`);
 
         const exec = await container.exec({
             Cmd: ["/bin/sh", "-lc", shellCmd],
@@ -211,7 +219,7 @@ export class ContainerService {
         const stdout = Buffer.concat(stdoutChunks).toString('utf-8');
         const stderr = Buffer.concat(stderrChunks).toString('utf-8');
 
-        console.log(`[ContainerService] Result: exitCode=${inspect.ExitCode}, stdout="${stdout.substring(0, 50)}"`);
+        containerLog(`Result: exitCode=${inspect.ExitCode}, stdout="${stdout.substring(0, 50)}"`);
 
         return {
             exitCode: inspect.ExitCode ?? 0,
@@ -233,7 +241,7 @@ export class ContainerService {
             throw new Error(`Container ${containerId} not found or already destroyed.`);
         }
 
-        console.log(`[ContainerService] Terminal command in ${containerId}: ${command}`);
+        containerLog(`Terminal command in ${shortId(containerId)}: ${command}`);
         this.recordActivity(containerId);
 
         const container = this.docker.getContainer(containerId);
@@ -289,7 +297,6 @@ export class ContainerService {
             throw new Error(`Container ${containerId} not found or already destroyed.`);
         }
 
-        console.log(`[ContainerService] Attaching PTY to container ${containerId}`);
         this.recordActivity(containerId);
 
         const container = this.docker.getContainer(containerId);
@@ -330,7 +337,10 @@ export class ContainerService {
         const stdoutPT = new PassThrough();
         const stderrPT = new PassThrough();
         this.docker.modem.demuxStream(stream, stdoutPT, stderrPT);
-        stderrPT.on("data", (chunk) => console.error("[LSP stderr]", chunk.toString()));
+        stderrPT.on("data", (chunk) => {
+            const text = chunk.toString();
+            if (/LSP proxy error|error:/i.test(text)) lspError(text.trim());
+        });
 
         const destroy = () => {
             stream.destroy();
@@ -347,7 +357,7 @@ export class ContainerService {
      */
     async stop(containerId) {
         if (this.containers.has(containerId)) {
-            console.log(`[ContainerService] Stopped container: ${containerId}`);
+            containerLogDestroy(`Stopped container: ${shortId(containerId)}`);
         }
     }
 
@@ -364,9 +374,9 @@ export class ContainerService {
             const container = this.docker.getContainer(containerId);
             await container.stop({ t: 2 });
             await container.remove({ force: true });
-            console.log(`[ContainerService] Destroyed container: ${containerId}`);
+            containerLogDestroy(`Destroyed container: ${shortId(containerId)}`);
         } catch (err) {
-            console.error(`[ContainerService] Error destroying ${containerId}:`, err.message);
+            containerError(`Error destroying ${shortId(containerId)}: ${err.message}`);
         }
     }
 
@@ -374,7 +384,7 @@ export class ContainerService {
         const now = Date.now();
         for (const [id, meta] of this.containers.entries()) {
             if (now - meta.lastActivity > this.idleTimeoutMs) {
-                console.log(`[ContainerService] Container ${id} idle for more than 15 minutes. Destroying...`);
+                containerLogDestroy(`Container ${shortId(id)} idle for more than 15 minutes. Destroying...`);
                 await this.destroy(id);
             }
         }
@@ -389,16 +399,16 @@ export class ContainerService {
                 const id = c.Id;
                 const image = c.Image;
                 try {
-                    console.log(`[ContainerService] Cleaning up leftover container ${id} (image=${image})`);
+                    containerLogDestroy(`Cleaning up leftover container ${shortId(id)} (image=${image})`);
                     const container = this.docker.getContainer(id);
                     await container.stop({ t: 2 }).catch(() => { });
                     await container.remove({ force: true }).catch(() => { });
                 } catch (err) {
-                    console.error(`[ContainerService] Failed to clean leftover container ${id}:`, err.message);
+                    containerError(`Failed to clean leftover container ${shortId(id)}: ${err.message}`);
                 }
             }
         } catch (err) {
-            console.error("[ContainerService] Failed to scan for leftover containers:", err.message);
+            containerError("Failed to scan for leftover containers: " + err.message);
         }
     }
 
