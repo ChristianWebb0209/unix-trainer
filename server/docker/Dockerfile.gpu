@@ -19,7 +19,10 @@ RUN apt-get update && \
       vulkan-tools \
       wget \
       gnupg \
-      ca-certificates && \
+      ca-certificates \
+      nodejs \
+      npm \
+      clangd && \
     rm -rf /var/lib/apt/lists/*
 
 # Intel oneAPI repo and DPC++ (SYCL)
@@ -31,6 +34,8 @@ RUN wget -qO - https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-P
 
 # DPC++ compiler on PATH (dpcpp)
 ENV PATH="/opt/intel/oneapi/compiler/latest/linux/bin:${PATH}"
+
+COPY lsp-proxy.js /workspace/lsp-proxy.js
 
 WORKDIR /workspace
 
