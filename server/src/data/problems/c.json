@@ -1,0 +1,489 @@
+{
+    "problems": [
+      {
+        "id": "c_learn_001",
+        "title": "Print Hello World",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Write a C program that prints the following line exactly.\n\n```\nHello, World!\n```\n\nYour program should output the text followed by a newline.\n\n{hints: Use printf from stdio.h.}",
+        "solution": "The goal is to print a single line using the C standard I/O library.\n\nIn C, printing to the terminal is done with **printf**, which is defined in the **stdio.h** header.\n\n```\n#include <stdio.h>\n\nint main() {\n    printf(\"Hello, World!\\n\");\n    return 0;\n}\n```\n\nThe `\\n` is the newline character, which moves the cursor to the next line.\n\nEvery C program starts executing in the **main function**, and returning `0` indicates successful execution.",
+        "starterCode": "#include <stdio.h>\n\nint main() {\n\n    return 0;\n}\n",
+        "tests": [
+          { "input": "", "expected_stdout": "Hello, World!\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_002",
+        "title": "Print Two Lines",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Write a program that prints two lines exactly like this:\n\n```\nC programming\nis fun\n```\n\nEach line must end with a newline character.\n\n{hints: Call printf twice.}",
+        "solution": "Printing multiple lines in C simply requires multiple calls to **printf**.\n\n```\n#include <stdio.h>\n\nint main() {\n    printf(\"C programming\\n\");\n    printf(\"is fun\\n\");\n    return 0;\n}\n```\n\nEach call prints one line. The newline character ensures the cursor moves to the next line after printing.",
+        "starterCode": "#include <stdio.h>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "", "expected_stdout": "C programming\nis fun\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_003",
+        "title": "Print a Number",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Print the number **42**.\n\nThe output must look like this:\n\n```\n42\n```\n\n{hints: printf can print integers with %d.}",
+        "solution": "The `%d` format specifier prints integers.\n\n```\n#include <stdio.h>\n\nint main() {\n    printf(\"%d\\n\", 42);\n    return 0;\n}\n```\n\n`%d` tells `printf` to display an integer value.",
+        "starterCode": "#include <stdio.h>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "", "expected_stdout": "42\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_004",
+        "title": "Read and Print an Integer",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read an integer from standard input and print it.\n\nExample:\n\nInput: 7\n\nOutput:\n```\n7\n```\n\n{hints: Use scanf with %d.}",
+        "solution": "To read numbers from input, C uses the **scanf** function.\n\n```\n#include <stdio.h>\n\nint main() {\n    int x;\n    scanf(\"%d\", &x);\n    printf(\"%d\\n\", x);\n    return 0;\n}\n```\n\n`&x` gives scanf the memory location where the number should be stored.",
+        "starterCode": "#include <stdio.h>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "5\n", "expected_stdout": "5\n" },
+          { "input": "42\n", "expected_stdout": "42\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_005",
+        "title": "Add Two Numbers",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read two integers and print their sum.\n\nExample:\n\nInput: 3 4\n\nOutput:\n```\n7\n```\n\n{hints: store numbers in variables and add them.}",
+        "solution": "We read two integers using `scanf` and add them.\n\n```\n#include <stdio.h>\n\nint main() {\n    int a,b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\\n\", a + b);\n    return 0;\n}\n```\n\nC performs integer addition with the `+` operator.",
+        "starterCode": "#include <stdio.h>\n\nint main(){\n\n}\n",
+        "tests": [
+          { "input": "1 2\n", "expected_stdout": "3\n" },
+          { "input": "10 5\n", "expected_stdout": "15\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_006",
+        "title": "Subtract Numbers",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read two integers and print the result of **a - b**.\n\nExample:\n\nInput: 10 4\n\nOutput:\n```\n6\n```\n",
+        "solution": "Subtraction works exactly like addition in C.\n\n```\n#include <stdio.h>\n\nint main() {\n    int a,b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\\n\", a - b);\n}\n```\n\nThe minus operator `-` subtracts values.",
+        "starterCode": "#include <stdio.h>\n\nint main(){\n\n}\n",
+        "tests": [
+          { "input": "10 4\n", "expected_stdout": "6\n" },
+          { "input": "5 8\n", "expected_stdout": "-3\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_007",
+        "title": "Multiply Numbers",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read two integers and print their product.\n\nExample output:\n\n```\n12\n```\n",
+        "solution": "Multiplication uses the `*` operator.\n\n```\n#include <stdio.h>\n\nint main(){\n int a,b;\n scanf(\"%d %d\",&a,&b);\n printf(\"%d\\n\",a*b);\n}\n```\n\nThe result is printed using `%d`.",
+        "starterCode": "#include <stdio.h>\n\nint main(){\n\n}\n",
+        "tests": [
+          { "input": "3 4\n", "expected_stdout": "12\n" },
+          { "input": "5 5\n", "expected_stdout": "25\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_008",
+        "title": "Divide Numbers",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read two integers and print **a / b** using integer division.\n\nExample:\n\nInput: 8 2\n\nOutput:\n```\n4\n```\n",
+        "solution": "Integer division truncates decimals.\n\n```\n#include <stdio.h>\n\nint main(){\n int a,b;\n scanf(\"%d %d\",&a,&b);\n printf(\"%d\\n\",a/b);\n}\n```\n\nSince variables are integers, the result will also be an integer.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "8 2\n", "expected_stdout": "4\n" },
+          { "input": "9 2\n", "expected_stdout": "4\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_009",
+        "title": "Print Square",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read an integer and print its square.\n\nExample:\n\nInput: 5\n\nOutput:\n```\n25\n```\n",
+        "solution": "Squaring a number means multiplying it by itself.\n\n```\n#include <stdio.h>\n\nint main(){\n int x;\n scanf(\"%d\",&x);\n printf(\"%d\\n\",x*x);\n}\n```\n\n`x*x` computes the square.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "4\n", "expected_stdout": "16\n" },
+          { "input": "7\n", "expected_stdout": "49\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_010",
+        "title": "Check Even or Odd",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read an integer and print **even** or **odd**.\n\nExample:\n\nInput: 6\n\nOutput:\n```\neven\n```\n",
+        "solution": "The modulo operator `%` returns the remainder.\n\n```\n#include <stdio.h>\n\nint main(){\n int x;\n scanf(\"%d\",&x);\n\n if(x%2==0)\n  printf(\"even\\n\");\n else\n  printf(\"odd\\n\");\n}\n```\n\nIf the remainder when dividing by 2 is zero, the number is even.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "4\n", "expected_stdout": "even\n" },
+          { "input": "7\n", "expected_stdout": "odd\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_011",
+        "title": "Maximum of Two Numbers",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read two integers and print the **larger** one.\n\nExample:\n\nInput: 3 9\n\nOutput:\n```\n9\n```\n",
+        "solution": "Use a conditional comparison.\n\n```\n#include <stdio.h>\n\nint main(){\n int a,b;\n scanf(\"%d %d\",&a,&b);\n\n if(a>b)\n  printf(\"%d\\n\",a);\n else\n  printf(\"%d\\n\",b);\n}\n```\n\nThe `>` operator compares values.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "3 9\n", "expected_stdout": "9\n" },
+          { "input": "10 4\n", "expected_stdout": "10\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_012",
+        "title": "Print Numbers 1 to 5",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Print the numbers 1 through 5, each on its own line.\n\nExpected output:\n\n```\n1\n2\n3\n4\n5\n```\n",
+        "solution": "A **for loop** is perfect for repeating tasks.\n\n```\n#include <stdio.h>\n\nint main(){\n for(int i=1;i<=5;i++)\n  printf(\"%d\\n\",i);\n}\n```\n\nThe loop runs while `i` is less than or equal to 5.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "", "expected_stdout": "1\n2\n3\n4\n5\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_013",
+        "title": "Sum of Three Numbers",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read three integers and print their sum.\n\nExample:\n\nInput: 1 2 3\n\nOutput:\n```\n6\n```\n",
+        "solution": "We extend the previous addition example.\n\n```\n#include <stdio.h>\n\nint main(){\n int a,b,c;\n scanf(\"%d %d %d\",&a,&b,&c);\n printf(\"%d\\n\",a+b+c);\n}\n```\n\nThe sum is computed with multiple `+` operations.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "1 2 3\n", "expected_stdout": "6\n" },
+          { "input": "10 20 30\n", "expected_stdout": "60\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_014",
+        "title": "Print Absolute Value",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read an integer and print its **absolute value**.\n\nExample:\n\nInput: -5\n\nOutput:\n```\n5\n```\n",
+        "solution": "Absolute value means removing the negative sign.\n\n```\n#include <stdio.h>\n\nint main(){\n int x;\n scanf(\"%d\",&x);\n\n if(x<0)\n  x=-x;\n\n printf(\"%d\\n\",x);\n}\n```\n\nIf the number is negative we multiply it by -1.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "-5\n", "expected_stdout": "5\n" },
+          { "input": "3\n", "expected_stdout": "3\n" }
+        ]
+      },
+  
+      {
+        "id": "c_learn_015",
+        "title": "Sum 1 to N",
+        "language": "c",
+        "difficulty": "learn",
+        "instructions": "Read an integer **n** and print the sum from **1 to n**.\n\nExample:\n\nInput: 5\n\nOutput:\n```\n15\n```\n",
+        "solution": "We accumulate the sum using a loop.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,sum=0;\n scanf(\"%d\",&n);\n\n for(int i=1;i<=n;i++)\n  sum+=i;\n\n printf(\"%d\\n\",sum);\n}\n```\n\n`sum += i` adds each number to the total.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "5\n", "expected_stdout": "15\n" },
+          { "input": "10\n", "expected_stdout": "55\n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_001",
+        "title": "Count Characters",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read a single word and print the number of characters in it.\n\nExample:\n\nInput: hello\n\nOutput:\n```\n5\n```\n",
+        "solution": "We read a string and count until the null terminator.\n\n```\n#include <stdio.h>\n#include <string.h>\n\nint main(){\n char s[100];\n scanf(\"%s\",s);\n printf(\"%lu\\n\",strlen(s));\n}\n```\n\n`strlen` returns the length of a string.",
+        "starterCode": "#include <stdio.h>\n#include <string.h>\n\nint main(){\n\n}",
+        "tests": [
+          { "input": "hello\n", "expected_stdout": "5\n" },
+          { "input": "abc\n", "expected_stdout": "3\n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_002",
+        "title": "Reverse Two Numbers",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read two integers and print them in reverse order.\n\nExample:\n\nInput: 3 8\n\nOutput:\n```\n8 3\n```\n",
+        "solution": "Simply swap the order in printf.\n\n```\n#include <stdio.h>\n\nint main(){\n int a,b;\n scanf(\"%d %d\",&a,&b);\n printf(\"%d %d\\n\",b,a);\n}\n```\n\nWe do not need to modify the variables.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "3 8\n", "expected_stdout": "8 3\n" },
+          { "input": "1 2\n", "expected_stdout": "2 1\n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_003",
+        "title": "Factorial",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read an integer **n** and print **n!**.\n\nExample:\n\nInput: 5\n\nOutput:\n```\n120\n```\n",
+        "solution": "Factorial multiplies numbers from 1 to n.\n\n```\n#include <stdio.h>\n\nint main(){\n int n;\n long long f=1;\n scanf(\"%d\",&n);\n\n for(int i=1;i<=n;i++)\n  f*=i;\n\n printf(\"%lld\\n\",f);\n}\n```\n\n`long long` avoids overflow for small factorials.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "5\n", "expected_stdout": "120\n" },
+          { "input": "3\n", "expected_stdout": "6\n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_004",
+        "title": "Count to N",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read **n** and print numbers from 1 to n separated by spaces.\n\nExample:\n\nInput: 4\n\nOutput:\n```\n1 2 3 4\n```\n",
+        "solution": "A loop prints numbers with spaces.\n\n```\n#include <stdio.h>\n\nint main(){\n int n;\n scanf(\"%d\",&n);\n\n for(int i=1;i<=n;i++)\n  printf(\"%d \",i);\n\n printf(\"\\n\");\n}\n```\n\nThe trailing newline ensures consistent output.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "4\n", "expected_stdout": "1 2 3 4 \n" },
+          { "input": "2\n", "expected_stdout": "1 2 \n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_005",
+        "title": "Maximum of Three",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read three integers and print the largest.\n\nExample:\n\nInput: 2 9 5\n\nOutput:\n```\n9\n```\n",
+        "solution": "Track the maximum value.\n\n```\n#include <stdio.h>\n\nint main(){\n int a,b,c,m;\n scanf(\"%d %d %d\",&a,&b,&c);\n\n m=a;\n if(b>m) m=b;\n if(c>m) m=c;\n\n printf(\"%d\\n\",m);\n}\n```\n\nEach comparison updates the maximum.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "2 9 5\n", "expected_stdout": "9\n" },
+          { "input": "10 3 7\n", "expected_stdout": "10\n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_006",
+        "title": "Sum Array",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read an integer **n**, then **n numbers**, and print their sum.\n\nExample:\n\nInput:\n\n```\n3\n1 2 3\n```\n\nOutput:\n\n```\n6\n```\n",
+        "solution": "We read numbers in a loop.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,x,sum=0;\n scanf(\"%d\",&n);\n\n for(int i=0;i<n;i++){\n  scanf(\"%d\",&x);\n  sum+=x;\n }\n\n printf(\"%d\\n\",sum);\n}\n```\n\nEach input value is added to the running total.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "3\n1 2 3\n", "expected_stdout": "6\n" },
+          { "input": "5\n1 1 1 1 1\n", "expected_stdout": "5\n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_007",
+        "title": "Count Even Numbers",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read **n** numbers and print how many are even.\n\nExample:\n\nInput:\n\n```\n4\n1 2 3 4\n```\n\nOutput:\n\n```\n2\n```\n",
+        "solution": "Use the modulo operator.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,x,c=0;\n scanf(\"%d\",&n);\n\n for(int i=0;i<n;i++){\n  scanf(\"%d\",&x);\n  if(x%2==0) c++;\n }\n\n printf(\"%d\\n\",c);\n}\n```\n\nEvery even number increments the counter.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "4\n1 2 3 4\n", "expected_stdout": "2\n" },
+          { "input": "3\n2 4 6\n", "expected_stdout": "3\n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_008",
+        "title": "Reverse Digits",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read an integer and print its digits reversed.\n\nExample:\n\nInput: 123\n\nOutput:\n```\n321\n```\n",
+        "solution": "Repeatedly extract digits.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,r;\n scanf(\"%d\",&n);\n\n while(n>0){\n  r=n%10;\n  printf(\"%d\",r);\n  n/=10;\n }\n printf(\"\\n\");\n}\n```\n\n`%10` extracts the last digit.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "123\n", "expected_stdout": "321\n" },
+          { "input": "400\n", "expected_stdout": "004\n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_009",
+        "title": "Simple Power",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read integers **a** and **b** and compute **a^b**.\n\nExample:\n\nInput: 2 3\n\nOutput:\n```\n8\n```\n",
+        "solution": "Repeated multiplication computes powers.\n\n```\n#include <stdio.h>\n\nint main(){\n int a,b;\n long long r=1;\n scanf(\"%d %d\",&a,&b);\n\n for(int i=0;i<b;i++)\n  r*=a;\n\n printf(\"%lld\\n\",r);\n}\n```\n\nThe loop multiplies `a` by itself `b` times.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "2 3\n", "expected_stdout": "8\n" },
+          { "input": "5 2\n", "expected_stdout": "25\n" }
+        ]
+      },
+  
+      {
+        "id": "c_easy_010",
+        "title": "Average of Numbers",
+        "language": "c",
+        "difficulty": "easy",
+        "instructions": "Read **n numbers** and print their integer average.\n\nExample:\n\nInput:\n\n```\n3\n3 3 3\n```\n\nOutput:\n\n```\n3\n```\n",
+        "solution": "Average equals sum divided by count.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,x,sum=0;\n scanf(\"%d\",&n);\n\n for(int i=0;i<n;i++){\n  scanf(\"%d\",&x);\n  sum+=x;\n }\n\n printf(\"%d\\n\",sum/n);\n}\n```\n\nSince the output is integer average, integer division is correct.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "3\n3 3 3\n", "expected_stdout": "3\n" },
+          { "input": "4\n1 2 3 4\n", "expected_stdout": "2\n" }
+        ]
+      },
+  
+      {
+        "id": "c_medium_001",
+        "title": "Prime Check",
+        "language": "c",
+        "difficulty": "medium",
+        "instructions": "Read an integer and print **prime** if it is prime, otherwise print **not prime**.\n\nExample:\n\nInput: 7\n\nOutput:\n```\nprime\n```\n",
+        "solution": "A number is prime if it has no divisors besides 1 and itself.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,prime=1;\n scanf(\"%d\",&n);\n\n if(n<2) prime=0;\n\n for(int i=2;i*i<=n;i++)\n  if(n%i==0) prime=0;\n\n if(prime) printf(\"prime\\n\");\n else printf(\"not prime\\n\");\n}\n```\n\nChecking up to `sqrt(n)` makes the algorithm efficient.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "7\n", "expected_stdout": "prime\n" },
+          { "input": "8\n", "expected_stdout": "not prime\n" }
+        ]
+      },
+  
+      {
+        "id": "c_medium_002",
+        "title": "GCD",
+        "language": "c",
+        "difficulty": "medium",
+        "instructions": "Read two integers and print their **greatest common divisor**.\n\nExample:\n\nInput: 12 18\n\nOutput:\n```\n6\n```\n",
+        "solution": "Use the Euclidean algorithm.\n\n```\n#include <stdio.h>\n\nint main(){\n int a,b,t;\n scanf(\"%d %d\",&a,&b);\n\n while(b!=0){\n  t=b;\n  b=a%b;\n  a=t;\n }\n\n printf(\"%d\\n\",a);\n}\n```\n\nThe algorithm repeatedly replaces the pair `(a,b)` with `(b, a mod b)`.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "12 18\n", "expected_stdout": "6\n" },
+          { "input": "100 25\n", "expected_stdout": "25\n" }
+        ]
+      },
+  
+      {
+        "id": "c_medium_003",
+        "title": "Fibonacci",
+        "language": "c",
+        "difficulty": "medium",
+        "instructions": "Read **n** and print the **nth Fibonacci number**.\n\nExample:\n\nInput: 7\n\nOutput:\n```\n13\n```\n",
+        "solution": "Fibonacci numbers follow:\n\nF(n) = F(n-1) + F(n-2)\n\n```\n#include <stdio.h>\n\nint main(){\n int n;\n long long a=0,b=1,c;\n scanf(\"%d\",&n);\n\n for(int i=2;i<=n;i++){\n  c=a+b;\n  a=b;\n  b=c;\n }\n\n printf(\"%lld\\n\",b);\n}\n```\n\nThis iterative solution avoids recursion overhead.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "7\n", "expected_stdout": "13\n" },
+          { "input": "10\n", "expected_stdout": "55\n" }
+        ]
+      },
+  
+      {
+        "id": "c_medium_004",
+        "title": "Palindrome Number",
+        "language": "c",
+        "difficulty": "medium",
+        "instructions": "Check if an integer reads the same forwards and backwards.\n\nExample:\n\nInput: 121\n\nOutput:\n```\nyes\n```\n",
+        "solution": "Reverse the number and compare.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,t,r,rev=0;\n scanf(\"%d\",&n);\n\n t=n;\n\n while(t>0){\n  r=t%10;\n  rev=rev*10+r;\n  t/=10;\n }\n\n if(rev==n) printf(\"yes\\n\");\n else printf(\"no\\n\");\n}\n```\n\nIf the reversed number equals the original, it is a palindrome.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "121\n", "expected_stdout": "yes\n" },
+          { "input": "123\n", "expected_stdout": "no\n" }
+        ]
+      },
+  
+      {
+        "id": "c_medium_005",
+        "title": "Count Digits",
+        "language": "c",
+        "difficulty": "medium",
+        "instructions": "Read an integer and print the number of digits.\n\nExample:\n\nInput: 12345\n\nOutput:\n```\n5\n```\n",
+        "solution": "Repeated division counts digits.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,c=0;\n scanf(\"%d\",&n);\n\n while(n!=0){\n  n/=10;\n  c++;\n }\n\n printf(\"%d\\n\",c);\n}\n```\n\nEach division by 10 removes one digit.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "12345\n", "expected_stdout": "5\n" },
+          { "input": "9\n", "expected_stdout": "1\n" }
+        ]
+      },
+  
+      {
+        "id": "c_hard_001",
+        "title": "Binary to Decimal",
+        "language": "c",
+        "difficulty": "hard",
+        "instructions": "Read a binary number and convert it to decimal.\n\nExample:\n\nInput: 101\n\nOutput:\n```\n5\n```\n",
+        "solution": "We process digits from right to left.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,base=1,dec=0,r;\n scanf(\"%d\",&n);\n\n while(n>0){\n  r=n%10;\n  dec+=r*base;\n  base*=2;\n  n/=10;\n }\n\n printf(\"%d\\n\",dec);\n}\n```\n\nEach digit contributes a power of two.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "101\n", "expected_stdout": "5\n" },
+          { "input": "111\n", "expected_stdout": "7\n" }
+        ]
+      },
+  
+      {
+        "id": "c_hard_002",
+        "title": "Decimal to Binary",
+        "language": "c",
+        "difficulty": "hard",
+        "instructions": "Read a decimal number and print its binary representation.\n\nExample:\n\nInput: 5\n\nOutput:\n```\n101\n```\n",
+        "solution": "Repeated division by two builds binary digits.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,bin[32],i=0;\n scanf(\"%d\",&n);\n\n while(n>0){\n  bin[i++]=n%2;\n  n/=2;\n }\n\n for(int j=i-1;j>=0;j--)\n  printf(\"%d\",bin[j]);\n\n printf(\"\\n\");\n}\n```\n\nDigits are generated in reverse order and then printed backward.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "5\n", "expected_stdout": "101\n" },
+          { "input": "8\n", "expected_stdout": "1000\n" }
+        ]
+      },
+  
+      {
+        "id": "c_hard_003",
+        "title": "Bubble Sort",
+        "language": "c",
+        "difficulty": "hard",
+        "instructions": "Read **n numbers** and print them sorted in ascending order.\n\nExample:\n\nInput:\n\n```\n5\n5 3 1 4 2\n```\n\nOutput:\n\n```\n1 2 3 4 5\n```\n",
+        "solution": "Bubble sort repeatedly swaps adjacent elements.\n\n```\n#include <stdio.h>\n\nint main(){\n int n,a[100];\n scanf(\"%d\",&n);\n\n for(int i=0;i<n;i++)\n  scanf(\"%d\",&a[i]);\n\n for(int i=0;i<n;i++)\n  for(int j=0;j<n-1;j++)\n   if(a[j]>a[j+1]){\n    int t=a[j];\n    a[j]=a[j+1];\n    a[j+1]=t;\n   }\n\n for(int i=0;i<n;i++)\n  printf(\"%d \",a[i]);\n\n printf(\"\\n\");\n}\n```\n\nBubble sort is simple but not efficient for large arrays.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "5\n5 3 1 4 2\n", "expected_stdout": "1 2 3 4 5 \n" },
+          { "input": "3\n9 7 8\n", "expected_stdout": "7 8 9 \n" }
+        ]
+      },
+  
+      {
+        "id": "c_hard_004",
+        "title": "Matrix Sum",
+        "language": "c",
+        "difficulty": "hard",
+        "instructions": "Read a **2x2 matrix** and print the sum of all elements.\n\nExample:\n\nInput:\n\n```\n1 2\n3 4\n```\n\nOutput:\n\n```\n10\n```\n",
+        "solution": "We store the matrix in a 2D array.\n\n```\n#include <stdio.h>\n\nint main(){\n int a[2][2],sum=0;\n\n for(int i=0;i<2;i++)\n  for(int j=0;j<2;j++){\n   scanf(\"%d\",&a[i][j]);\n   sum+=a[i][j];\n  }\n\n printf(\"%d\\n\",sum);\n}\n```\n\nEach element contributes to the total sum.",
+        "starterCode": "#include <stdio.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "1 2\n3 4\n", "expected_stdout": "10\n" },
+          { "input": "5 5\n5 5\n", "expected_stdout": "20\n" }
+        ]
+      },
+  
+      {
+        "id": "c_hard_005",
+        "title": "String Reverse",
+        "language": "c",
+        "difficulty": "hard",
+        "instructions": "Read a word and print it reversed.\n\nExample:\n\nInput: code\n\nOutput:\n```\nedoc\n```\n",
+        "solution": "We reverse the string by iterating backwards.\n\n```\n#include <stdio.h>\n#include <string.h>\n\nint main(){\n char s[100];\n scanf(\"%s\",s);\n\n int n=strlen(s);\n\n for(int i=n-1;i>=0;i--)\n  printf(\"%c\",s[i]);\n\n printf(\"\\n\");\n}\n```\n\n`strlen` determines the last index, and we print characters in reverse order.",
+        "starterCode": "#include <stdio.h>\n#include <string.h>\nint main(){\n\n}",
+        "tests": [
+          { "input": "code\n", "expected_stdout": "edoc\n" },
+          { "input": "abc\n", "expected_stdout": "cba\n" }
+        ]
+      }
+    ]
+  }

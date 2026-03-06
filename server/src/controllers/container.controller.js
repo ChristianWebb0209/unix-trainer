@@ -38,7 +38,11 @@ export class ContainerController {
             const candidateLang = typeof rawLang === 'string' ? rawLang.toLowerCase() : '';
             const language = ALLOWED_LANGUAGES.includes(candidateLang) ? candidateLang : EXECUTION_DEFAULTS.language;
 
-            const workspace = rawWorkspace === 'cuda' ? 'cuda' : 'unix';
+            const { getWorkspaceIds, DEFAULT_WORKSPACE } = await import('../../../problem-config.mjs');
+            const knownWorkspaces = getWorkspaceIds();
+            const workspace = typeof rawWorkspace === 'string' && knownWorkspaces.includes(rawWorkspace)
+                ? rawWorkspace
+                : DEFAULT_WORKSPACE;
 
             const memoryLimitBytes = EXECUTION_DEFAULTS.memoryLimitBytes;
             const timeLimitMs = EXECUTION_DEFAULTS.timeLimitMs;

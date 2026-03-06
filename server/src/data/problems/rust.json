@@ -1,0 +1,419 @@
+{
+    "problems": [
+      {
+        "id": "rust_learn_001",
+        "title": "Hello, World!",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Write a Rust program that prints the following line to stdout:\n\n```\nHello, World!\n```\n\nThis is your first Rust program! Every Rust program starts with a `main` function.\n\n{hints: Use the println! macro. In Rust, printing is done with println!(\"...\") — note the exclamation mark, which means it's a macro, not a regular function.}",
+        "solution": "Every Rust program needs a `main` function as its entry point. To print to stdout, we use the `println!` macro.\n\n```rust\nfn main() {\n    println!(\"Hello, World!\");\n}\n```\n\n**Explanation:**\n- `fn main()` declares the main function — the program starts here.\n- `println!` is a macro (note the `!`) that prints a line followed by a newline character.\n- The string `\"Hello, World!\"` is passed as an argument.",
+        "starterCode": "fn main() {\n    // Your code here\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "Hello, World!\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_002",
+        "title": "Variables and Binding",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Declare a variable `x` with the value `42` and print it using the format string below.\n\nOutput:\n\n```\nx = 42\n```\n\nIn Rust, variables are declared with `let`.\n\n{hints: Use let x = 42; and then println!(\"x = {}\", x); — the {} is a placeholder that gets replaced with the variable's value.}",
+        "solution": "Variables in Rust are immutable by default and are declared with `let`.\n\n```rust\nfn main() {\n    let x = 42;\n    println!(\"x = {}\", x);\n}\n```\n\n**Explanation:**\n- `let x = 42;` binds the value `42` to the name `x`. Rust infers the type as `i32`.\n- `{}` inside the format string is a placeholder; Rust replaces it with the value of `x`.\n- Variables in Rust are **immutable by default** — you cannot reassign `x` without marking it `mut`.",
+        "starterCode": "fn main() {\n    // Declare x here\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "x = 42\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_003",
+        "title": "Mutable Variables",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Declare a mutable variable `count` starting at `0`, then increment it by `1`, and print the result.\n\nOutput:\n\n```\ncount = 1\n```\n\n{hints: Use let mut count = 0; to declare a mutable variable. Then use count += 1; to increment it.}",
+        "solution": "To allow reassignment in Rust, you must use `mut` when declaring the variable.\n\n```rust\nfn main() {\n    let mut count = 0;\n    count += 1;\n    println!(\"count = {}\", count);\n}\n```\n\n**Explanation:**\n- `let mut count = 0;` declares a **mutable** integer variable.\n- `count += 1;` increments the value by 1. This would fail to compile if `mut` were omitted.\n- Rust enforces immutability at compile time — this is one of the features that makes Rust safe.",
+        "starterCode": "fn main() {\n    // Declare and mutate count here\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "count = 1\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_004",
+        "title": "Basic Arithmetic",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Compute the sum, difference, product, and quotient of `a = 10` and `b = 3`. Print each result on its own line:\n\n```\nsum = 13\ndiff = 7\nprod = 30\nquot = 3\n```\n\n**Note:** Use integer division (no decimals).\n\n{hints: Use +, -, *, and / operators. All values are integers, so / will perform integer division.}",
+        "solution": "Rust supports standard arithmetic operators for integer types.\n\n```rust\nfn main() {\n    let a = 10;\n    let b = 3;\n    println!(\"sum = {}\", a + b);\n    println!(\"diff = {}\", a - b);\n    println!(\"prod = {}\", a * b);\n    println!(\"quot = {}\", a / b);\n}\n```\n\n**Explanation:**\n- `+`, `-`, `*`, `/` are the standard arithmetic operators.\n- Since `a` and `b` are integers, `/` performs **integer division** (truncates toward zero), so `10 / 3 = 3`.\n- Rust requires operands of the same type — mixing `i32` and `f64` would be a compile error.",
+        "starterCode": "fn main() {\n    let a = 10;\n    let b = 3;\n    // Print sum, diff, prod, quot\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "sum = 13\ndiff = 7\nprod = 30\nquot = 3\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_005",
+        "title": "If / Else",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Given `n = 7`, print whether it is **even** or **odd**.\n\n```\n7 is odd\n```\n\n{hints: Use the modulo operator %. If n % 2 == 0 the number is even, otherwise it is odd.}",
+        "solution": "Rust's `if / else` works like most languages, but the condition does not need parentheses.\n\n```rust\nfn main() {\n    let n = 7;\n    if n % 2 == 0 {\n        println!(\"{} is even\", n);\n    } else {\n        println!(\"{} is odd\", n);\n    }\n}\n```\n\n**Explanation:**\n- `n % 2` is the remainder when dividing by 2.\n- `==` is the equality operator.\n- Curly braces `{}` are **required** around each branch in Rust — there are no braceless one-liners.",
+        "starterCode": "fn main() {\n    let n = 7;\n    // Check even or odd\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "7 is odd\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_006",
+        "title": "Loops with loop",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Use a `loop` to print the numbers **1 through 5**, one per line.\n\n```\n1\n2\n3\n4\n5\n```\n\n{hints: Declare a mutable counter starting at 1. Inside loop { ... }, print it, increment it, and use break when it exceeds 5.}",
+        "solution": "Rust has a unique `loop` keyword for infinite loops. You exit with `break`.\n\n```rust\nfn main() {\n    let mut i = 1;\n    loop {\n        println!(\"{}\", i);\n        i += 1;\n        if i > 5 {\n            break;\n        }\n    }\n}\n```\n\n**Explanation:**\n- `loop { }` runs forever until a `break` is encountered.\n- `break` exits the loop.\n- This is different from `while` or `for` — `loop` is Rust's way of expressing an intentionally infinite loop that you control explicitly.",
+        "starterCode": "fn main() {\n    // Use loop to print 1 through 5\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "1\n2\n3\n4\n5\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_007",
+        "title": "While Loop",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Use a `while` loop to print the numbers **10 down to 1** (inclusive), one per line.\n\n```\n10\n9\n8\n7\n6\n5\n4\n3\n2\n1\n```\n\n{hints: Start a mutable variable at 10 and loop while it is greater than 0. Print, then decrement.}",
+        "solution": "A `while` loop in Rust runs as long as its condition is true.\n\n```rust\nfn main() {\n    let mut i = 10;\n    while i > 0 {\n        println!(\"{}\", i);\n        i -= 1;\n    }\n}\n```\n\n**Explanation:**\n- `while i > 0 { }` checks the condition before each iteration.\n- `i -= 1;` decrements the counter.\n- When `i` reaches `0`, the condition `i > 0` is false and the loop ends.",
+        "starterCode": "fn main() {\n    // Use while to count down from 10\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "10\n9\n8\n7\n6\n5\n4\n3\n2\n1\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_008",
+        "title": "For Loop over a Range",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Use a `for` loop and a **range** to print the squares of numbers 1 through 5.\n\n```\n1\n4\n9\n16\n25\n```\n\n{hints: Use for i in 1..=5 { } to iterate from 1 to 5 inclusive. Print i * i inside the loop.}",
+        "solution": "Rust ranges make `for` loops concise and idiomatic.\n\n```rust\nfn main() {\n    for i in 1..=5 {\n        println!(\"{}\", i * i);\n    }\n}\n```\n\n**Explanation:**\n- `1..=5` is an **inclusive range** covering 1, 2, 3, 4, 5.\n- `1..5` (without `=`) would be exclusive and stop at 4.\n- `i * i` computes the square of each number.",
+        "starterCode": "fn main() {\n    // for loop over range 1..=5\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "1\n4\n9\n16\n25\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_009",
+        "title": "Functions",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Write a function `add(a: i32, b: i32) -> i32` that returns the sum of two integers. Call it with `3` and `4` and print the result.\n\n```\n7\n```\n\n{hints: Define the function above or below main. In Rust, the last expression in a function body (without a semicolon) is automatically returned.}",
+        "solution": "Functions in Rust are defined with `fn`, typed parameters, and an explicit return type.\n\n```rust\nfn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n\nfn main() {\n    println!(\"{}\", add(3, 4));\n}\n```\n\n**Explanation:**\n- `fn add(a: i32, b: i32) -> i32` declares a function with two `i32` parameters that returns an `i32`.\n- `a + b` on the last line **without a semicolon** is the implicit return value.\n- You can also write `return a + b;` explicitly, but the implicit form is idiomatic Rust.",
+        "starterCode": "fn add(a: i32, b: i32) -> i32 {\n    // Return sum\n}\n\nfn main() {\n    println!(\"{}\", add(3, 4));\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "7\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_010",
+        "title": "Strings and String Slices",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Create a `String` from the text `\"Rust\"`, append `\" is awesome\"` to it, and print the result.\n\n```\nRust is awesome\n```\n\n{hints: Use String::from(\"Rust\") to create an owned string. Use push_str to append a string slice to it.}",
+        "solution": "Rust has two string types: `&str` (a string slice, usually a literal) and `String` (an owned, growable string).\n\n```rust\nfn main() {\n    let mut s = String::from(\"Rust\");\n    s.push_str(\" is awesome\");\n    println!(\"{}\", s);\n}\n```\n\n**Explanation:**\n- `String::from(\"Rust\")` allocates an owned `String` on the heap.\n- `push_str` appends a `&str` to the `String`. The variable must be `mut`.\n- `&str` literals like `\" is awesome\"` are stored in the program binary and are always valid.",
+        "starterCode": "fn main() {\n    // Create and modify a String\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "Rust is awesome\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_011",
+        "title": "Tuples",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Create a tuple containing the integer `1`, the float `2.5`, and the boolean `true`. Print each element on its own line.\n\n```\n1\n2.5\ntrue\n```\n\n{hints: Declare let t = (1, 2.5, true); and access elements with t.0, t.1, t.2.}",
+        "solution": "Tuples can hold values of different types. Elements are accessed by index with dot notation.\n\n```rust\nfn main() {\n    let t = (1, 2.5, true);\n    println!(\"{}\", t.0);\n    println!(\"{}\", t.1);\n    println!(\"{}\", t.2);\n}\n```\n\n**Explanation:**\n- `(1, 2.5, true)` is a **tuple** — a fixed-length collection of values that can have different types.\n- `t.0`, `t.1`, `t.2` access the first, second, and third elements respectively.\n- Tuples are useful for returning multiple values from a function.",
+        "starterCode": "fn main() {\n    // Create a tuple and print its elements\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "1\n2.5\ntrue\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_012",
+        "title": "Arrays",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Declare an array of five integers `[10, 20, 30, 40, 50]` and print the **third element** (index 2).\n\n```\n30\n```\n\n{hints: Declare let arr = [10, 20, 30, 40, 50]; and access elements with arr[2].}",
+        "solution": "Arrays in Rust are fixed-size and stored on the stack.\n\n```rust\nfn main() {\n    let arr = [10, 20, 30, 40, 50];\n    println!(\"{}\", arr[2]);\n}\n```\n\n**Explanation:**\n- `[10, 20, 30, 40, 50]` is an array of type `[i32; 5]` — five 32-bit integers.\n- Array indexing starts at `0`, so `arr[2]` is the third element (`30`).\n- Unlike vectors, arrays have a **fixed size** known at compile time. Rust will panic at runtime if you access out-of-bounds.",
+        "starterCode": "fn main() {\n    // Declare array and print index 2\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "30\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_013",
+        "title": "Vectors",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Create a `Vec<i32>` containing `[1, 2, 3]`, push `4` onto it, and print its length.\n\n```\n4\n```\n\n{hints: Use vec![1, 2, 3] to create the vector. Call .push(4) to append. Use .len() to get the length.}",
+        "solution": "Vectors (`Vec<T>`) are heap-allocated, growable arrays.\n\n```rust\nfn main() {\n    let mut v = vec![1, 2, 3];\n    v.push(4);\n    println!(\"{}\", v.len());\n}\n```\n\n**Explanation:**\n- `vec![1, 2, 3]` is a macro that creates a `Vec<i32>` and initializes it with three elements.\n- `push(4)` appends an element to the end. The vector must be `mut`.\n- `len()` returns the number of elements currently in the vector.",
+        "starterCode": "fn main() {\n    // Create vec, push 4, print length\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "4\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_014",
+        "title": "Reading from Stdin",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Read a single line from stdin and print it back with the prefix `You said: `.\n\nFor example, if the input is `hello`, the output should be:\n\n```\nYou said: hello\n```\n\n{hints: Use use std::io; and io::stdin().read_line(&mut input). Don't forget to trim the trailing newline with .trim().}",
+        "solution": "Reading from stdin requires the `std::io` module.\n\n```rust\nuse std::io;\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_line(&mut input).unwrap();\n    let input = input.trim();\n    println!(\"You said: {}\", input);\n}\n```\n\n**Explanation:**\n- `String::new()` creates an empty growable string buffer.\n- `read_line(&mut input)` reads one line (including the newline) into `input`. It returns a `Result` — `.unwrap()` panics on error.\n- `.trim()` removes the trailing `\\n` (or `\\r\\n` on Windows).\n- We shadow `input` with `let input = input.trim();` — Rust allows re-binding the same name.",
+        "starterCode": "use std::io;\n\nfn main() {\n    let mut input = String::new();\n    // Read and print\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "hello\n", "expected_stdout": "You said: hello\n" },
+          { "id": "tc2", "input": "Rust is great\n", "expected_stdout": "You said: Rust is great\n" }
+        ]
+      },
+      {
+        "id": "rust_learn_015",
+        "title": "Option Type",
+        "language": "rust",
+        "difficulty": "learn",
+        "instructions": "Given the function below, call `find_first_even` with the vector `[1, 3, 4, 7]` and print the result using `match`:\n\n```\nFound: 4\n```\n\nThe function signature is:\n```rust\nfn find_first_even(nums: &[i32]) -> Option<i32>\n```\n\n{hints: match on the Option. The Some(v) arm prints the value, the None arm prints \"Not found\".}",
+        "solution": "`Option<T>` is Rust's way of expressing a value that may or may not exist — replacing null pointers.\n\n```rust\nfn find_first_even(nums: &[i32]) -> Option<i32> {\n    for &n in nums {\n        if n % 2 == 0 {\n            return Some(n);\n        }\n    }\n    None\n}\n\nfn main() {\n    let nums = [1, 3, 4, 7];\n    match find_first_even(&nums) {\n        Some(v) => println!(\"Found: {}\", v),\n        None    => println!(\"Not found\"),\n    }\n}\n```\n\n**Explanation:**\n- `Option<i32>` is either `Some(value)` or `None`.\n- `match` exhaustively handles both variants — the compiler enforces that you handle `None`.\n- This is much safer than returning `-1` or a null pointer to signal \"no result\".",
+        "starterCode": "fn find_first_even(nums: &[i32]) -> Option<i32> {\n    for &n in nums {\n        if n % 2 == 0 {\n            return Some(n);\n        }\n    }\n    None\n}\n\nfn main() {\n    let nums = [1, 3, 4, 7];\n    // match the result and print\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "Found: 4\n" }
+        ]
+      },
+  
+      {
+        "id": "rust_easy_001",
+        "title": "FizzBuzz",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Print the numbers from **1 to 20**. But:\n- For multiples of **3**, print `Fizz` instead.\n- For multiples of **5**, print `Buzz` instead.\n- For multiples of **both 3 and 5**, print `FizzBuzz`.\n\n```\n1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz\n16\n17\nFizz\n19\nBuzz\n```\n\n{hints: Check divisibility by 15 first (both), then 3, then 5, then fall through to print the number. Use if / else if / else.}",
+        "solution": "FizzBuzz is a classic exercise in conditional logic.\n\n```rust\nfn main() {\n    for i in 1..=20 {\n        if i % 15 == 0 {\n            println!(\"FizzBuzz\");\n        } else if i % 3 == 0 {\n            println!(\"Fizz\");\n        } else if i % 5 == 0 {\n            println!(\"Buzz\");\n        } else {\n            println!(\"{}\", i);\n        }\n    }\n}\n```\n\n**Explanation:**\n- We check `% 15 == 0` **first** because a number divisible by both 3 and 5 would also match the individual checks.\n- `1..=20` iterates 1 through 20 inclusive.\n- The `else` branch handles everything that doesn't match.",
+        "starterCode": "fn main() {\n    for i in 1..=20 {\n        // FizzBuzz logic\n    }\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz\n16\n17\nFizz\n19\nBuzz\n" }
+        ]
+      },
+      {
+        "id": "rust_easy_002",
+        "title": "Fibonacci Sequence",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Print the first **10 Fibonacci numbers**, one per line, starting from 0.\n\n```\n0\n1\n1\n2\n3\n5\n8\n13\n21\n34\n```\n\n{hints: Start with a = 0 and b = 1. On each iteration, print a, then update: let next = a + b; a = b; b = next;}",
+        "solution": "We can compute Fibonacci numbers iteratively using two variables.\n\n```rust\nfn main() {\n    let mut a: u64 = 0;\n    let mut b: u64 = 1;\n    for _ in 0..10 {\n        println!(\"{}\", a);\n        let next = a + b;\n        a = b;\n        b = next;\n    }\n}\n```\n\n**Explanation:**\n- We use `_` as the loop variable name when we don't need the index.\n- `u64` is an unsigned 64-bit integer — a good default for Fibonacci to avoid overflow on larger values.\n- Each iteration: print `a`, then shift `a = b` and `b = a + b` (using `next` to avoid overwriting `a` before using it).",
+        "starterCode": "fn main() {\n    // Print first 10 Fibonacci numbers\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "0\n1\n1\n2\n3\n5\n8\n13\n21\n34\n" }
+        ]
+      },
+      {
+        "id": "rust_easy_003",
+        "title": "Sum of Stdin Numbers",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Read integers from stdin (one per line) until EOF, then print their sum.\n\nInput:\n```\n3\n7\n2\n```\n\nOutput:\n```\n12\n```\n\n{hints: Use io::stdin().lines() to iterate over lines. Parse each line with .trim().parse::<i64>().unwrap(). Accumulate into a sum variable.}",
+        "solution": "We can iterate over stdin line by line using the `lines()` iterator.\n\n```rust\nuse std::io::{self, BufRead};\n\nfn main() {\n    let stdin = io::stdin();\n    let mut sum: i64 = 0;\n    for line in stdin.lock().lines() {\n        let line = line.unwrap();\n        if let Ok(n) = line.trim().parse::<i64>() {\n            sum += n;\n        }\n    }\n    println!(\"{}\", sum);\n}\n```\n\n**Explanation:**\n- `stdin.lock().lines()` returns an iterator that yields each line as a `Result<String>`.\n- `.parse::<i64>()` attempts to parse the string as a 64-bit integer.\n- `if let Ok(n) = ...` pattern-matches on the successful case, ignoring lines that aren't valid integers.\n- We accumulate into `sum` and print after all input is consumed.",
+        "starterCode": "use std::io::{self, BufRead};\n\nfn main() {\n    let stdin = io::stdin();\n    let mut sum: i64 = 0;\n    // Read and sum lines\n    println!(\"{}\", sum);\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "3\n7\n2\n", "expected_stdout": "12\n" },
+          { "id": "tc2", "input": "0\n", "expected_stdout": "0\n" },
+          { "id": "tc3", "input": "100\n200\n300\n", "expected_stdout": "600\n" },
+          { "id": "tc4", "input": "", "expected_stdout": "0\n" }
+        ]
+      },
+      {
+        "id": "rust_easy_004",
+        "title": "Reverse a String",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Read a line from stdin and print its characters in **reverse order**.\n\nInput: `hello`\n\nOutput: `olleh`\n\n{hints: Collect the chars, reverse them, and collect back into a String. Use s.chars().rev().collect::<String>().}",
+        "solution": "Rust's iterators make reversing a string straightforward.\n\n```rust\nuse std::io;\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_line(&mut input).unwrap();\n    let input = input.trim();\n    let reversed: String = input.chars().rev().collect();\n    println!(\"{}\", reversed);\n}\n```\n\n**Explanation:**\n- `.chars()` returns an iterator over Unicode scalar values (characters).\n- `.rev()` reverses the iterator.\n- `.collect::<String>()` consumes the iterator and builds a new `String` from the characters.\n- We must annotate the type (`String`) so Rust knows what to collect into.",
+        "starterCode": "use std::io;\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_line(&mut input).unwrap();\n    let input = input.trim();\n    // Reverse and print\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "hello\n", "expected_stdout": "olleh\n" },
+          { "id": "tc2", "input": "rust\n", "expected_stdout": "tsur\n" },
+          { "id": "tc3", "input": "a\n", "expected_stdout": "a\n" },
+          { "id": "tc4", "input": "abcde\n", "expected_stdout": "edcba\n" }
+        ]
+      },
+      {
+        "id": "rust_easy_005",
+        "title": "Count Vowels",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Read a word from stdin and print the number of vowels (`a, e, i, o, u`) it contains (case-insensitive).\n\nInput: `Programming`\n\nOutput: `3`\n\n{hints: Convert the string to lowercase, then use .chars().filter(|c| \"aeiou\".contains(*c)).count().}",
+        "solution": "Iterators and closures make character counting clean and idiomatic.\n\n```rust\nuse std::io;\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_line(&mut input).unwrap();\n    let input = input.trim().to_lowercase();\n    let count = input.chars().filter(|c| \"aeiou\".contains(*c)).count();\n    println!(\"{}\", count);\n}\n```\n\n**Explanation:**\n- `.to_lowercase()` converts the string so we only need to check for lowercase vowels.\n- `.filter(|c| \"aeiou\".contains(*c))` keeps only characters that are vowels.\n- `.count()` consumes the iterator and counts the remaining elements.\n- The `*c` dereferences the reference that `filter` gives us.",
+        "starterCode": "use std::io;\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_line(&mut input).unwrap();\n    let input = input.trim().to_lowercase();\n    // Count and print vowels\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "Programming\n", "expected_stdout": "3\n" },
+          { "id": "tc2", "input": "hello\n", "expected_stdout": "2\n" },
+          { "id": "tc3", "input": "rhythm\n", "expected_stdout": "0\n" },
+          { "id": "tc4", "input": "aeiou\n", "expected_stdout": "5\n" }
+        ]
+      },
+      {
+        "id": "rust_easy_006",
+        "title": "Struct with Methods",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Define a `Rectangle` struct with `width: f64` and `height: f64`. Implement a method `area(&self) -> f64`. Create a rectangle with width `4.0` and height `5.5` and print its area.\n\n```\nArea: 22\n```\n\n{hints: Use struct Rectangle { ... } and impl Rectangle { fn area(&self) -> f64 { ... } }. Multiply self.width * self.height.}",
+        "solution": "Structs and `impl` blocks are the foundation of Rust's type system.\n\n```rust\nstruct Rectangle {\n    width: f64,\n    height: f64,\n}\n\nimpl Rectangle {\n    fn area(&self) -> f64 {\n        self.width * self.height\n    }\n}\n\nfn main() {\n    let rect = Rectangle { width: 4.0, height: 5.5 };\n    println!(\"Area: {}\", rect.area());\n}\n```\n\n**Explanation:**\n- `struct Rectangle { ... }` defines a named type with named fields.\n- `impl Rectangle { ... }` is where you define methods associated with the struct.\n- `&self` is an immutable borrow of the instance — the method can read but not modify the struct.\n- `4.0 * 5.5 = 22.0`, which prints as `22` in Rust's default float formatting.",
+        "starterCode": "struct Rectangle {\n    width: f64,\n    height: f64,\n}\n\nimpl Rectangle {\n    // Implement area\n}\n\nfn main() {\n    let rect = Rectangle { width: 4.0, height: 5.5 };\n    println!(\"Area: {}\", rect.area());\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "Area: 22\n" }
+        ]
+      },
+      {
+        "id": "rust_easy_007",
+        "title": "Enums and Match",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Define a `Direction` enum with variants `North`, `South`, `East`, `West`. Write a function `describe(d: Direction) -> &'static str` that returns a string describing each direction. Print the description of `North`.\n\n```\nGoing north\n```\n\n{hints: Use enum Direction { North, South, East, West } and match d { Direction::North => \"Going north\", ... } in the function body.}",
+        "solution": "Enums and `match` are one of Rust's most powerful features.\n\n```rust\nenum Direction {\n    North,\n    South,\n    East,\n    West,\n}\n\nfn describe(d: Direction) -> &'static str {\n    match d {\n        Direction::North => \"Going north\",\n        Direction::South => \"Going south\",\n        Direction::East  => \"Going east\",\n        Direction::West  => \"Going west\",\n    }\n}\n\nfn main() {\n    println!(\"{}\", describe(Direction::North));\n}\n```\n\n**Explanation:**\n- `enum Direction` declares a type with four variants.\n- `match` must cover **every** variant — the compiler enforces exhaustiveness.\n- `&'static str` is a string slice with a lifetime that lasts the entire program (appropriate for string literals).\n- Enum variants are namespaced: `Direction::North`, not just `North`.",
+        "starterCode": "enum Direction {\n    North, South, East, West,\n}\n\nfn describe(d: Direction) -> &'static str {\n    // match here\n    \"\"\n}\n\nfn main() {\n    println!(\"{}\", describe(Direction::North));\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "Going north\n" }
+        ]
+      },
+      {
+        "id": "rust_easy_008",
+        "title": "HashMap Word Count",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Read a line of space-separated words from stdin and print each unique word followed by its count, **sorted alphabetically**.\n\nInput: `the cat sat on the mat the cat`\n\nOutput:\n```\ncat 2\nmat 1\non 1\nsat 1\nthe 3\n```\n\n{hints: Use a HashMap<String, u32>. Split on whitespace with .split_whitespace(). Collect keys into a Vec, sort it, then iterate.}",
+        "solution": "HashMaps are in `std::collections` and let us count occurrences efficiently.\n\n```rust\nuse std::io;\nuse std::collections::HashMap;\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_line(&mut input).unwrap();\n    let mut counts: HashMap<String, u32> = HashMap::new();\n    for word in input.split_whitespace() {\n        *counts.entry(word.to_string()).or_insert(0) += 1;\n    }\n    let mut keys: Vec<&String> = counts.keys().collect();\n    keys.sort();\n    for key in keys {\n        println!(\"{} {}\", key, counts[key]);\n    }\n}\n```\n\n**Explanation:**\n- `counts.entry(word).or_insert(0)` returns a mutable reference to the count, inserting `0` if the word is new.\n- `*` dereferences that reference so we can increment it with `+= 1`.\n- We collect the keys into a `Vec`, sort it, and iterate in order.",
+        "starterCode": "use std::io;\nuse std::collections::HashMap;\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_line(&mut input).unwrap();\n    let mut counts: HashMap<String, u32> = HashMap::new();\n    // Count words, sort, and print\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "the cat sat on the mat the cat\n", "expected_stdout": "cat 2\nmat 1\non 1\nsat 1\nthe 3\n" },
+          { "id": "tc2", "input": "a b a\n", "expected_stdout": "a 2\nb 1\n" },
+          { "id": "tc3", "input": "hello\n", "expected_stdout": "hello 1\n" }
+        ]
+      },
+      {
+        "id": "rust_easy_009",
+        "title": "Closures and Iterators",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Given a vector of integers `[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]`, use iterator methods to:\n1. Filter to only **even** numbers.\n2. Square each one.\n3. Print each result on its own line.\n\n```\n4\n16\n36\n64\n100\n```\n\n{hints: Chain .filter(), .map(), and a for loop (or .for_each()). Use closures: |x| x % 2 == 0 and |x| x * x.}",
+        "solution": "Rust's iterator combinators let you express pipelines concisely without intermediate allocations.\n\n```rust\nfn main() {\n    let nums = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];\n    nums.iter()\n        .filter(|&&x| x % 2 == 0)\n        .map(|&x| x * x)\n        .for_each(|x| println!(\"{}\", x));\n}\n```\n\n**Explanation:**\n- `.iter()` borrows the vector, yielding `&&i32` references.\n- `.filter(|&&x| x % 2 == 0)` destructures the double reference and keeps even numbers.\n- `.map(|&x| x * x)` squares each number.\n- `.for_each(|x| println!(...))` is a consuming iterator method that replaces a for loop.\n- Iterators in Rust are **lazy** — nothing runs until a consuming method like `for_each` is called.",
+        "starterCode": "fn main() {\n    let nums = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];\n    // filter evens, square, print\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "4\n16\n36\n64\n100\n" }
+        ]
+      },
+      {
+        "id": "rust_easy_010",
+        "title": "Result Error Handling",
+        "language": "rust",
+        "difficulty": "easy",
+        "instructions": "Read a line from stdin. Try to parse it as an integer. If successful, print `Parsed: N`. If it fails, print `Error: not a number`.\n\nInput: `42`\n\nOutput: `Parsed: 42`\n\nInput: `hello`\n\nOutput: `Error: not a number`\n\n{hints: Use .parse::<i64>() which returns a Result. Use match Ok(n) => ... and Err(_) => ... to handle both cases.}",
+        "solution": "`Result<T, E>` is Rust's primary mechanism for recoverable errors.\n\n```rust\nuse std::io;\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_line(&mut input).unwrap();\n    match input.trim().parse::<i64>() {\n        Ok(n)  => println!(\"Parsed: {}\", n),\n        Err(_) => println!(\"Error: not a number\"),\n    }\n}\n```\n\n**Explanation:**\n- `.parse::<i64>()` returns `Ok(i64)` on success or `Err(ParseIntError)` on failure.\n- `match` handles both variants exhaustively.\n- `Err(_)` uses `_` to ignore the error value — we only care that it failed.\n- This pattern avoids exceptions entirely; errors are just values you handle explicitly.",
+        "starterCode": "use std::io;\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_line(&mut input).unwrap();\n    // Parse and handle result\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "42\n", "expected_stdout": "Parsed: 42\n" },
+          { "id": "tc2", "input": "hello\n", "expected_stdout": "Error: not a number\n" },
+          { "id": "tc3", "input": "0\n", "expected_stdout": "Parsed: 0\n" },
+          { "id": "tc4", "input": "3.14\n", "expected_stdout": "Error: not a number\n" }
+        ]
+      },
+  
+      {
+        "id": "rust_medium_001",
+        "title": "Generic Stack",
+        "language": "rust",
+        "difficulty": "medium",
+        "instructions": "Implement a generic `Stack<T>` struct backed by a `Vec<T>` with the following methods:\n- `new() -> Stack<T>`\n- `push(&mut self, item: T)`\n- `pop(&mut self) -> Option<T>`\n- `peek(&self) -> Option<&T>`\n- `is_empty(&self) -> bool`\n\nThen use it to push `1`, `2`, `3` onto an integer stack, peek, and pop all items printing each popped value.\n\n```\nPeek: 3\nPopped: 3\nPopped: 2\nPopped: 1\n```\n\n{hints: The internal Vec already has push and pop. peek returns a reference to the last element with .last(). is_empty delegates to the Vec.}",
+        "solution": "Generics let us write one `Stack` that works for any type.\n\n```rust\nstruct Stack<T> {\n    data: Vec<T>,\n}\n\nimpl<T> Stack<T> {\n    fn new() -> Self {\n        Stack { data: Vec::new() }\n    }\n\n    fn push(&mut self, item: T) {\n        self.data.push(item);\n    }\n\n    fn pop(&mut self) -> Option<T> {\n        self.data.pop()\n    }\n\n    fn peek(&self) -> Option<&T> {\n        self.data.last()\n    }\n\n    fn is_empty(&self) -> bool {\n        self.data.is_empty()\n    }\n}\n\nfn main() {\n    let mut s: Stack<i32> = Stack::new();\n    s.push(1);\n    s.push(2);\n    s.push(3);\n    println!(\"Peek: {}\", s.peek().unwrap());\n    while let Some(v) = s.pop() {\n        println!(\"Popped: {}\", v);\n    }\n}\n```\n\n**Explanation:**\n- `struct Stack<T>` declares a generic struct parameterized by `T`.\n- `impl<T> Stack<T>` opens the implementation block for the generic type.\n- `Self` is an alias for the implementing type (`Stack<T>`).\n- `while let Some(v) = s.pop()` is a pattern that loops as long as `pop` returns `Some`.\n- `peek` returns `Option<&T>` — a reference into the stack without taking ownership.",
+        "starterCode": "struct Stack<T> {\n    data: Vec<T>,\n}\n\nimpl<T> Stack<T> {\n    fn new() -> Self {\n        Stack { data: Vec::new() }\n    }\n    // Implement push, pop, peek, is_empty\n}\n\nfn main() {\n    let mut s: Stack<i32> = Stack::new();\n    s.push(1); s.push(2); s.push(3);\n    // peek and pop\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "Peek: 3\nPopped: 3\nPopped: 2\nPopped: 1\n" }
+        ]
+      },
+      {
+        "id": "rust_medium_002",
+        "title": "Traits: Shape Area",
+        "language": "rust",
+        "difficulty": "medium",
+        "instructions": "Define a trait `Shape` with a method `area(&self) -> f64`. Implement it for:\n- `Circle` with field `radius: f64` → area = π × r²\n- `Triangle` with fields `base: f64` and `height: f64` → area = 0.5 × base × height\n\nCreate one of each, store them in a `Vec<Box<dyn Shape>>`, iterate, and print each area rounded to **2 decimal places**.\n\n```\n78.54\n10\n```\n\n{hints: Use std::f64::consts::PI. Box<dyn Shape> lets you store different types that implement Shape. Use {:.2} in the format string to round.}",
+        "solution": "Traits define shared behavior. `dyn Trait` allows dynamic dispatch over trait objects.\n\n```rust\nuse std::f64::consts::PI;\n\ntrait Shape {\n    fn area(&self) -> f64;\n}\n\nstruct Circle   { radius: f64 }\nstruct Triangle { base: f64, height: f64 }\n\nimpl Shape for Circle {\n    fn area(&self) -> f64 { PI * self.radius * self.radius }\n}\n\nimpl Shape for Triangle {\n    fn area(&self) -> f64 { 0.5 * self.base * self.height }\n}\n\nfn main() {\n    let shapes: Vec<Box<dyn Shape>> = vec![\n        Box::new(Circle   { radius: 5.0 }),\n        Box::new(Triangle { base: 4.0, height: 5.0 }),\n    ];\n    for shape in &shapes {\n        println!(\"{:.2}\", shape.area());\n    }\n}\n```\n\n**Explanation:**\n- `trait Shape { fn area(&self) -> f64; }` declares the interface.\n- `impl Shape for Circle` provides the concrete implementation.\n- `Box<dyn Shape>` is a **trait object** — a heap-allocated pointer to any `Shape`. This is needed because different shapes have different sizes.\n- `{:.2}` in the format string rounds to 2 decimal places.",
+        "starterCode": "use std::f64::consts::PI;\n\ntrait Shape {\n    fn area(&self) -> f64;\n}\n\nstruct Circle   { radius: f64 }\nstruct Triangle { base: f64, height: f64 }\n\n// impl Shape for Circle and Triangle\n\nfn main() {\n    let shapes: Vec<Box<dyn Shape>> = vec![\n        Box::new(Circle   { radius: 5.0 }),\n        Box::new(Triangle { base: 4.0, height: 5.0 }),\n    ];\n    for shape in &shapes {\n        println!(\"{:.2}\", shape.area());\n    }\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "78.54\n10.00\n" }
+        ]
+      },
+      {
+        "id": "rust_medium_003",
+        "title": "Recursive Merge Sort",
+        "language": "rust",
+        "difficulty": "medium",
+        "instructions": "Implement **merge sort** recursively. Your function should have the signature:\n\n```rust\nfn merge_sort(arr: Vec<i32>) -> Vec<i32>\n```\n\nSort the input vector `[38, 27, 43, 3, 9, 82, 10]` and print the sorted elements space-separated on one line.\n\n```\n3 9 10 27 38 43 82\n```\n\n{hints: Base case: if arr.len() <= 1, return arr. Split into left and right halves with arr[..mid].to_vec(). Merge by comparing the fronts of two sorted slices in a loop.}",
+        "solution": "Merge sort divides the problem in half recursively, then merges sorted halves.\n\n```rust\nfn merge_sort(arr: Vec<i32>) -> Vec<i32> {\n    if arr.len() <= 1 {\n        return arr;\n    }\n    let mid = arr.len() / 2;\n    let left  = merge_sort(arr[..mid].to_vec());\n    let right = merge_sort(arr[mid..].to_vec());\n    merge(left, right)\n}\n\nfn merge(left: Vec<i32>, right: Vec<i32>) -> Vec<i32> {\n    let mut result = Vec::new();\n    let (mut i, mut j) = (0, 0);\n    while i < left.len() && j < right.len() {\n        if left[i] <= right[j] {\n            result.push(left[i]); i += 1;\n        } else {\n            result.push(right[j]); j += 1;\n        }\n    }\n    result.extend_from_slice(&left[i..]);\n    result.extend_from_slice(&right[j..]);\n    result\n}\n\nfn main() {\n    let arr = vec![38, 27, 43, 3, 9, 82, 10];\n    let sorted = merge_sort(arr);\n    let out: Vec<String> = sorted.iter().map(|x| x.to_string()).collect();\n    println!(\"{}\", out.join(\" \"));\n}\n```\n\n**Explanation:**\n- The base case returns immediately for slices of length 0 or 1.\n- `arr[..mid].to_vec()` creates an owned copy of the left half — necessary because we return owned `Vec`s.\n- `merge` uses two indices to walk both halves, picking the smaller element each time.\n- `extend_from_slice` appends the remaining elements from whichever half wasn't exhausted.\n- Time complexity: O(n log n).",
+        "starterCode": "fn merge_sort(arr: Vec<i32>) -> Vec<i32> {\n    // Base case and recursive split\n    arr\n}\n\nfn merge(left: Vec<i32>, right: Vec<i32>) -> Vec<i32> {\n    // Merge two sorted vecs\n    vec![]\n}\n\nfn main() {\n    let arr = vec![38, 27, 43, 3, 9, 82, 10];\n    let sorted = merge_sort(arr);\n    let out: Vec<String> = sorted.iter().map(|x| x.to_string()).collect();\n    println!(\"{}\", out.join(\" \"));\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "3 9 10 27 38 43 82\n" }
+        ]
+      },
+      {
+        "id": "rust_medium_004",
+        "title": "Lifetimes: Longest String",
+        "language": "rust",
+        "difficulty": "medium",
+        "instructions": "Write a function `longest<'a>(x: &'a str, y: &'a str) -> &'a str` that returns the longer of two string slices (or `x` if they are equal in length).\n\nCall it with `\"short\"` and `\"much longer\"` and print the result.\n\n```\nmuch longer\n```\n\nThen call it with `\"same\"` and `\"also\"` and print:\n\n```\nsame\n```\n\n{hints: The lifetime 'a tells the compiler the returned reference lives as long as the shorter-lived input. Compare lengths with .len(). Return x or y.}",
+        "solution": "Lifetimes let the compiler verify that references don't outlive the data they point to.\n\n```rust\nfn longest<'a>(x: &'a str, y: &'a str) -> &'a str {\n    if x.len() >= y.len() { x } else { y }\n}\n\nfn main() {\n    println!(\"{}\", longest(\"short\", \"much longer\"));\n    println!(\"{}\", longest(\"same\", \"also\"));\n}\n```\n\n**Explanation:**\n- `<'a>` declares a **lifetime parameter** named `'a`.\n- `&'a str` means \"a string slice that lives for at least lifetime `'a`\".\n- The return type `&'a str` tells the compiler: the returned reference is valid as long as both inputs are valid.\n- Without the lifetime annotation, the compiler cannot determine how long the return value is valid — it would refuse to compile.\n- Lifetimes are a compile-time concept; they have zero runtime cost.",
+        "starterCode": "fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {\n    // Return the longer slice\n    x\n}\n\nfn main() {\n    println!(\"{}\", longest(\"short\", \"much longer\"));\n    println!(\"{}\", longest(\"same\", \"also\"));\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "much longer\nsame\n" }
+        ]
+      },
+      {
+        "id": "rust_medium_005",
+        "title": "Multithreaded Counter",
+        "language": "rust",
+        "difficulty": "medium",
+        "instructions": "Spawn **4 threads**, each of which increments a shared counter **1000 times**. After all threads finish, print the final counter value.\n\n```\n4000\n```\n\nUse `Arc<Mutex<i64>>` to share the counter safely across threads.\n\n{hints: Use Arc::new(Mutex::new(0)) for the shared counter. Clone the Arc for each thread with Arc::clone. Lock with counter.lock().unwrap() inside each thread. Collect thread handles and join them.}",
+        "solution": "`Arc` (Atomic Reference Count) and `Mutex` together allow safe shared mutation across threads.\n\n```rust\nuse std::sync::{Arc, Mutex};\nuse std::thread;\n\nfn main() {\n    let counter = Arc::new(Mutex::new(0i64));\n    let mut handles = vec![];\n\n    for _ in 0..4 {\n        let c = Arc::clone(&counter);\n        let h = thread::spawn(move || {\n            for _ in 0..1000 {\n                *c.lock().unwrap() += 1;\n            }\n        });\n        handles.push(h);\n    }\n\n    for h in handles {\n        h.join().unwrap();\n    }\n\n    println!(\"{}\", *counter.lock().unwrap());\n}\n```\n\n**Explanation:**\n- `Arc<Mutex<i64>>` wraps the counter: `Arc` allows multiple owners across threads; `Mutex` ensures only one thread modifies the value at a time.\n- `Arc::clone` increments the reference count — it does **not** clone the data.\n- `move ||` captures `c` by move into the thread closure, transferring ownership.\n- `.lock().unwrap()` acquires the mutex lock, returning a `MutexGuard` that auto-releases when dropped.\n- `h.join()` blocks until the thread finishes, ensuring all increments are done before printing.",
+        "starterCode": "use std::sync::{Arc, Mutex};\nuse std::thread;\n\nfn main() {\n    let counter = Arc::new(Mutex::new(0i64));\n    let mut handles = vec![];\n    // Spawn 4 threads, each incrementing 1000 times\n    // Join and print\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "4000\n" }
+        ]
+      },
+  
+      {
+        "id": "rust_hard_001",
+        "title": "Linked List",
+        "language": "rust",
+        "difficulty": "hard",
+        "instructions": "Implement a singly-linked list in Rust with the following:\n\n- A recursive `List<T>` type using an `enum`\n- `push_front(value: T) -> List<T>` (returns a new list with value prepended)\n- `len(&self) -> usize` method\n- `to_vec(&self) -> Vec<T>` method (where `T: Clone`)\n\nBuild the list `[1, 2, 3]` (push 3 first, then 2, then 1 so the head is 1), then print its length and elements space-separated.\n\n```\nLength: 3\n1 2 3\n```\n\n{hints: Define enum List<T> { Nil, Cons(T, Box<List<T>>) }. Box is needed because recursive types need indirection. push_front creates a new Cons node. Pattern-match with match self in len and to_vec.}",
+        "solution": "Recursive types in Rust require `Box` to give the compiler a known size.\n\n```rust\nenum List<T> {\n    Nil,\n    Cons(T, Box<List<T>>),\n}\n\nimpl<T: Clone> List<T> {\n    fn new() -> Self {\n        List::Nil\n    }\n\n    fn push_front(self, value: T) -> Self {\n        List::Cons(value, Box::new(self))\n    }\n\n    fn len(&self) -> usize {\n        match self {\n            List::Nil         => 0,\n            List::Cons(_, rest) => 1 + rest.len(),\n        }\n    }\n\n    fn to_vec(&self) -> Vec<T> {\n        match self {\n            List::Nil              => vec![],\n            List::Cons(val, rest)  => {\n                let mut v = vec![val.clone()];\n                v.extend(rest.to_vec());\n                v\n            }\n        }\n    }\n}\n\nfn main() {\n    let list = List::new()\n        .push_front(3)\n        .push_front(2)\n        .push_front(1);\n\n    println!(\"Length: {}\", list.len());\n    let parts: Vec<String> = list.to_vec().iter().map(|x| x.to_string()).collect();\n    println!(\"{}\", parts.join(\" \"));\n}\n```\n\n**Explanation:**\n- `enum List<T>` is either `Nil` (empty) or `Cons(value, tail)` where `tail` is boxed.\n- `Box<List<T>>` allocates the tail on the heap, giving the recursive type a finite known size on the stack.\n- `push_front` consumes `self` and wraps it in a new `Cons` node — no mutation needed.\n- `len` and `to_vec` recurse by pattern matching — the `Nil` arm is the base case.\n- `T: Clone` bound is needed for `to_vec` to clone values out of the list.",
+        "starterCode": "enum List<T> {\n    Nil,\n    Cons(T, Box<List<T>>),\n}\n\nimpl<T: Clone> List<T> {\n    fn new() -> Self { List::Nil }\n    fn push_front(self, value: T) -> Self { todo!() }\n    fn len(&self) -> usize { todo!() }\n    fn to_vec(&self) -> Vec<T> { todo!() }\n}\n\nfn main() {\n    let list = List::new().push_front(3).push_front(2).push_front(1);\n    println!(\"Length: {}\", list.len());\n    let parts: Vec<String> = list.to_vec().iter().map(|x| x.to_string()).collect();\n    println!(\"{}\", parts.join(\" \"));\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "Length: 3\n1 2 3\n" }
+        ]
+      },
+      {
+        "id": "rust_hard_002",
+        "title": "Async Concurrent HTTP-like Tasks",
+        "language": "rust",
+        "difficulty": "hard",
+        "instructions": "Using **Tokio** and `async/await`, simulate 5 concurrent tasks where each task sleeps for a different duration (task `i` sleeps `i * 50` milliseconds) and then returns `i * i`.\n\nLaunch all tasks concurrently using `tokio::join!` or `futures::future::join_all`, collect their results in order, and print each:\n\n```\nTask 0: 0\nTask 1: 1\nTask 2: 4\nTask 3: 9\nTask 4: 16\n```\n\nYour `Cargo.toml` should include:\n\n```toml\n[dependencies]\ntokio = { version = \"1\", features = [\"full\"] }\n```\n\n{hints: Define async fn compute(i: u64) -> u64 that sleeps and returns i * i. Spawn all futures into a Vec and use futures::future::join_all. Add futures = \"0.3\" to Cargo.toml.}",
+        "solution": "Async Rust allows concurrency without threads using cooperative multitasking.\n\n```rust\nuse tokio::time::{sleep, Duration};\n\nasync fn compute(i: u64) -> u64 {\n    sleep(Duration::from_millis(i * 50)).await;\n    i * i\n}\n\n#[tokio::main]\nasync fn main() {\n    let futures: Vec<_> = (0..5).map(|i| compute(i)).collect();\n    let results = futures::future::join_all(futures).await;\n    for (i, result) in results.iter().enumerate() {\n        println!(\"Task {}: {}\", i, result);\n    }\n}\n```\n\n**Cargo.toml additions:**\n\n```toml\n[dependencies]\ntokio = { version = \"1\", features = [\"full\"] }\nfutures = \"0.3\"\n```\n\n**Explanation:**\n- `async fn compute(i: u64) -> u64` declares an asynchronous function that returns a `Future<Output = u64>`.\n- `.await` suspends the current task until the sleep completes, yielding control to the Tokio runtime.\n- `join_all` takes an iterator of futures and runs them **concurrently** — all 5 tasks sleep simultaneously.\n- `#[tokio::main]` sets up the Tokio async runtime and runs the `main` future.\n- Results come back in the same order as the input futures, not completion order.",
+        "starterCode": "use tokio::time::{sleep, Duration};\n\nasync fn compute(i: u64) -> u64 {\n    // sleep i * 50ms, return i * i\n    0\n}\n\n#[tokio::main]\nasync fn main() {\n    // Launch all 5 tasks concurrently and print results\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "Task 0: 0\nTask 1: 1\nTask 2: 4\nTask 3: 9\nTask 4: 16\n" }
+        ]
+      },
+      {
+        "id": "rust_hard_003",
+        "title": "Custom Iterator",
+        "language": "rust",
+        "difficulty": "hard",
+        "instructions": "Implement a **custom iterator** `Collatz` that, given a starting number `n`, yields the Collatz sequence until (and including) `1`:\n\n- If `n` is even: next = n / 2\n- If `n` is odd: next = 3 * n + 1\n\nImplement the `Iterator` trait for `Collatz`. Starting from `n = 6`, print each value one per line:\n\n```\n6\n3\n10\n5\n16\n8\n4\n2\n1\n```\n\n{hints: Store the current value in a struct field. In fn next(&mut self) -> Option<u64>, return None if current is 0 (already done). Otherwise return Some(current) and advance the value. Set current to 0 after yielding 1.}",
+        "solution": "Implementing `Iterator` unlocks the entire iterator adapter ecosystem for your custom type.\n\n```rust\nstruct Collatz {\n    current: u64,\n}\n\nimpl Collatz {\n    fn new(start: u64) -> Self {\n        Collatz { current: start }\n    }\n}\n\nimpl Iterator for Collatz {\n    type Item = u64;\n\n    fn next(&mut self) -> Option<u64> {\n        if self.current == 0 {\n            return None;\n        }\n        let val = self.current;\n        if val == 1 {\n            self.current = 0; // signal done on next call\n        } else if val % 2 == 0 {\n            self.current = val / 2;\n        } else {\n            self.current = 3 * val + 1;\n        }\n        Some(val)\n    }\n}\n\nfn main() {\n    for n in Collatz::new(6) {\n        println!(\"{}\", n);\n    }\n}\n```\n\n**Explanation:**\n- `impl Iterator for Collatz` requires defining `type Item` (the yielded value type) and `fn next`.\n- `next` returns `Some(value)` to yield a value or `None` to signal the iterator is exhausted.\n- We use `current = 0` as a sentinel: after yielding `1`, the next call returns `None`.\n- Once you implement `Iterator`, you get `.map()`, `.filter()`, `.collect()`, `for` loops, and all other iterator adapters **for free**.\n- The Collatz conjecture states every starting number eventually reaches 1 (unproven for all integers, but always true in practice).",
+        "starterCode": "struct Collatz {\n    current: u64,\n}\n\nimpl Collatz {\n    fn new(start: u64) -> Self {\n        Collatz { current: start }\n    }\n}\n\nimpl Iterator for Collatz {\n    type Item = u64;\n\n    fn next(&mut self) -> Option<u64> {\n        // Yield current value, advance state\n        None\n    }\n}\n\nfn main() {\n    for n in Collatz::new(6) {\n        println!(\"{}\", n);\n    }\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "", "expected_stdout": "6\n3\n10\n5\n16\n8\n4\n2\n1\n" },
+          { "id": "tc2", "input": "", "expected_stdout": "6\n3\n10\n5\n16\n8\n4\n2\n1\n" }
+        ]
+      }
+    ]
+  }

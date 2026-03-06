@@ -1,0 +1,37 @@
+# GPU workspace image: CUDA, Vulkan, and SYCL (Intel oneAPI DPC++)
+# Base nvidia/cuda:12.4.0-devel-ubuntu22.04 is ~7.2 GB; with Vulkan + oneAPI expect ~8–10 GB.
+# Systems image (Alpine) is ~200–400 MB. Use this image only when GPU/CUDA/SYCL is required.
+FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
+
+# Base and Vulkan (universe: libvulkan-dev, vulkan-tools; vulkan-utils was renamed to vulkan-tools on 22.04)
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends software-properties-common && \
+    add-apt-repository -y universe && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      bash \
+      coreutils \
+      nano \
+      vim \
+      build-essential \
+      libvulkan-dev \
+      vulkan-tools \
+      wget \
+      gnupg \
+      ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Intel oneAPI repo and DPC++ (SYCL)
+RUN wget -qO - https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null && \
+    echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" > /etc/apt/sources.list.d/oneAPI.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends intel-oneapi-compiler-dpcpp-cpp && \
+    rm -rf /var/lib/apt/lists/*
+
+# DPC++ compiler on PATH (dpcpp)
+ENV PATH="/opt/intel/oneapi/compiler/latest/linux/bin:${PATH}"
+
+WORKDIR /workspace
+
+CMD ["tail", "-f", "/dev/null"]

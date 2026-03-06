@@ -13,6 +13,14 @@ Currently supporting:
 - GPU Programming
 - - Just CUDA for now
 
+## Dev auto sign-in
+
+To be automatically signed in as a **dev** user when running `npm run dev`:
+
+1. Ensure `server/.env` has `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+2. Run once: **`npm run dev:seed-user`**. This creates a user `dev@local.dev` in Supabase (and `public.users` via trigger) and writes `VITE_DEV_USER_ID` to `client/.env.local`.
+3. Run **`npm run dev`**. The client will set `localStorage` from `VITE_DEV_USER_ID` so you appear signed in as Dev (saves/completions work against that user).
+
 ## Tech Stack:
 - React (TypeScript)
 - Node.js (JavaScript)

@@ -1,0 +1,224 @@
+{
+    "problems": [
+      {
+        "id": "cpp_learn_001",
+        "title": "Your First C++ Program",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Write a C++ program that prints the text below.\n\n```\nHello, C++!\n```\n\nYour program should output exactly this line.\n\n{hints: Use `std::cout` from the `<iostream>` library.}",
+        "solution": "In C++, printing text is done using the output stream `std::cout` from the `<iostream>` header.\n\n```\n#include <iostream>\n\nint main() {\n    std::cout << \"Hello, C++!\" << std::endl;\n}\n```\n\n`std::cout` sends text to standard output. `std::endl` inserts a newline and flushes the stream.\n\nOutput: Hello, C++!",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          {
+            "input": "",
+            "expected_stdout": "Hello, C++!\n"
+          }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_002",
+        "title": "Print Two Lines",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Print the following two lines.\n\n```\nC++ is powerful\nC++ is fast\n```\n\nEach line should appear exactly as shown.\n\n{hints: Use two `std::cout` statements.}",
+        "solution": "Printing multiple lines simply requires multiple output statements.\n\n```\n#include <iostream>\n\nint main() {\n    std::cout << \"C++ is powerful\" << std::endl;\n    std::cout << \"C++ is fast\" << std::endl;\n}\n```\n\nEach `std::cout` sends text to the console.\n\nOutput:\nC++ is powerful\nC++ is fast",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          {
+            "expected_stdout": "C++ is powerful\nC++ is fast\n"
+          }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_003",
+        "title": "Read and Print a Number",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Write a program that reads an integer and prints it.\n\nExample:\n\nInput: 5\nOutput: 5\n\n```\n5\n```\n\n{hints: Use `std::cin`.}",
+        "solution": "To read input in C++, use `std::cin`.\n\n```\n#include <iostream>\n\nint main() {\n    int x;\n    std::cin >> x;\n    std::cout << x << std::endl;\n}\n```\n\n`std::cin` reads from standard input.\n\nInput: 5\nOutput: 5",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          {
+            "input": "5\n",
+            "expected_stdout": "5\n"
+          },
+          {
+            "input": "-12\n",
+            "expected_stdout": "-12\n"
+          }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_004",
+        "title": "Add Two Numbers",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read two integers and print their sum.\n\nExample:\n\n```\nInput\n3 4\n\nOutput\n7\n```\n\n{hints: Store values in two variables and add them.}",
+        "solution": "You read both numbers using `std::cin`, add them, and print the result.\n\n```\n#include <iostream>\n\nint main() {\n    int a, b;\n    std::cin >> a >> b;\n    std::cout << a + b << std::endl;\n}\n```\n\nThe expression `a + b` calculates the sum.\n\nInput: 3 4\nOutput: 7",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "3 4\n", "expected_stdout": "7\n" },
+          { "input": "10 5\n", "expected_stdout": "15\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_005",
+        "title": "Multiply Two Numbers",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read two integers and print their product.\n\n```\nInput\n3 5\n\nOutput\n15\n```\n\n{hints: Use the `*` operator.}",
+        "solution": "Multiplication uses the `*` operator.\n\n```\n#include <iostream>\n\nint main() {\n    int a, b;\n    std::cin >> a >> b;\n    std::cout << a * b << std::endl;\n}\n```\n\nInput: 3 5\nOutput: 15",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "3 5\n", "expected_stdout": "15\n" },
+          { "input": "7 6\n", "expected_stdout": "42\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_006",
+        "title": "Echo a Word",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read a single word and print it.\n\nExample:\n\nInput: hello\nOutput: hello\n\n```\nhello\n```\n\n{hints: Use `std::string`.}",
+        "solution": "Use `std::string` to store text.\n\n```\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string word;\n    std::cin >> word;\n    std::cout << word << std::endl;\n}\n```\n\nInput: hello\nOutput: hello",
+        "starterCode": "#include <iostream>\n#include <string>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "hello\n", "expected_stdout": "hello\n" },
+          { "input": "cpp\n", "expected_stdout": "cpp\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_007",
+        "title": "Print Numbers 1 to 5",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Print numbers from 1 to 5, one per line.\n\n```\n1\n2\n3\n4\n5\n```\n\n{hints: Use a `for` loop.}",
+        "solution": "A `for` loop is useful for repeating actions.\n\n```\n#include <iostream>\n\nint main() {\n    for (int i = 1; i <= 5; i++) {\n        std::cout << i << std::endl;\n    }\n}\n```\n\nOutput:\n1\n2\n3\n4\n5",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          {
+            "expected_stdout": "1\n2\n3\n4\n5\n"
+          }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_008",
+        "title": "Check Even or Odd",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read an integer.\n\nPrint `even` if the number is even, otherwise print `odd`.\n\nExample:\n\n```\nInput\n4\n\nOutput\neven\n```\n\n{hints: Use the `%` operator.}",
+        "solution": "The modulus operator `%` gives the remainder of division.\n\n```\n#include <iostream>\n\nint main() {\n    int n;\n    std::cin >> n;\n\n    if (n % 2 == 0)\n        std::cout << \"even\" << std::endl;\n    else\n        std::cout << \"odd\" << std::endl;\n}\n```\n\nInput: 4\nOutput: even",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "4\n", "expected_stdout": "even\n" },
+          { "input": "7\n", "expected_stdout": "odd\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_009",
+        "title": "Find the Larger Number",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read two integers and print the larger one.\n\n```\nInput\n4 9\n\nOutput\n9\n```\n\n{hints: Use an `if` statement.}",
+        "solution": "You can compare numbers with `>`.\n\n```\n#include <iostream>\n\nint main() {\n    int a, b;\n    std::cin >> a >> b;\n\n    if (a > b)\n        std::cout << a << std::endl;\n    else\n        std::cout << b << std::endl;\n}\n```\n\nInput: 4 9\nOutput: 9",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "4 9\n", "expected_stdout": "9\n" },
+          { "input": "10 3\n", "expected_stdout": "10\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_010",
+        "title": "Sum of Three Numbers",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read three integers and print their sum.\n\n```\nInput\n1 2 3\n\nOutput\n6\n```\n\n{hints: Store the values in three variables.}",
+        "solution": "Add all three numbers and print the result.\n\n```\n#include <iostream>\n\nint main() {\n    int a, b, c;\n    std::cin >> a >> b >> c;\n\n    std::cout << a + b + c << std::endl;\n}\n```\n\nInput: 1 2 3\nOutput: 6",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "1 2 3\n", "expected_stdout": "6\n" },
+          { "input": "5 5 5\n", "expected_stdout": "15\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_011",
+        "title": "Count to N",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read an integer `N` and print numbers from 1 to `N`.\n\nExample:\n\n```\nInput\n3\n\nOutput\n1\n2\n3\n```\n\n{hints: Loop from 1 to N.}",
+        "solution": "Use a loop that runs N times.\n\n```\n#include <iostream>\n\nint main() {\n    int n;\n    std::cin >> n;\n\n    for (int i = 1; i <= n; i++)\n        std::cout << i << std::endl;\n}\n```\n\nInput: 3\nOutput:\n1\n2\n3",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "3\n", "expected_stdout": "1\n2\n3\n" },
+          { "input": "1\n", "expected_stdout": "1\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_012",
+        "title": "Square a Number",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read an integer and print its square.\n\n```\nInput\n4\n\nOutput\n16\n```\n\n{hints: Multiply the number by itself.}",
+        "solution": "Squaring means multiplying a number by itself.\n\n```\n#include <iostream>\n\nint main() {\n    int n;\n    std::cin >> n;\n    std::cout << n * n << std::endl;\n}\n```\n\nInput: 4\nOutput: 16",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "4\n", "expected_stdout": "16\n" },
+          { "input": "10\n", "expected_stdout": "100\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_013",
+        "title": "Print a Greeting",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read a name and print a greeting.\n\n```\nInput\nAlice\n\nOutput\nHello Alice\n```\n\n{hints: Print two pieces of text with `<<`.}",
+        "solution": "You can combine strings using the stream operator `<<`.\n\n```\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cin >> name;\n\n    std::cout << \"Hello \" << name << std::endl;\n}\n```\n\nInput: Alice\nOutput: Hello Alice",
+        "starterCode": "#include <iostream>\n#include <string>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "Alice\n", "expected_stdout": "Hello Alice\n" },
+          { "input": "Bob\n", "expected_stdout": "Hello Bob\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_014",
+        "title": "Absolute Value",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read an integer and print its absolute value.\n\n```\nInput\n-5\n\nOutput\n5\n```\n\n{hints: If the number is negative, multiply by -1.}",
+        "solution": "Absolute value removes the negative sign.\n\n```\n#include <iostream>\n\nint main() {\n    int n;\n    std::cin >> n;\n\n    if (n < 0)\n        n = -n;\n\n    std::cout << n << std::endl;\n}\n```\n\nInput: -5\nOutput: 5",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "-5\n", "expected_stdout": "5\n" },
+          { "input": "7\n", "expected_stdout": "7\n" }
+        ]
+      },
+  
+      {
+        "id": "cpp_learn_015",
+        "title": "Sum 1 to N",
+        "language": "cpp",
+        "difficulty": "learn",
+        "instructions": "Read an integer `N` and print the sum of numbers from 1 to `N`.\n\n```\nInput\n4\n\nOutput\n10\n```\n\n{hints: Use a loop and accumulate the sum.}",
+        "solution": "Use a running total variable.\n\n```\n#include <iostream>\n\nint main() {\n    int n;\n    std::cin >> n;\n\n    int sum = 0;\n\n    for (int i = 1; i <= n; i++)\n        sum += i;\n\n    std::cout << sum << std::endl;\n}\n```\n\nInput: 4\nOutput: 10",
+        "starterCode": "#include <iostream>\n\nint main() {\n\n}\n",
+        "tests": [
+          { "input": "4\n", "expected_stdout": "10\n" },
+          { "input": "1\n", "expected_stdout": "1\n" }
+        ]
+      }
+  
+    ]
+  }
