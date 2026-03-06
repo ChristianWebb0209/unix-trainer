@@ -1,7 +1,8 @@
 /**
  * Shared problem/workspace/language configuration (ES module).
- * Plain JavaScript only – all typing lives in the .d.ts file
- * that the TypeScript side consumes.
+ * This is the single source of truth for runtime values. TypeScript types
+ * for this module live in client/src/types/problem-config.d.ts because
+ * JS modules cannot export types; the .d.ts is the standard way to type a JS module.
  */
 
 export const DIFFICULTIES = ["learn", "easy", "medium", "hard"];
@@ -14,37 +15,47 @@ export const DIFFICULTY_ORDER = {
 };
 
 export const PROBLEM_LANGUAGES = {
-  bash: { id: "bash", label: "Bash", workspace: "unix" },
-  awk: { id: "awk", label: "Awk", workspace: "unix" },
-  unix: { id: "unix", label: "Unix Shell", workspace: "unix" },
-  cuda: { id: "cuda", label: "CUDA", workspace: "cuda" },
-  any: { id: "any", label: "Any Shell", workspace: null },
+  bash: { id: "bash", label: "Bash", workspace: "systems", docs: "https://www.gnu.org/software/bash/manual/" },
+  awk: { id: "awk", label: "Awk", workspace: "systems", docs: "https://www.gnu.org/software/gawk/manual/" },
+  unix: { id: "unix", label: "Unix", workspace: "systems", docs: "https://pubs.opengroup.org/onlinepubs/9699919799/utilities/contents.html" },
+  c: { id: "c", label: "C", workspace: "systems", docs: "https://en.cppreference.com/w/c" },
+  cpp: { id: "cpp", label: "C++", workspace: "systems", docs: "https://en.cppreference.com/w/cpp" },
+  rust: { id: "rust", label: "Rust", workspace: "systems", docs: "https://doc.rust-lang.org/std/" },
+  cuda: { id: "cuda", label: "CUDA", workspace: "gpu", docs: "https://docs.nvidia.com/cuda/cuda-c-programming-guide/" },
+  vulkan: { id: "vulkan", label: "Vulkan", workspace: "gpu", docs: "https://registry.khronos.org/vulkan/specs/1.3/html/" },
+  sycl: { id: "sycl", label: "SYCL", workspace: "gpu", docs: "https://registry.intel.com/sycl/" },
+  any: { id: "any", label: "Any", workspace: null, docs: null },
 };
 
 export const PROBLEM_LANGUAGE_IDS = Object.keys(PROBLEM_LANGUAGES);
 
+/** Language IDs that use C/C++ style syntax and indentation in the editor (c, cpp, rust, cuda, vulkan, sycl). */
+export const C_LIKE_LANGUAGE_IDS = ["c", "cpp", "rust", "cuda", "vulkan", "sycl"];
+/** Language IDs that use shell-style editing (indent-only, no C++ grammar). */
+export const SHELL_LANGUAGE_IDS = ["bash", "awk", "unix"];
+
 export const WORKSPACES = {
-  unix: {
-    id: "unix",
-    label: "Unix / Shell",
+  systems: {
+    id: "systems",
+    label: "Systems",
     defaultProblemLanguage: "bash",
-    problemLanguages: ["bash", "awk", "unix", "any"],
-    dockerImageName: "unix-workspace:latest",
-    dockerfileName: "Dockerfile.unix",
-    kind: "shell",
+    problemLanguages: ["bash", "awk", "unix", "c", "cpp", "rust", "any"],
+    dockerImageName: "systems-workspace:latest",
+    dockerfileName: "Dockerfile.systems",
+    kind: "systems",
     allowLanguageSwitch: true,
     showWebGpuTab: false,
-    codeThemeKey: "shell-dark",
+    codeThemeKey: "systems-dark",
   },
-  cuda: {
-    id: "cuda",
+  gpu: {
+    id: "gpu",
     label: "GPU Programming",
     defaultProblemLanguage: "cuda",
-    problemLanguages: ["cuda"],
-    dockerImageName: "cuda-workspace:latest",
-    dockerfileName: "Dockerfile.cuda",
+    problemLanguages: ["cuda", "vulkan", "sycl"],
+    dockerImageName: "gpu-workspace:latest",
+    dockerfileName: "Dockerfile.gpu",
     kind: "gpu",
-    allowLanguageSwitch: false,
+    allowLanguageSwitch: true,
     showWebGpuTab: true,
     codeThemeKey: "cuda-dark",
   },
@@ -52,24 +63,44 @@ export const WORKSPACES = {
 
 export const WORKSPACE_IDS = Object.keys(WORKSPACES);
 
-export const DEFAULT_WORKSPACE = "unix";
+export const DEFAULT_WORKSPACE = "systems";
 
 /**
  * Editor theme specs keyed by codeThemeKey.
- * Use null for "use built-in oneDark". Otherwise the client builds a CodeMirror theme from this data.
+ * Two distinct, widely-used schemes: One Dark (systems) and Dracula (GPU).
  */
+const MONO_FONT =
+  "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+
+/** One Dark (Atom/VS Code) – warm charcoal, high contrast. Comment: muted gray. */
+const ONE_DARK = {
+  dark: true,
+  backgroundColor: "#282c34",
+  color: "#abb2bf",
+  gutterBackgroundColor: "#21252b",
+  gutterColor: "#636d83",
+  gutterBorder: "none",
+  fontFamily: MONO_FONT,
+  commentColor: "#5c6370",
+};
+
+/** Dracula – soft dark with purple/cyan accents. Comment: purple-tinted gray. */
+const DRACULA = {
+  dark: true,
+  backgroundColor: "#282a36",
+  color: "#f8f8f2",
+  gutterBackgroundColor: "#21222c",
+  gutterColor: "#6272a4",
+  gutterBorder: "none",
+  fontFamily: MONO_FONT,
+  commentColor: "#6272a4",
+};
+
 export const CODE_EDITOR_THEME_SPECS = {
-  "shell-dark": null,
-  "cuda-dark": {
-    dark: true,
-    backgroundColor: "#020617",
-    color: "#e2e8f0",
-    gutterBackgroundColor: "#020617",
-    gutterColor: "#64748b",
-    gutterBorder: "none",
-    fontFamily:
-      "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
+  "systems-dark": ONE_DARK,
+  "cuda-dark": DRACULA,
+  "vulkan-dark": DRACULA,
+  "sycl-dark": DRACULA,
 };
 
 /** Default editor content when no problem is selected, keyed by language id. */
@@ -83,6 +114,45 @@ export const DEFAULT_STARTER_CODE = {
 int main() {
     printf("Hello from CUDA host code!\\n");
     return 0;
+}
+`,
+  vulkan: `// Vulkan: minimal C++ host program
+#include <vulkan/vulkan.h>
+#include <cstdio>
+
+int main() {
+    printf("Hello from Vulkan!\\n");
+    return 0;
+}
+`,
+  sycl: `// SYCL: minimal program
+#include <sycl/sycl.hpp>
+#include <cstdio>
+
+int main() {
+    printf("Hello from SYCL!\\n");
+    return 0;
+}
+`,
+  c: `// C: minimal program
+#include <stdio.h>
+
+int main(void) {
+    printf("Hello from C!\\n");
+    return 0;
+}
+`,
+  cpp: `// C++: minimal program
+#include <cstdio>
+
+int main() {
+    printf("Hello from C++!\\n");
+    return 0;
+}
+`,
+  rust: `// Rust: minimal program
+fn main() {
+    println!("Hello from Rust!");
 }
 `,
 };
@@ -114,6 +184,16 @@ export function getValidationCommand(languageId, codeBase64, inputBase64) {
       return `echo ${code} | base64 -d > /tmp/exec.sh && echo ${input} | base64 -d | /bin/sh /tmp/exec.sh`;
     case "cuda":
       return `echo ${code} | base64 -d > /tmp/main.cu && nvcc /tmp/main.cu -o /tmp/a.out && echo ${input} | base64 -d | /tmp/a.out`;
+    case "vulkan":
+      return `echo ${code} | base64 -d > /tmp/main.cpp && g++ -std=c++17 -o /tmp/a.out /tmp/main.cpp -lvulkan && echo ${input} | base64 -d | /tmp/a.out`;
+    case "sycl":
+      return `echo ${code} | base64 -d > /tmp/main.cpp && dpcpp -o /tmp/a.out /tmp/main.cpp && echo ${input} | base64 -d | /tmp/a.out`;
+    case "c":
+      return `echo ${code} | base64 -d > /tmp/main.c && gcc -o /tmp/a.out /tmp/main.c && echo ${input} | base64 -d | /tmp/a.out`;
+    case "cpp":
+      return `echo ${code} | base64 -d > /tmp/main.cpp && g++ -std=c++17 -o /tmp/a.out /tmp/main.cpp && echo ${input} | base64 -d | /tmp/a.out`;
+    case "rust":
+      return `echo ${code} | base64 -d > /tmp/main.rs && rustc -o /tmp/a.out /tmp/main.rs && echo ${input} | base64 -d | /tmp/a.out`;
     default:
       return `echo ${code} | base64 -d > /tmp/exec.sh && echo ${input} | base64 -d | /bin/sh /tmp/exec.sh`;
   }

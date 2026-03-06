@@ -7,7 +7,9 @@ import { fileURLToPath } from "url";
 import path from "path";
 import { createContainerRouter } from "./routes/container.routes.js";
 import { problemRouter } from "./routes/problem.routes.js";
+import { createValidationRouter } from "./routes/validation.routes.js";
 import { completionRouter } from "./routes/completion.routes.js";
+import { editorCompletionsRouter } from "./routes/editor-completions.routes.js";
 import { ContainerService } from "./services/container.service.js";
 import { seedProblemsToSupabase } from "./services/problem-seeder.js";
 import { setupTerminalWebSocket } from "./terminal-ws.js";
@@ -105,13 +107,15 @@ async function bootstrap() {
 
   app.use("/api/containers", createContainerRouter(containerService));
   app.use("/api/problems", problemRouter);
+  app.use("/api/problems", createValidationRouter(containerService));
   app.use("/api/completions", completionRouter);
+  app.use("/api/editor-completions", editorCompletionsRouter);
 
   app.get("/", (req, res) => {
     res.send("API running");
   });
 
-  // Seed problems from local JSON into Supabase on startup (insert missing only)
+  // Sync problems from local JSON into Supabase on startup (upsert: insert new, update existing by id)
   void seedProblemsToSupabase().catch((err) => {
     console.error("[Server] Problem seed failed:", err?.message ?? err);
   }).finally(() => {
