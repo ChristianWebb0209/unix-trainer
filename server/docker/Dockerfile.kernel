@@ -1,0 +1,33 @@
+# Kernel Lab workspace: CUDA + C/C++
+FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      bash \
+      coreutils \
+      nano \
+      vim \
+      build-essential \
+      git \
+      wget \
+      gnupg \
+      ca-certificates \
+      curl \
+      clangd && \
+    rm -rf /var/lib/apt/lists/*
+
+# Node 20 for LSP proxy (clangd)
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY docker/lsp-proxy.js /workspace/lsp-proxy.js
+
+WORKDIR /workspace
+
+CMD ["tail", "-f", "/dev/null"]
+

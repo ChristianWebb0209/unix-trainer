@@ -1,6 +1,6 @@
 # LLM Problem Authoring Guide
 
-This guide is for LLMs (and humans) that create or edit coding problems for the Unix Trainer. Follow it so that problems render correctly and are easy to validate.
+This guide is for LLMs (and humans) that create or edit coding problems for **Tensor Trainer**. Follow it so that problems render correctly and are easy to validate.
 
 ---
 
@@ -15,7 +15,7 @@ Each problem in a `problems` array must have at least:
 | `instructions` | string | **Yes** | Problem text. **Must use the resolver** (see below). |
 | `solution` | string | No | Official solution text. **Must use the resolver** and **must demonstrate the solution with inline code**. Omit or `null` until you have one. |
 | `difficulty` | string | **Yes** | One of: `learn`, `easy`, `medium`, `hard`. |
-| `language` | string | **Yes** | One of: `bash`, `awk`, `unix`, `c`, `cpp`, `rust`, `cuda`, `vulkan`, `sycl`, `any`. |
+| `language` | string | **Yes** | One of: `c`, `cpp`, `rust`, `cuda`, `python`, `triton`, `pytorch`, `any`. |
 | `starterCode` | string | No | Initial code in the editor. |
 | `tests` | array | **Yes** | Array of test cases. **Must be comprehensive** (see Tests section). Each test can specify its own validation method (see §4.2). |
 | `validation` | object | No | Optional **default** when a test does not specify a method: `{ "kind": "stdout_exact" }` or `{ "kind": "cuda_numeric" }`. If omitted, the default is `stdout_exact`. |
@@ -24,9 +24,9 @@ Example minimal object:
 
 ```json
 {
-  "id": "unix_easy_001",
-  "title": "Print Hello, World!",
-  "language": "unix",
+  "id": "cuda_easy_001",
+  "title": "Hello, CUDA World",
+  "language": "cuda",
   "difficulty": "easy",
   "instructions": "Write a command that prints:\n\nHello, World!\n\n{hints: Use echo.}",
   "solution": null,

@@ -1,18 +1,18 @@
 [
   {
-    "id": "systems",
-    "title": "Systems",
-    "description": "Shell scripting (Bash, Awk), C, C++, and Rust in an isolated environment for systems-level practice.",
-    "languages": ["bash", "awk", "unix", "c", "cpp", "rust"],
-    "workspace": "systems",
+    "id": "kernel",
+    "title": "Kernel Lab",
+    "description": "Write and tune C/C++/Rust and CUDA kernels in a dedicated GPU environment.",
+    "languages": ["cuda", "c", "cpp", "rust"],
+    "workspace": "kernel",
     "icon": "systems-icon.svg"
   },
   {
-    "id": "gpu",
-    "title": "GPU Programming",
-    "description": "Explore CUDA and WebGPU-style shader programming in an isolated environment built for low-level experimentation.",
-    "languages": ["cuda", "webgpu"],
-    "workspace": "gpu",
+    "id": "tensor",
+    "title": "Tensor Lab",
+    "description": "Experiment with Python, Triton, and PyTorch for tensor and model-centric GPU work.",
+    "languages": ["python", "triton", "pytorch"],
+    "workspace": "tensor",
     "icon": "gpu-icon.svg"
   }
 ]

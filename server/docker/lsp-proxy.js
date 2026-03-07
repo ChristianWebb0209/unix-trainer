@@ -71,6 +71,14 @@ function getLSP(lang) {
     case 'vulkan':
     case 'sycl':
       return { cmd: 'clangd', args: ['--background-index'], env: { ...process.env, PATH: buildClangdPath() } };
+    case 'python':
+    case 'triton':
+    case 'pytorch':
+      return {
+        cmd: resolveCmd('pyright-langserver', ['/usr/local/bin/pyright-langserver', '/usr/bin/pyright-langserver']),
+        args: ['--stdio'],
+        env: process.env,
+      };
     default:
       return {
         cmd: resolveCmd('bash-language-server', ['/usr/local/bin/bash-language-server', '/usr/bin/bash-language-server']),

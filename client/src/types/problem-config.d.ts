@@ -2,16 +2,16 @@ declare module "problem-config" {
   export const DIFFICULTIES: Array<"learn" | "easy" | "medium" | "hard">;
   export type Difficulty = (typeof DIFFICULTIES)[number];
 
-  export const PROBLEM_LANGUAGE_IDS: Array<"bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any">;
+  export const PROBLEM_LANGUAGE_IDS: Array<"c" | "cpp" | "rust" | "cuda" | "python" | "triton" | "pytorch" | "any">;
   export type ProblemLanguage = (typeof PROBLEM_LANGUAGE_IDS)[number];
-  export const C_LIKE_LANGUAGE_IDS: Array<"c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl">;
-  export const SHELL_LANGUAGE_IDS: Array<"bash" | "awk" | "unix">;
+  export const C_LIKE_LANGUAGE_IDS: Array<"c" | "cpp" | "rust" | "cuda">;
+  export const SHELL_LANGUAGE_IDS: Array<never>;
 
   export interface SharedWorkspace {
-    id: "systems" | "gpu";
+    id: "kernel" | "tensor";
     label: string;
-    defaultProblemLanguage: "bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl";
-    problemLanguages: Array<"bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any">;
+    defaultProblemLanguage: "c" | "cpp" | "rust" | "cuda" | "python" | "triton" | "pytorch";
+    problemLanguages: Array<"c" | "cpp" | "rust" | "cuda" | "python" | "triton" | "pytorch" | "any">;
     dockerImageName: string;
     dockerfileName: string;
     kind: string;
@@ -21,10 +21,10 @@ declare module "problem-config" {
   }
 
   export const DIFFICULTY_ORDER: Record<"learn" | "easy" | "medium" | "hard", number>;
-  export const WORKSPACES: Record<"systems" | "gpu", SharedWorkspace>;
+  export const WORKSPACES: Record<"kernel" | "tensor", SharedWorkspace>;
   export const PROBLEM_LANGUAGES: Record<
-    "bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any",
-    { id: "bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any"; label: string; workspace: "systems" | "gpu" | null; docs: string | null }
+    "c" | "cpp" | "rust" | "cuda" | "python" | "triton" | "pytorch" | "any",
+    { id: "c" | "cpp" | "rust" | "cuda" | "python" | "triton" | "pytorch" | "any"; label: string; workspace: "kernel" | "tensor" | null; docs: string | null }
   >;
   export const DEFAULT_WORKSPACE: string;
   export const CODE_EDITOR_THEME_SPECS: Record<
@@ -48,14 +48,14 @@ declare module "problem-config" {
     inputBase64: string
   ): string;
 
-  export function getWorkspaceIds(): Array<"systems" | "gpu">;
-  export function getWorkspace(id: "systems" | "gpu"): SharedWorkspace | null;
+  export function getWorkspaceIds(): Array<"kernel" | "tensor">;
+  export function getWorkspace(id: "kernel" | "tensor"): SharedWorkspace | null;
   export function getLanguagesForWorkspace(
-    id: "systems" | "gpu"
-  ): Array<"bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any">;
-  export function getAllProblemLanguageIds(): Array<"bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any">;
+    id: "kernel" | "tensor"
+  ): Array<"c" | "cpp" | "rust" | "cuda" | "python" | "triton" | "pytorch" | "any">;
+  export function getAllProblemLanguageIds(): Array<"c" | "cpp" | "rust" | "cuda" | "python" | "triton" | "pytorch" | "any">;
   export function getWorkspacesForLanguage(
-    langId: "bash" | "awk" | "unix" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl" | "any"
-  ): Array<"systems" | "gpu">;
+    langId: "c" | "cpp" | "rust" | "cuda" | "python" | "triton" | "pytorch" | "any"
+  ): Array<"kernel" | "tensor">;
 }
 

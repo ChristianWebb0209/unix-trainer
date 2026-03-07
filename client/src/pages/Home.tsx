@@ -141,12 +141,12 @@ export default function Home() {
                 {/* Hero */}
                 <section className="home-hero">
                     <div className="home-hero-title-wrap">
-                        <h1 className="home-hero-title">
+                                <h1 className="home-hero-title">
                             <TextType
                                 text={[
                                     "Learn what LeetCode doesn't teach.",
-                                    "Real Unix. Real shells.",
-                                    "Master Bash, Awk, and GPU code.",
+                                    "Real GPU kernels.",
+                                    "Master CUDA, C++, and tensors.",
                                 ]}
                                 typingSpeed={57}
                                 deletingSpeed={63}
@@ -214,7 +214,7 @@ export default function Home() {
                         <div>
                             <h2 style={{ margin: 0, fontSize: "1.3rem" }}>Problem of the Day</h2>
                             <p className="home-pod-subtitle">
-                                A single focused shell challenge, refreshed daily.
+                                A single focused GPU challenge, refreshed daily.
                             </p>
                         </div>
                         <span className="home-pod-badge">
@@ -320,7 +320,7 @@ export default function Home() {
                 {/* Footer */}
                 <footer className="home-footer">
                     <span>
-                        Check the project out (it&apos;s open source!):{" "}
+                        Check Tensor Trainer out (it&apos;s open source!):{" "}
                         <a
                             href="https://github.com/ChristianWebb0209/unix-trainer"
                             target="_blank"

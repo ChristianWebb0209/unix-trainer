@@ -1,346 +1,346 @@
 {
-  "problems": [
-    {
-      "id": "sycl_learn_001",
-      "title": "SYCL Program Structure and dpcpp",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "SYCL programs are C++ and are compiled with the DPC++ compiler (**dpcpp**). They use the **sycl** namespace.\n\nIn this problem, write a minimal program that:\n1. Includes `<sycl/sycl.hpp>`\n2. Includes `<cstdio>`\n3. Defines **main()** and prints exactly:\n\n```\nHello from SYCL!\n```\n\nThen return 0.\n\n{hints: You can use printf from cstdio for host-side output. You do not need to create a queue for this first problem.}",
-      "solution": "A minimal SYCL program still uses standard C++ for basic I/O. Include the SYCL header and use **printf** for the required message.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    printf(\"Hello from SYCL!\\n\");\n    return 0;\n}\n```\n\n**Explanation:** `<sycl/sycl.hpp>` is the main SYCL header; `<cstdio>` provides **printf**. **main()** runs on the host.\n\nOutput: Hello from SYCL!",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Print the required message here\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Hello from SYCL!\n" }]
-    },
-    {
-      "id": "sycl_learn_002",
-      "title": "The default_selector and Queue",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "SYCL uses a **queue** to submit work to a device. Create a queue with **default_selector_v**, then print exactly:\n\n```\nSYCL queue created\n```\n\n{hints: sycl::queue q(sycl::default_selector_v); then printf.}",
-      "solution": "The queue is the handle through which you submit kernels.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    printf(\"SYCL queue created\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **sycl::queue** represents a queue for a specific device. **default_selector_v** selects a suitable device.\n\nOutput: SYCL queue created",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Create queue, print \"SYCL queue created\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "SYCL queue created\n" }]
-    },
-    {
-      "id": "sycl_learn_003",
-      "title": "Submitting a single_task",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Work is submitted via **submit()**. A **single_task** runs once (one work item). After **q.wait()**, print exactly:\n\n```\nSingle task submitted\n```\n\n{hints: q.submit([&](sycl::handler& h) { h.single_task([=]() {}); }); q.wait(); printf.}",
-      "solution": "Submit a command group; **single_task** runs one work item.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.single_task([=]() { /* one work item */ });\n    });\n    q.wait();\n    printf(\"Single task submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **q.submit()** takes a lambda with **sycl::handler&**. **h.single_task()** enqueues one work item. **q.wait()** blocks until done.\n\nOutput: Single task submitted",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    // Print \"Single task submitted\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Single task submitted\n" }]
-    },
-    {
-      "id": "sycl_learn_004",
-      "title": "parallel_for with range",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "**parallel_for** runs many work items. Use **sycl::range<1>(4)**. After **q.wait()**, print exactly:\n\n```\nparallel_for submitted\n```\n\n{hints: h.parallel_for(sycl::range<1>(4), [=](sycl::id<1> idx) {}); }",
-      "solution": "**parallel_for** with a range creates multiple work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(4), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    printf(\"parallel_for submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **sycl::range<1>(4)** means 4 work items. The kernel lambda receives **sycl::id<1> idx**; **idx[0]** is 0..3.\n\nOutput: parallel_for submitted",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(4), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"parallel_for submitted\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "parallel_for submitted\n" }]
-    },
-    {
-      "id": "sycl_learn_005",
-      "title": "Using the work-item index",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Submit a **parallel_for** with **range<1>(3)**. In the kernel you do not need to use the index. After **q.wait()**, print exactly:\n\n```\n3 indices\n```\n\n{hints: Same as learn_004 but range<1>(3) and print \"3 indices\\n\".}",
-      "solution": "Three work items are launched; we only confirm from the host.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(3), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"3 indices\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<1>(3)** creates 3 work items. The kernel parameter can be **sycl::id<1>** (used later for indexing).\n\nOutput: 3 indices",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(3), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"3 indices\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "3 indices\n" }]
-    },
-    {
-      "id": "sycl_learn_006",
-      "title": "cpu_selector",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Create a queue using **sycl::cpu_selector_v** instead of default_selector_v. After creating the queue, print exactly:\n\n```\nCPU queue\n```\n\n{hints: sycl::queue q(sycl::cpu_selector_v); }",
-      "solution": "**cpu_selector_v** forces execution on the CPU.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::cpu_selector_v);\n    printf(\"CPU queue\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Selectors choose the device. **cpu_selector_v** selects a CPU device; **gpu_selector_v** would select a GPU.\n\nOutput: CPU queue",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Queue with cpu_selector_v, print \"CPU queue\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "CPU queue\n" }]
-    },
-    {
-      "id": "sycl_learn_007",
-      "title": "Query device vendor",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Create a default queue. Get the device **vendor** with **get_info<sycl::info::device::vendor>()** and print it followed by a newline. Validation accepts any non-empty line.\n\nExample:\n\n```\nIntel Corporation\n```\n\n{hints: q.get_device().get_info<sycl::info::device::vendor>() }",
-      "solution": "Device metadata is available via **get_info**.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    auto vendor = q.get_device().get_info<sycl::info::device::vendor>();\n    printf(\"%s\\n\", vendor.c_str());\n    return 0;\n}\n```\n\n**Explanation:** **sycl::info::device::vendor** returns the vendor string. Other options include **name**, **version**, **max_work_group_size**.\n\nOutput: (vendor string)",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Get vendor, print it\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout_regex": ".+\\n" }]
-    },
-    {
-      "id": "sycl_learn_008",
-      "title": "Two single_tasks",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Submit **two** **single_task** kernels (each can be empty). After **q.wait()**, print exactly:\n\n```\nTwo single tasks\n```\n\n{hints: Call q.submit() twice with h.single_task([=]() {}); then q.wait(); }",
-      "solution": "Multiple submits enqueue kernels in order.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    printf(\"Two single tasks\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Each **submit()** adds a command group. The queue executes them in order. **wait()** blocks until both complete.\n\nOutput: Two single tasks",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Two single_task submits, wait, print \"Two single tasks\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Two single tasks\n" }]
-    },
-    {
-      "id": "sycl_learn_009",
-      "title": "range<1> and range<2>",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Submit a **parallel_for** with **sycl::range<2>(2, 3)** (2×3 = 6 work items). After **q.wait()**, print exactly:\n\n```\n2D range submitted\n```\n\nThe kernel lambda can take **sycl::id<2> idx**; idx[0] and idx[1] are the indices.\n\n{hints: h.parallel_for(sycl::range<2>(2, 3), [=](sycl::id<2> idx) {}); }",
-      "solution": "A 2D range creates a grid of work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(2, 3), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    printf(\"2D range submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<2>(2, 3)** is 2 rows, 3 columns (6 work items). **id<2>** has **idx[0]** (0 or 1) and **idx[1]** (0, 1, or 2).\n\nOutput: 2D range submitted",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(2, 3), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    // Print \"2D range submitted\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "2D range submitted\n" }]
-    },
-    {
-      "id": "sycl_learn_010",
-      "title": "Host and device",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Print exactly two lines from the **host** (no kernel required):\n\n```\nHost runs first\nDevice runs later\n```\n\nUse two **printf** calls. This reinforces that host code runs on the CPU and device code runs on the selected accelerator.\n\n{hints: printf(\"Host runs first\\n\"); printf(\"Device runs later\\n\"); }",
-      "solution": "Host code executes in order before or after submitted device work.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    printf(\"Host runs first\\n\");\n    printf(\"Device runs later\\n\");\n    return 0;\n}\n```\n\n**Explanation:** All **printf** calls run on the host. In real programs you **submit()** kernels (device) and use host code to prepare data or print results.\n\nOutput: Host runs first / Device runs later",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Print the two lines\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Host runs first\nDevice runs later\n" }]
-    },
-    {
-      "id": "sycl_learn_011",
-      "title": "Wait and print",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Submit a **single_task** that does nothing. After **q.wait()**, print exactly:\n\n```\nKernel finished\n```\n\n{hints: submit single_task, q.wait(), then printf.}",
-      "solution": "**wait()** ensures the kernel completes before host continues.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    printf(\"Kernel finished\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Without **wait()**, the host might print before the kernel runs. **wait()** blocks until all submitted work on that queue is done.\n\nOutput: Kernel finished",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    // Print \"Kernel finished\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Kernel finished\n" }]
-    },
-    {
-      "id": "sycl_learn_012",
-      "title": "5 work items",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Submit a **parallel_for** with **range<1>(5)**. After **q.wait()**, print exactly:\n\n```\n5 items\n```\n\n{hints: range<1>(5), then wait and printf.}",
-      "solution": "Five work items are launched.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(5), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"5 items\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<1>(5)** creates indices 0, 1, 2, 3, 4. Each can run in parallel on the device.\n\nOutput: 5 items",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(5), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"5 items\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "5 items\n" }]
-    },
-    {
-      "id": "sycl_learn_013",
-      "title": "Default selector then print",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Create a queue with **default_selector_v**. Then print exactly:\n\n```\nDefault device ready\n```\n\n{hints: sycl::queue q(sycl::default_selector_v); printf.}",
-      "solution": "The default selector lets the runtime pick a device (often GPU).\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    printf(\"Default device ready\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **default_selector_v** typically prefers a GPU if available, otherwise CPU. No kernel is submitted here.\n\nOutput: Default device ready",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Queue with default_selector_v, print \"Default device ready\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Default device ready\n" }]
-    },
-    {
-      "id": "sycl_learn_014",
-      "title": "single_task then parallel_for",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Submit first a **single_task**, then a **parallel_for** with **range<1>(1)**. After **q.wait()**, print exactly:\n\n```\nBoth submitted\n```\n\n{hints: Two q.submit() calls, then q.wait(), printf.}",
-      "solution": "Kernels execute in submission order.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(1), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"Both submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** The queue runs the single_task first, then the parallel_for (with one work item). **wait()** blocks until both complete.\n\nOutput: Both submitted",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // single_task then parallel_for(range<1>(1)), wait, print \"Both submitted\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Both submitted\n" }]
-    },
-    {
-      "id": "sycl_learn_015",
-      "title": "SYCL Learn complete",
-      "language": "sycl",
-      "difficulty": "learn",
-      "instructions": "Write a program that prints exactly:\n\n```\nSYCL LEARN complete!\n```\n\nInclude `<sycl/sycl.hpp>` and `<cstdio>`. No queue or kernel required.\n\n{hints: printf only.}",
-      "solution": "Minimal SYCL-ready program with host output.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    printf(\"SYCL LEARN complete!\\n\");\n    return 0;\n}\n```\n\n**Explanation:** You now know queue, selectors, single_task, parallel_for, range, id, and wait. Next: buffers and accessors for data.\n\nOutput: SYCL LEARN complete!",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Print \"SYCL LEARN complete!\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "SYCL LEARN complete!\n" }]
-    },
-    {
-      "id": "sycl_easy_001",
-      "title": "Print the Device Name",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Create a SYCL queue and print the **name** of the selected device. Use **q.get_device().get_info<sycl::info::device::name>()**. Output must be one non-empty line.\n\nExample:\n\n```\nIntel(R) UHD Graphics 620\n```\n\n{hints: get_info returns std::string; use .c_str() for printf.}",
-      "solution": "Device metadata via **get_info**.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    auto name = q.get_device().get_info<sycl::info::device::name>();\n    printf(\"%s\\n\", name.c_str());\n    return 0;\n}\n```\n\n**Explanation:** **q.get_device()** returns the **sycl::device**; **get_info<...::name>()** returns the device name string.\n\nOutput: (device name)",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Get device name, print it\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout_regex": ".+\\n" }]
-    },
-    {
-      "id": "sycl_easy_002",
-      "title": "Add Two Numbers on the Host",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Read two integers from stdin and print their sum. Include SYCL and create a queue; do read/sum/print on the host.\n\nInput: 2 3\n\nOutput:\n\n```\n5\n```\n\n{hints: scanf or std::cin; printf or std::cout.}",
-      "solution": "Host I/O with a queue present.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\\n\", a + b);\n    return 0;\n}\n```\n\n**Explanation:** Queue is created but not used; sum is computed on the host.\n\nInput: 2 3  Output: 5",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Read two ints, print sum\n    return 0;\n}\n",
-      "tests": [
-        { "id": "tc1", "input": "2 3\n", "expected_stdout": "5\n" },
-        { "id": "tc2", "input": "10 5\n", "expected_stdout": "15\n" }
-      ]
-    },
-    {
-      "id": "sycl_easy_003",
-      "title": "parallel_for with 8 Work Items",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Submit a **parallel_for** with **range<1>(8)**. After **q.wait()**, print exactly:\n\n```\n8 work items done\n```\n\n{hints: range<1>(8), wait, printf.}",
-      "solution": "Eight work items, then host print.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(8), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    printf(\"8 work items done\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<1>(8)** creates 8 work items; kernel can be empty.\n\nOutput: 8 work items done",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(8), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"8 work items done\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "8 work items done\n" }]
-    },
-    {
-      "id": "sycl_easy_004",
-      "title": "Read and print one integer",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Read one integer from stdin and print it. Create a queue (you may not use it). Output must be the number followed by a newline.\n\nInput: 42\n\nOutput:\n\n```\n42\n```\n\n{hints: scanf(\"%d\", &x); printf(\"%d\\n\", x); }",
-      "solution": "Host I/O with SYCL included.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    int x;\n    scanf(\"%d\", &x);\n    printf(\"%d\\n\", x);\n    return 0;\n}\n```\n\n**Explanation:** Standard C I/O; the queue satisfies SYCL program structure.\n\nInput: 42  Output: 42",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Read one int, print it\n    return 0;\n}\n",
-      "tests": [
-        { "id": "tc1", "input": "42\n", "expected_stdout": "42\n" },
-        { "id": "tc2", "input": "0\n", "expected_stdout": "0\n" }
-      ]
-    },
-    {
-      "id": "sycl_easy_005",
-      "title": "Multiply two numbers on host",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Read two integers and print their **product**. Create a queue; do I/O and multiplication on the host.\n\nInput: 6 7\n\nOutput:\n\n```\n42\n```\n\n{hints: scanf two ints, printf product.}",
-      "solution": "Host-side multiplication.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\\n\", a * b);\n    return 0;\n}\n```\n\n**Explanation:** Queue created; computation is host-only.\n\nInput: 6 7  Output: 42",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Read two ints, print product\n    return 0;\n}\n",
-      "tests": [
-        { "id": "tc1", "input": "6 7\n", "expected_stdout": "42\n" },
-        { "id": "tc2", "input": "0 99\n", "expected_stdout": "0\n" }
-      ]
-    },
-    {
-      "id": "sycl_easy_006",
-      "title": "10 work items",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Submit a **parallel_for** with **range<1>(10)**. After **q.wait()**, print exactly:\n\n```\n10 items done\n```\n\n{hints: range<1>(10), wait, printf.}",
-      "solution": "Ten work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(10), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"10 items done\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<1>(10)** gives indices 0..9.\n\nOutput: 10 items done",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(10), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"10 items done\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "10 items done\n" }]
-    },
-    {
-      "id": "sycl_easy_007",
-      "title": "Three single_tasks",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Submit **three** **single_task** kernels (each empty). After **q.wait()**, print exactly:\n\n```\nThree tasks done\n```\n\n{hints: Three q.submit() with h.single_task([=]() {}); }",
-      "solution": "Three command groups in sequence.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    printf(\"Three tasks done\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Queue runs the three single_tasks in order; **wait()** blocks until all complete.\n\nOutput: Three tasks done",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Three single_task submits, wait, print \"Three tasks done\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Three tasks done\n" }]
-    },
-    {
-      "id": "sycl_easy_008",
-      "title": "Sum of three integers",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Read **three** integers from stdin and print their sum. Create a queue; do I/O on the host.\n\nInput: 1 2 3\n\nOutput:\n\n```\n6\n```\n\n{hints: scanf three ints, printf sum.}",
-      "solution": "Host sum of three numbers.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    int a, b, c;\n    scanf(\"%d %d %d\", &a, &b, &c);\n    printf(\"%d\\n\", a + b + c);\n    return 0;\n}\n```\n\n**Explanation:** Standard C I/O with a SYCL queue present.\n\nInput: 1 2 3  Output: 6",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Read three ints, print sum\n    return 0;\n}\n",
-      "tests": [
-        { "id": "tc1", "input": "1 2 3\n", "expected_stdout": "6\n" },
-        { "id": "tc2", "input": "0 0 0\n", "expected_stdout": "0\n" }
-      ]
-    },
-    {
-      "id": "sycl_easy_009",
-      "title": "range<2>(3, 4)",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Submit a **parallel_for** with **sycl::range<2>(3, 4)** (12 work items). After **q.wait()**, print exactly:\n\n```\n3x4 done\n```\n\n{hints: h.parallel_for(sycl::range<2>(3, 4), [=](sycl::id<2> idx) {}); }",
-      "solution": "2D range 3×4.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(3, 4), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    printf(\"3x4 done\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<2>(3, 4)** is 3×4 = 12 work items; idx[0] in 0..2, idx[1] in 0..3.\n\nOutput: 3x4 done",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(3, 4), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    // Print \"3x4 done\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "3x4 done\n" }]
-    },
-    {
-      "id": "sycl_easy_010",
-      "title": "Device max work group size",
-      "language": "sycl",
-      "difficulty": "easy",
-      "instructions": "Create a queue and get **max_work_group_size** with **get_info<sycl::info::device::max_work_group_size>()**. Print that integer followed by a newline.\n\nExample:\n\n```\n256\n```\n\n{hints: Returns size_t; use %zu or cast to long and use %ld for printf.}",
-      "solution": "Query max work-group size.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    auto n = q.get_device().get_info<sycl::info::device::max_work_group_size>();\n    printf(\"%zu\\n\", n);\n    return 0;\n}\n```\n\n**Explanation:** **max_work_group_size** is the maximum number of work items in a single work group (implementation-dependent).\n\nOutput: (positive integer)",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Get max_work_group_size, print it\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout_regex": "[1-9][0-9]*\\n" }]
-    },
-    {
-      "id": "sycl_medium_001",
-      "title": "Two Kernels in Sequence",
-      "language": "sycl",
-      "difficulty": "medium",
-      "instructions": "Submit **two** kernels: first a **single_task**, then a **parallel_for** with **range<1>(2)**. After **q.wait()**, print exactly:\n\n```\nTwo kernels submitted\n```\n\n{hints: Two q.submit() calls, then q.wait(), printf.}",
-      "solution": "Multiple submits; queue runs them in order.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(2), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"Two kernels submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Order of execution is guaranteed by the queue; **wait()** blocks until both complete.\n\nOutput: Two kernels submitted",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // single_task then parallel_for(2), wait, print\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Two kernels submitted\n" }]
-    },
-    {
-      "id": "sycl_medium_002",
-      "title": "single_task and two parallel_fors",
-      "language": "sycl",
-      "difficulty": "medium",
-      "instructions": "Submit **three** kernels in order: one **single_task**, then **parallel_for(range<1>(2))**, then **parallel_for(range<1>(3))**. After **q.wait()**, print exactly:\n\n```\n1+2+3 items\n```\n\n{hints: Three submit() calls with the correct ranges.}",
-      "solution": "Three command groups: 1 + 2 + 3 work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(2), [=](sycl::id<1>) {});\n    });\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(3), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"1+2+3 items\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Total work items: 1 + 2 + 3. Queue executes in submission order.\n\nOutput: 1+2+3 items",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // single_task, parallel_for(2), parallel_for(3), wait, print\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "1+2+3 items\n" }]
-    },
-    {
-      "id": "sycl_medium_003",
-      "title": "CPU then default queue",
-      "language": "sycl",
-      "difficulty": "medium",
-      "instructions": "Create a queue with **cpu_selector_v** and print exactly:\n\n```\nCPU\n```\n\nThen create a second queue with **default_selector_v** and print exactly:\n\n```\nDefault\n```\n\nSo the output is two lines: CPU, then Default.\n\n{hints: Two queues, two printf calls.}",
-      "solution": "Two queues with different selectors.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q_cpu(sycl::cpu_selector_v);\n    printf(\"CPU\\n\");\n    sycl::queue q_default(sycl::default_selector_v);\n    printf(\"Default\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Each queue is bound to a device by its selector. You can have multiple queues for different devices or the same device.\n\nOutput: CPU / Default",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Queue CPU, print \"CPU\\n\"; queue default, print \"Default\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "CPU\nDefault\n" }]
-    },
-    {
-      "id": "sycl_medium_004",
-      "title": "Four parallel_fors",
-      "language": "sycl",
-      "difficulty": "medium",
-      "instructions": "Submit **four** **parallel_for** kernels with **range<1>(1)**, **range<1>(2)**, **range<1>(3)**, **range<1>(4)**. After **q.wait()**, print exactly:\n\n```\n1+2+3+4\n```\n\n{hints: Four submit() calls with range<1>(1), range<1>(2), range<1>(3), range<1>(4).}",
-      "solution": "Four kernels with 1, 2, 3, 4 work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    for (int n : {1, 2, 3, 4}) {\n        q.submit([&, n](sycl::handler& h) {\n            h.parallel_for(sycl::range<1>(n), [=](sycl::id<1>) {});\n        });\n    }\n    q.wait();\n    printf(\"1+2+3+4\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Loop submits four kernels; total 10 work items. **wait()** blocks until all complete.\n\nOutput: 1+2+3+4",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Four parallel_for with 1,2,3,4 work items, wait, print \"1+2+3+4\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "1+2+3+4\n" }]
-    },
-    {
-      "id": "sycl_medium_005",
-      "title": "2D range 5x2",
-      "language": "sycl",
-      "difficulty": "medium",
-      "instructions": "Submit a **parallel_for** with **sycl::range<2>(5, 2)** (10 work items). After **q.wait()**, print exactly:\n\n```\n5x2 submitted\n```\n\n{hints: range<2>(5, 2), kernel [=](sycl::id<2> idx) {}.}",
-      "solution": "2D range 5×2.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(5, 2), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    printf(\"5x2 submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<2>(5, 2)** gives 5×2 = 10 work items; idx[0] in 0..4, idx[1] in 0..1.\n\nOutput: 5x2 submitted",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(5, 2), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    // Print \"5x2 submitted\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "5x2 submitted\n" }]
-    },
-    {
-      "id": "sycl_hard_001",
-      "title": "Buffer and host_accessor (read)",
-      "language": "sycl",
-      "difficulty": "hard",
-      "instructions": "Create a **sycl::buffer<int, 1>** of size 1, initialized with the value **7**. In a **submit**, use a **single_task** to leave the buffer unchanged (or write 7). After **q.wait()**, create a **sycl::host_accessor** to read the buffer and print the single element followed by a newline.\n\nExpected output:\n\n```\n7\n```\n\n{hints: buffer<int,1> buf(std::vector<int>{7}); in the kernel use accessor with read_write; after wait use host_accessor to read and printf.}",
-      "solution": "Buffer with host_accessor to read back.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> data = {7};\n    sycl::buffer<int, 1> buf(data);\n    q.submit([&](sycl::handler& h) {\n        sycl::accessor acc(buf, h, sycl::read_write);\n        h.single_task([=]() { acc[0] = 7; });\n    });\n    q.wait();\n    {\n        sycl::host_accessor acc(buf, sycl::read_only);\n        printf(\"%d\\n\", acc[0]);\n    }\n    return 0;\n}\n```\n\n**Explanation:** **buffer** owns data for the device. **accessor** in the kernel gives device access; **host_accessor** after **wait()** gives host access. Destructors synchronize.\n\nOutput: 7",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> data = {7};\n    sycl::buffer<int, 1> buf(data);\n    // submit single_task with accessor, wait, host_accessor read, printf\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "7\n" }]
-    },
-    {
-      "id": "sycl_hard_002",
-      "title": "Buffer: add one to each element",
-      "language": "sycl",
-      "difficulty": "hard",
-      "instructions": "Create a **buffer** of 3 integers: **1, 2, 3**. In a **parallel_for(range<1>(3))**, each work item adds 1 to its element (so 2, 3, 4). After **q.wait()**, use a **host_accessor** to read the buffer and print the three values on one line: **2 3 4** followed by a newline.\n\nExpected output:\n\n```\n2 3 4\n```\n\n{hints: accessor in kernel with idx[0]; each work item does acc[idx[0]] = acc[idx[0]] + 1; host_accessor to read and printf.}",
-      "solution": "Parallel update via buffer and accessor.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> data = {1, 2, 3};\n    sycl::buffer<int, 1> buf(data);\n    q.submit([&](sycl::handler& h) {\n        sycl::accessor acc(buf, h, sycl::read_write);\n        h.parallel_for(sycl::range<1>(3), [=](sycl::id<1> idx) {\n            acc[idx[0]] = acc[idx[0]] + 1;\n        });\n    });\n    q.wait();\n    {\n        sycl::host_accessor acc(buf, sycl::read_only);\n        printf(\"%d %d %d\\n\", acc[0], acc[1], acc[2]);\n    }\n    return 0;\n}\n```\n\n**Explanation:** **accessor** in the kernel allows each work item to read/write by index. **idx[0]** is 0, 1, or 2. After **wait()**, **host_accessor** reads the updated data.\n\nOutput: 2 3 4",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> data = {1, 2, 3};\n    sycl::buffer<int, 1> buf(data);\n    // parallel_for(3): acc[i] = acc[i]+1; wait; host_accessor; printf \"2 3 4\\n\"\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "2 3 4\n" }]
-    },
-    {
-      "id": "sycl_hard_003",
-      "title": "Sum array on device",
-      "language": "sycl",
-      "difficulty": "hard",
-      "instructions": "Create a **buffer** of 4 integers: **10, 20, 30, 40**. Use a **single_task** to compute the sum (10+20+30+40 = 100) into a **second buffer** of size 1. Read the sum back with a **host_accessor** and print it followed by a newline.\n\nExpected output:\n\n```\n100\n```\n\n{hints: Two buffers: one for input (size 4), one for output (size 1). In single_task use two accessors; read from first, write sum to second[0].}",
-      "solution": "Single task reduces to one value.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> in_data = {10, 20, 30, 40};\n    std::vector<int> out_data = {0};\n    sycl::buffer<int, 1> buf_in(in_data);\n    sycl::buffer<int, 1> buf_out(out_data);\n    q.submit([&](sycl::handler& h) {\n        sycl::accessor acc_in(buf_in, h, sycl::read_only);\n        sycl::accessor acc_out(buf_out, h, sycl::write_only);\n        h.single_task([=]() {\n            int sum = acc_in[0] + acc_in[1] + acc_in[2] + acc_in[3];\n            acc_out[0] = sum;\n        });\n    });\n    q.wait();\n    {\n        sycl::host_accessor acc(buf_out, sycl::read_only);\n        printf(\"%d\\n\", acc[0]);\n    }\n    return 0;\n}\n```\n\n**Explanation:** **read_only** and **write_only** accessors express access mode. The single_task reads all four elements and writes the sum to the output buffer. **host_accessor** retrieves the result.\n\nOutput: 100",
-      "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> in_data = {10, 20, 30, 40};\n    std::vector<int> out_data = {0};\n    sycl::buffer<int, 1> buf_in(in_data);\n    sycl::buffer<int, 1> buf_out(out_data);\n    // single_task: sum buf_in into buf_out[0]; wait; host_accessor; printf\n    return 0;\n}\n",
-      "tests": [{ "id": "tc1", "input": "", "expected_stdout": "100\n" }]
-    }
-  ]
-}
+    "problems": [
+      {
+        "id": "sycl_learn_001",
+        "title": "SYCL Program Structure and dpcpp",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "SYCL programs are C++ and are compiled with the DPC++ compiler (**dpcpp**). They use the **sycl** namespace.\n\nIn this problem, write a minimal program that:\n1. Includes `<sycl/sycl.hpp>`\n2. Includes `<cstdio>`\n3. Defines **main()** and prints exactly:\n\n```\nHello from SYCL!\n```\n\nThen return 0.\n\n{hints: You can use printf from cstdio for host-side output. You do not need to create a queue for this first problem.}",
+        "solution": "A minimal SYCL program still uses standard C++ for basic I/O. Include the SYCL header and use **printf** for the required message.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    printf(\"Hello from SYCL!\\n\");\n    return 0;\n}\n```\n\n**Explanation:** `<sycl/sycl.hpp>` is the main SYCL header; `<cstdio>` provides **printf**. **main()** runs on the host.\n\nOutput: Hello from SYCL!",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Print the required message here\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Hello from SYCL!\n" }]
+      },
+      {
+        "id": "sycl_learn_002",
+        "title": "The default_selector and Queue",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "SYCL uses a **queue** to submit work to a device. Create a queue with **default_selector_v**, then print exactly:\n\n```\nSYCL queue created\n```\n\n{hints: sycl::queue q(sycl::default_selector_v); then printf.}",
+        "solution": "The queue is the handle through which you submit kernels.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    printf(\"SYCL queue created\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **sycl::queue** represents a queue for a specific device. **default_selector_v** selects a suitable device.\n\nOutput: SYCL queue created",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Create queue, print \"SYCL queue created\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "SYCL queue created\n" }]
+      },
+      {
+        "id": "sycl_learn_003",
+        "title": "Submitting a single_task",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Work is submitted via **submit()**. A **single_task** runs once (one work item). After **q.wait()**, print exactly:\n\n```\nSingle task submitted\n```\n\n{hints: q.submit([&](sycl::handler& h) { h.single_task([=]() {}); }); q.wait(); printf.}",
+        "solution": "Submit a command group; **single_task** runs one work item.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.single_task([=]() { /* one work item */ });\n    });\n    q.wait();\n    printf(\"Single task submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **q.submit()** takes a lambda with **sycl::handler&**. **h.single_task()** enqueues one work item. **q.wait()** blocks until done.\n\nOutput: Single task submitted",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    // Print \"Single task submitted\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Single task submitted\n" }]
+      },
+      {
+        "id": "sycl_learn_004",
+        "title": "parallel_for with range",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "**parallel_for** runs many work items. Use **sycl::range<1>(4)**. After **q.wait()**, print exactly:\n\n```\nparallel_for submitted\n```\n\n{hints: h.parallel_for(sycl::range<1>(4), [=](sycl::id<1> idx) {}); }",
+        "solution": "**parallel_for** with a range creates multiple work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(4), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    printf(\"parallel_for submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **sycl::range<1>(4)** means 4 work items. The kernel lambda receives **sycl::id<1> idx**; **idx[0]** is 0..3.\n\nOutput: parallel_for submitted",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(4), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"parallel_for submitted\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "parallel_for submitted\n" }]
+      },
+      {
+        "id": "sycl_learn_005",
+        "title": "Using the work-item index",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Submit a **parallel_for** with **range<1>(3)**. In the kernel you do not need to use the index. After **q.wait()**, print exactly:\n\n```\n3 indices\n```\n\n{hints: Same as learn_004 but range<1>(3) and print \"3 indices\\n\".}",
+        "solution": "Three work items are launched; we only confirm from the host.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(3), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"3 indices\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<1>(3)** creates 3 work items. The kernel parameter can be **sycl::id<1>** (used later for indexing).\n\nOutput: 3 indices",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(3), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"3 indices\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "3 indices\n" }]
+      },
+      {
+        "id": "sycl_learn_006",
+        "title": "cpu_selector",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Create a queue using **sycl::cpu_selector_v** instead of default_selector_v. After creating the queue, print exactly:\n\n```\nCPU queue\n```\n\n{hints: sycl::queue q(sycl::cpu_selector_v); }",
+        "solution": "**cpu_selector_v** forces execution on the CPU.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::cpu_selector_v);\n    printf(\"CPU queue\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Selectors choose the device. **cpu_selector_v** selects a CPU device; **gpu_selector_v** would select a GPU.\n\nOutput: CPU queue",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Queue with cpu_selector_v, print \"CPU queue\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "CPU queue\n" }]
+      },
+      {
+        "id": "sycl_learn_007",
+        "title": "Query device vendor",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Create a default queue. Get the device **vendor** with **get_info<sycl::info::device::vendor>()** and print it followed by a newline. Validation accepts any non-empty line.\n\nExample:\n\n```\nIntel Corporation\n```\n\n{hints: q.get_device().get_info<sycl::info::device::vendor>() }",
+        "solution": "Device metadata is available via **get_info**.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    auto vendor = q.get_device().get_info<sycl::info::device::vendor>();\n    printf(\"%s\\n\", vendor.c_str());\n    return 0;\n}\n```\n\n**Explanation:** **sycl::info::device::vendor** returns the vendor string. Other options include **name**, **version**, **max_work_group_size**.\n\nOutput: (vendor string)",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Get vendor, print it\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout_regex": ".+\\n" }]
+      },
+      {
+        "id": "sycl_learn_008",
+        "title": "Two single_tasks",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Submit **two** **single_task** kernels (each can be empty). After **q.wait()**, print exactly:\n\n```\nTwo single tasks\n```\n\n{hints: Call q.submit() twice with h.single_task([=]() {}); then q.wait(); }",
+        "solution": "Multiple submits enqueue kernels in order.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    printf(\"Two single tasks\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Each **submit()** adds a command group. The queue executes them in order. **wait()** blocks until both complete.\n\nOutput: Two single tasks",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Two single_task submits, wait, print \"Two single tasks\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Two single tasks\n" }]
+      },
+      {
+        "id": "sycl_learn_009",
+        "title": "range<1> and range<2>",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Submit a **parallel_for** with **sycl::range<2>(2, 3)** (2×3 = 6 work items). After **q.wait()**, print exactly:\n\n```\n2D range submitted\n```\n\nThe kernel lambda can take **sycl::id<2> idx**; idx[0] and idx[1] are the indices.\n\n{hints: h.parallel_for(sycl::range<2>(2, 3), [=](sycl::id<2> idx) {}); }",
+        "solution": "A 2D range creates a grid of work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(2, 3), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    printf(\"2D range submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<2>(2, 3)** is 2 rows, 3 columns (6 work items). **id<2>** has **idx[0]** (0 or 1) and **idx[1]** (0, 1, or 2).\n\nOutput: 2D range submitted",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(2, 3), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    // Print \"2D range submitted\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "2D range submitted\n" }]
+      },
+      {
+        "id": "sycl_learn_010",
+        "title": "Host and device",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Print exactly two lines from the **host** (no kernel required):\n\n```\nHost runs first\nDevice runs later\n```\n\nUse two **printf** calls. This reinforces that host code runs on the CPU and device code runs on the selected accelerator.\n\n{hints: printf(\"Host runs first\\n\"); printf(\"Device runs later\\n\"); }",
+        "solution": "Host code executes in order before or after submitted device work.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    printf(\"Host runs first\\n\");\n    printf(\"Device runs later\\n\");\n    return 0;\n}\n```\n\n**Explanation:** All **printf** calls run on the host. In real programs you **submit()** kernels (device) and use host code to prepare data or print results.\n\nOutput: Host runs first / Device runs later",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Print the two lines\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Host runs first\nDevice runs later\n" }]
+      },
+      {
+        "id": "sycl_learn_011",
+        "title": "Wait and print",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Submit a **single_task** that does nothing. After **q.wait()**, print exactly:\n\n```\nKernel finished\n```\n\n{hints: submit single_task, q.wait(), then printf.}",
+        "solution": "**wait()** ensures the kernel completes before host continues.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    printf(\"Kernel finished\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Without **wait()**, the host might print before the kernel runs. **wait()** blocks until all submitted work on that queue is done.\n\nOutput: Kernel finished",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    // Print \"Kernel finished\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Kernel finished\n" }]
+      },
+      {
+        "id": "sycl_learn_012",
+        "title": "5 work items",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Submit a **parallel_for** with **range<1>(5)**. After **q.wait()**, print exactly:\n\n```\n5 items\n```\n\n{hints: range<1>(5), then wait and printf.}",
+        "solution": "Five work items are launched.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(5), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"5 items\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<1>(5)** creates indices 0, 1, 2, 3, 4. Each can run in parallel on the device.\n\nOutput: 5 items",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(5), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"5 items\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "5 items\n" }]
+      },
+      {
+        "id": "sycl_learn_013",
+        "title": "Default selector then print",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Create a queue with **default_selector_v**. Then print exactly:\n\n```\nDefault device ready\n```\n\n{hints: sycl::queue q(sycl::default_selector_v); printf.}",
+        "solution": "The default selector lets the runtime pick a device (often GPU).\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    printf(\"Default device ready\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **default_selector_v** typically prefers a GPU if available, otherwise CPU. No kernel is submitted here.\n\nOutput: Default device ready",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Queue with default_selector_v, print \"Default device ready\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Default device ready\n" }]
+      },
+      {
+        "id": "sycl_learn_014",
+        "title": "single_task then parallel_for",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Submit first a **single_task**, then a **parallel_for** with **range<1>(1)**. After **q.wait()**, print exactly:\n\n```\nBoth submitted\n```\n\n{hints: Two q.submit() calls, then q.wait(), printf.}",
+        "solution": "Kernels execute in submission order.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(1), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"Both submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** The queue runs the single_task first, then the parallel_for (with one work item). **wait()** blocks until both complete.\n\nOutput: Both submitted",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // single_task then parallel_for(range<1>(1)), wait, print \"Both submitted\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Both submitted\n" }]
+      },
+      {
+        "id": "sycl_learn_015",
+        "title": "SYCL Learn complete",
+        "language": "sycl",
+        "difficulty": "learn",
+        "instructions": "Write a program that prints exactly:\n\n```\nSYCL LEARN complete!\n```\n\nInclude `<sycl/sycl.hpp>` and `<cstdio>`. No queue or kernel required.\n\n{hints: printf only.}",
+        "solution": "Minimal SYCL-ready program with host output.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    printf(\"SYCL LEARN complete!\\n\");\n    return 0;\n}\n```\n\n**Explanation:** You now know queue, selectors, single_task, parallel_for, range, id, and wait. Next: buffers and accessors for data.\n\nOutput: SYCL LEARN complete!",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Print \"SYCL LEARN complete!\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "SYCL LEARN complete!\n" }]
+      },
+      {
+        "id": "sycl_easy_001",
+        "title": "Print the Device Name",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Create a SYCL queue and print the **name** of the selected device. Use **q.get_device().get_info<sycl::info::device::name>()**. Output must be one non-empty line.\n\nExample:\n\n```\nIntel(R) UHD Graphics 620\n```\n\n{hints: get_info returns std::string; use .c_str() for printf.}",
+        "solution": "Device metadata via **get_info**.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    auto name = q.get_device().get_info<sycl::info::device::name>();\n    printf(\"%s\\n\", name.c_str());\n    return 0;\n}\n```\n\n**Explanation:** **q.get_device()** returns the **sycl::device**; **get_info<...::name>()** returns the device name string.\n\nOutput: (device name)",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Get device name, print it\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout_regex": ".+\\n" }]
+      },
+      {
+        "id": "sycl_easy_002",
+        "title": "Add Two Numbers on the Host",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Read two integers from stdin and print their sum. Include SYCL and create a queue; do read/sum/print on the host.\n\nInput: 2 3\n\nOutput:\n\n```\n5\n```\n\n{hints: scanf or std::cin; printf or std::cout.}",
+        "solution": "Host I/O with a queue present.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\\n\", a + b);\n    return 0;\n}\n```\n\n**Explanation:** Queue is created but not used; sum is computed on the host.\n\nInput: 2 3  Output: 5",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Read two ints, print sum\n    return 0;\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "2 3\n", "expected_stdout": "5\n" },
+          { "id": "tc2", "input": "10 5\n", "expected_stdout": "15\n" }
+        ]
+      },
+      {
+        "id": "sycl_easy_003",
+        "title": "parallel_for with 8 Work Items",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Submit a **parallel_for** with **range<1>(8)**. After **q.wait()**, print exactly:\n\n```\n8 work items done\n```\n\n{hints: range<1>(8), wait, printf.}",
+        "solution": "Eight work items, then host print.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(8), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    printf(\"8 work items done\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<1>(8)** creates 8 work items; kernel can be empty.\n\nOutput: 8 work items done",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(8), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"8 work items done\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "8 work items done\n" }]
+      },
+      {
+        "id": "sycl_easy_004",
+        "title": "Read and print one integer",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Read one integer from stdin and print it. Create a queue (you may not use it). Output must be the number followed by a newline.\n\nInput: 42\n\nOutput:\n\n```\n42\n```\n\n{hints: scanf(\"%d\", &x); printf(\"%d\\n\", x); }",
+        "solution": "Host I/O with SYCL included.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    int x;\n    scanf(\"%d\", &x);\n    printf(\"%d\\n\", x);\n    return 0;\n}\n```\n\n**Explanation:** Standard C I/O; the queue satisfies SYCL program structure.\n\nInput: 42  Output: 42",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Read one int, print it\n    return 0;\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "42\n", "expected_stdout": "42\n" },
+          { "id": "tc2", "input": "0\n", "expected_stdout": "0\n" }
+        ]
+      },
+      {
+        "id": "sycl_easy_005",
+        "title": "Multiply two numbers on host",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Read two integers and print their **product**. Create a queue; do I/O and multiplication on the host.\n\nInput: 6 7\n\nOutput:\n\n```\n42\n```\n\n{hints: scanf two ints, printf product.}",
+        "solution": "Host-side multiplication.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\\n\", a * b);\n    return 0;\n}\n```\n\n**Explanation:** Queue created; computation is host-only.\n\nInput: 6 7  Output: 42",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Read two ints, print product\n    return 0;\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "6 7\n", "expected_stdout": "42\n" },
+          { "id": "tc2", "input": "0 99\n", "expected_stdout": "0\n" }
+        ]
+      },
+      {
+        "id": "sycl_easy_006",
+        "title": "10 work items",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Submit a **parallel_for** with **range<1>(10)**. After **q.wait()**, print exactly:\n\n```\n10 items done\n```\n\n{hints: range<1>(10), wait, printf.}",
+        "solution": "Ten work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(10), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"10 items done\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<1>(10)** gives indices 0..9.\n\nOutput: 10 items done",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(10), [=](sycl::id<1> idx) {});\n    });\n    q.wait();\n    // Print \"10 items done\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "10 items done\n" }]
+      },
+      {
+        "id": "sycl_easy_007",
+        "title": "Three single_tasks",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Submit **three** **single_task** kernels (each empty). After **q.wait()**, print exactly:\n\n```\nThree tasks done\n```\n\n{hints: Three q.submit() with h.single_task([=]() {}); }",
+        "solution": "Three command groups in sequence.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.wait();\n    printf(\"Three tasks done\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Queue runs the three single_tasks in order; **wait()** blocks until all complete.\n\nOutput: Three tasks done",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Three single_task submits, wait, print \"Three tasks done\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Three tasks done\n" }]
+      },
+      {
+        "id": "sycl_easy_008",
+        "title": "Sum of three integers",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Read **three** integers from stdin and print their sum. Create a queue; do I/O on the host.\n\nInput: 1 2 3\n\nOutput:\n\n```\n6\n```\n\n{hints: scanf three ints, printf sum.}",
+        "solution": "Host sum of three numbers.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    int a, b, c;\n    scanf(\"%d %d %d\", &a, &b, &c);\n    printf(\"%d\\n\", a + b + c);\n    return 0;\n}\n```\n\n**Explanation:** Standard C I/O with a SYCL queue present.\n\nInput: 1 2 3  Output: 6",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Read three ints, print sum\n    return 0;\n}\n",
+        "tests": [
+          { "id": "tc1", "input": "1 2 3\n", "expected_stdout": "6\n" },
+          { "id": "tc2", "input": "0 0 0\n", "expected_stdout": "0\n" }
+        ]
+      },
+      {
+        "id": "sycl_easy_009",
+        "title": "range<2>(3, 4)",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Submit a **parallel_for** with **sycl::range<2>(3, 4)** (12 work items). After **q.wait()**, print exactly:\n\n```\n3x4 done\n```\n\n{hints: h.parallel_for(sycl::range<2>(3, 4), [=](sycl::id<2> idx) {}); }",
+        "solution": "2D range 3×4.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(3, 4), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    printf(\"3x4 done\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<2>(3, 4)** is 3×4 = 12 work items; idx[0] in 0..2, idx[1] in 0..3.\n\nOutput: 3x4 done",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(3, 4), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    // Print \"3x4 done\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "3x4 done\n" }]
+      },
+      {
+        "id": "sycl_easy_010",
+        "title": "Device max work group size",
+        "language": "sycl",
+        "difficulty": "easy",
+        "instructions": "Create a queue and get **max_work_group_size** with **get_info<sycl::info::device::max_work_group_size>()**. Print that integer followed by a newline.\n\nExample:\n\n```\n256\n```\n\n{hints: Returns size_t; use %zu or cast to long and use %ld for printf.}",
+        "solution": "Query max work-group size.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    auto n = q.get_device().get_info<sycl::info::device::max_work_group_size>();\n    printf(\"%zu\\n\", n);\n    return 0;\n}\n```\n\n**Explanation:** **max_work_group_size** is the maximum number of work items in a single work group (implementation-dependent).\n\nOutput: (positive integer)",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Get max_work_group_size, print it\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout_regex": "[1-9][0-9]*\\n" }]
+      },
+      {
+        "id": "sycl_medium_001",
+        "title": "Two Kernels in Sequence",
+        "language": "sycl",
+        "difficulty": "medium",
+        "instructions": "Submit **two** kernels: first a **single_task**, then a **parallel_for** with **range<1>(2)**. After **q.wait()**, print exactly:\n\n```\nTwo kernels submitted\n```\n\n{hints: Two q.submit() calls, then q.wait(), printf.}",
+        "solution": "Multiple submits; queue runs them in order.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(2), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"Two kernels submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Order of execution is guaranteed by the queue; **wait()** blocks until both complete.\n\nOutput: Two kernels submitted",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // single_task then parallel_for(2), wait, print\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "Two kernels submitted\n" }]
+      },
+      {
+        "id": "sycl_medium_002",
+        "title": "single_task and two parallel_fors",
+        "language": "sycl",
+        "difficulty": "medium",
+        "instructions": "Submit **three** kernels in order: one **single_task**, then **parallel_for(range<1>(2))**, then **parallel_for(range<1>(3))**. After **q.wait()**, print exactly:\n\n```\n1+2+3 items\n```\n\n{hints: Three submit() calls with the correct ranges.}",
+        "solution": "Three command groups: 1 + 2 + 3 work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) { h.single_task([=]() {}); });\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(2), [=](sycl::id<1>) {});\n    });\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<1>(3), [=](sycl::id<1>) {});\n    });\n    q.wait();\n    printf(\"1+2+3 items\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Total work items: 1 + 2 + 3. Queue executes in submission order.\n\nOutput: 1+2+3 items",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // single_task, parallel_for(2), parallel_for(3), wait, print\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "1+2+3 items\n" }]
+      },
+      {
+        "id": "sycl_medium_003",
+        "title": "CPU then default queue",
+        "language": "sycl",
+        "difficulty": "medium",
+        "instructions": "Create a queue with **cpu_selector_v** and print exactly:\n\n```\nCPU\n```\n\nThen create a second queue with **default_selector_v** and print exactly:\n\n```\nDefault\n```\n\nSo the output is two lines: CPU, then Default.\n\n{hints: Two queues, two printf calls.}",
+        "solution": "Two queues with different selectors.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q_cpu(sycl::cpu_selector_v);\n    printf(\"CPU\\n\");\n    sycl::queue q_default(sycl::default_selector_v);\n    printf(\"Default\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Each queue is bound to a device by its selector. You can have multiple queues for different devices or the same device.\n\nOutput: CPU / Default",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    // Queue CPU, print \"CPU\\n\"; queue default, print \"Default\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "CPU\nDefault\n" }]
+      },
+      {
+        "id": "sycl_medium_004",
+        "title": "Four parallel_fors",
+        "language": "sycl",
+        "difficulty": "medium",
+        "instructions": "Submit **four** **parallel_for** kernels with **range<1>(1)**, **range<1>(2)**, **range<1>(3)**, **range<1>(4)**. After **q.wait()**, print exactly:\n\n```\n1+2+3+4\n```\n\n{hints: Four submit() calls with range<1>(1), range<1>(2), range<1>(3), range<1>(4).}",
+        "solution": "Four kernels with 1, 2, 3, 4 work items.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    for (int n : {1, 2, 3, 4}) {\n        q.submit([&, n](sycl::handler& h) {\n            h.parallel_for(sycl::range<1>(n), [=](sycl::id<1>) {});\n        });\n    }\n    q.wait();\n    printf(\"1+2+3+4\\n\");\n    return 0;\n}\n```\n\n**Explanation:** Loop submits four kernels; total 10 work items. **wait()** blocks until all complete.\n\nOutput: 1+2+3+4",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    // Four parallel_for with 1,2,3,4 work items, wait, print \"1+2+3+4\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "1+2+3+4\n" }]
+      },
+      {
+        "id": "sycl_medium_005",
+        "title": "2D range 5x2",
+        "language": "sycl",
+        "difficulty": "medium",
+        "instructions": "Submit a **parallel_for** with **sycl::range<2>(5, 2)** (10 work items). After **q.wait()**, print exactly:\n\n```\n5x2 submitted\n```\n\n{hints: range<2>(5, 2), kernel [=](sycl::id<2> idx) {}.}",
+        "solution": "2D range 5×2.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(5, 2), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    printf(\"5x2 submitted\\n\");\n    return 0;\n}\n```\n\n**Explanation:** **range<2>(5, 2)** gives 5×2 = 10 work items; idx[0] in 0..4, idx[1] in 0..1.\n\nOutput: 5x2 submitted",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    q.submit([&](sycl::handler& h) {\n        h.parallel_for(sycl::range<2>(5, 2), [=](sycl::id<2> idx) {});\n    });\n    q.wait();\n    // Print \"5x2 submitted\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "5x2 submitted\n" }]
+      },
+      {
+        "id": "sycl_hard_001",
+        "title": "Buffer and host_accessor (read)",
+        "language": "sycl",
+        "difficulty": "hard",
+        "instructions": "Create a **sycl::buffer<int, 1>** of size 1, initialized with the value **7**. In a **submit**, use a **single_task** to leave the buffer unchanged (or write 7). After **q.wait()**, create a **sycl::host_accessor** to read the buffer and print the single element followed by a newline.\n\nExpected output:\n\n```\n7\n```\n\n{hints: buffer<int,1> buf(std::vector<int>{7}); in the kernel use accessor with read_write; after wait use host_accessor to read and printf.}",
+        "solution": "Buffer with host_accessor to read back.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> data = {7};\n    sycl::buffer<int, 1> buf(data);\n    q.submit([&](sycl::handler& h) {\n        sycl::accessor acc(buf, h, sycl::read_write);\n        h.single_task([=]() { acc[0] = 7; });\n    });\n    q.wait();\n    {\n        sycl::host_accessor acc(buf, sycl::read_only);\n        printf(\"%d\\n\", acc[0]);\n    }\n    return 0;\n}\n```\n\n**Explanation:** **buffer** owns data for the device. **accessor** in the kernel gives device access; **host_accessor** after **wait()** gives host access. Destructors synchronize.\n\nOutput: 7",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> data = {7};\n    sycl::buffer<int, 1> buf(data);\n    // submit single_task with accessor, wait, host_accessor read, printf\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "7\n" }]
+      },
+      {
+        "id": "sycl_hard_002",
+        "title": "Buffer: add one to each element",
+        "language": "sycl",
+        "difficulty": "hard",
+        "instructions": "Create a **buffer** of 3 integers: **1, 2, 3**. In a **parallel_for(range<1>(3))**, each work item adds 1 to its element (so 2, 3, 4). After **q.wait()**, use a **host_accessor** to read the buffer and print the three values on one line: **2 3 4** followed by a newline.\n\nExpected output:\n\n```\n2 3 4\n```\n\n{hints: accessor in kernel with idx[0]; each work item does acc[idx[0]] = acc[idx[0]] + 1; host_accessor to read and printf.}",
+        "solution": "Parallel update via buffer and accessor.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> data = {1, 2, 3};\n    sycl::buffer<int, 1> buf(data);\n    q.submit([&](sycl::handler& h) {\n        sycl::accessor acc(buf, h, sycl::read_write);\n        h.parallel_for(sycl::range<1>(3), [=](sycl::id<1> idx) {\n            acc[idx[0]] = acc[idx[0]] + 1;\n        });\n    });\n    q.wait();\n    {\n        sycl::host_accessor acc(buf, sycl::read_only);\n        printf(\"%d %d %d\\n\", acc[0], acc[1], acc[2]);\n    }\n    return 0;\n}\n```\n\n**Explanation:** **accessor** in the kernel allows each work item to read/write by index. **idx[0]** is 0, 1, or 2. After **wait()**, **host_accessor** reads the updated data.\n\nOutput: 2 3 4",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> data = {1, 2, 3};\n    sycl::buffer<int, 1> buf(data);\n    // parallel_for(3): acc[i] = acc[i]+1; wait; host_accessor; printf \"2 3 4\\n\"\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "2 3 4\n" }]
+      },
+      {
+        "id": "sycl_hard_003",
+        "title": "Sum array on device",
+        "language": "sycl",
+        "difficulty": "hard",
+        "instructions": "Create a **buffer** of 4 integers: **10, 20, 30, 40**. Use a **single_task** to compute the sum (10+20+30+40 = 100) into a **second buffer** of size 1. Read the sum back with a **host_accessor** and print it followed by a newline.\n\nExpected output:\n\n```\n100\n```\n\n{hints: Two buffers: one for input (size 4), one for output (size 1). In single_task use two accessors; read from first, write sum to second[0].}",
+        "solution": "Single task reduces to one value.\n\n```\n#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> in_data = {10, 20, 30, 40};\n    std::vector<int> out_data = {0};\n    sycl::buffer<int, 1> buf_in(in_data);\n    sycl::buffer<int, 1> buf_out(out_data);\n    q.submit([&](sycl::handler& h) {\n        sycl::accessor acc_in(buf_in, h, sycl::read_only);\n        sycl::accessor acc_out(buf_out, h, sycl::write_only);\n        h.single_task([=]() {\n            int sum = acc_in[0] + acc_in[1] + acc_in[2] + acc_in[3];\n            acc_out[0] = sum;\n        });\n    });\n    q.wait();\n    {\n        sycl::host_accessor acc(buf_out, sycl::read_only);\n        printf(\"%d\\n\", acc[0]);\n    }\n    return 0;\n}\n```\n\n**Explanation:** **read_only** and **write_only** accessors express access mode. The single_task reads all four elements and writes the sum to the output buffer. **host_accessor** retrieves the result.\n\nOutput: 100",
+        "starterCode": "#include <sycl/sycl.hpp>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    sycl::queue q(sycl::default_selector_v);\n    std::vector<int> in_data = {10, 20, 30, 40};\n    std::vector<int> out_data = {0};\n    sycl::buffer<int, 1> buf_in(in_data);\n    sycl::buffer<int, 1> buf_out(out_data);\n    // single_task: sum buf_in into buf_out[0]; wait; host_accessor; printf\n    return 0;\n}\n",
+        "tests": [{ "id": "tc1", "input": "", "expected_stdout": "100\n" }]
+      }
+    ]
+  }
