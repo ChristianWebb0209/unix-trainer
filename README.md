@@ -1,17 +1,21 @@
 
-# Unix Trainer
+# Tensor Trainer
 
-Learn what LeetCode doesn't teach.
+Learn what LeetCode doesn't teach about GPU programming.
 
-Interactive coding challenges for more specific frameworks and languages that other platforms don't target.
+Tensor Trainer gives you a LeetCode-style experience for **kernels and tensors**:
+CUDA and C++ in **Kernel Lab**, and Python/Triton/PyTorch in **Tensor Lab**.
 
 Currently supporting:
-- Systems Programming
-- - Unix
-- - Bash
-- - Awk
-- GPU Programming
-- - Just CUDA for now
+- Kernel Lab
+  - C
+  - C++
+  - Rust
+  - CUDA
+- Tensor Lab
+  - Python
+  - Triton
+  - PyTorch
 
 ## Dev auto sign-in
 

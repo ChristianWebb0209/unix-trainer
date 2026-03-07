@@ -100,7 +100,7 @@ export default function AppHeader({ children }: AppHeaderProps) {
       </button>
 
       <button
-        onClick={() => navigate("/editor/systems")}
+        onClick={() => navigate("/editor/kernel")}
         style={{
           ...editorStyle,
           display: "flex",

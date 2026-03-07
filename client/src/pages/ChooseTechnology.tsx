@@ -133,9 +133,9 @@ export default function ChooseTechnology() {
                                         height: "56px",
                                         borderRadius: "16px",
                                         backgroundColor:
-                                            tech.workspace === "gpu"
-                                                ? "rgba(248,113,113,0.1)"
-                                                : "rgba(56,189,248,0.1)",
+                                            tech.workspace === "kernel"
+                                                ? "rgba(56,189,248,0.1)"
+                                                : "rgba(248,113,113,0.1)",
                                         border: "1px solid rgba(148,163,184,0.6)",
                                         display: "flex",
                                         alignItems: "center",
@@ -192,7 +192,7 @@ export default function ChooseTechnology() {
                                     color: "var(--text-secondary)",
                                 }}
                             >
-                                {tech.workspace === "gpu" ? "GPU workspace" : "Systems workspace"}
+                                {tech.workspace === "kernel" ? "Kernel Lab" : "Tensor Lab"}
                             </span>
                         </button>
                     ))}

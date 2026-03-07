@@ -15,55 +15,53 @@ export const DIFFICULTY_ORDER = {
 };
 
 export const PROBLEM_LANGUAGES = {
-  bash: { id: "bash", label: "Bash", workspace: "systems", docs: "https://www.gnu.org/software/bash/manual/" },
-  awk: { id: "awk", label: "Awk", workspace: "systems", docs: "https://www.gnu.org/software/gawk/manual/" },
-  unix: { id: "unix", label: "Unix", workspace: "systems", docs: "https://pubs.opengroup.org/onlinepubs/9699919799/utilities/contents.html" },
-  c: { id: "c", label: "C", workspace: "systems", docs: "https://en.cppreference.com/w/c" },
-  cpp: { id: "cpp", label: "C++", workspace: "systems", docs: "https://en.cppreference.com/w/cpp" },
-  rust: { id: "rust", label: "Rust", workspace: "systems", docs: "https://doc.rust-lang.org/std/" },
-  cuda: { id: "cuda", label: "CUDA", workspace: "gpu", docs: "https://docs.nvidia.com/cuda/cuda-c-programming-guide/" },
-  vulkan: { id: "vulkan", label: "Vulkan", workspace: "gpu", docs: "https://registry.khronos.org/vulkan/specs/1.3/html/" },
-  sycl: { id: "sycl", label: "SYCL", workspace: "gpu", docs: "https://registry.intel.com/sycl/" },
+  c: { id: "c", label: "C", workspace: "kernel", docs: "https://en.cppreference.com/w/c" },
+  cpp: { id: "cpp", label: "C++", workspace: "kernel", docs: "https://en.cppreference.com/w/cpp" },
+  rust: { id: "rust", label: "Rust", workspace: "kernel", docs: "https://doc.rust-lang.org/std/" },
+  cuda: { id: "cuda", label: "CUDA", workspace: "kernel", docs: "https://docs.nvidia.com/cuda/cuda-c-programming-guide/" },
+  python: { id: "python", label: "Python", workspace: "tensor", docs: "https://docs.python.org/3/" },
+  triton: { id: "triton", label: "Triton", workspace: "tensor", docs: "https://triton-lang.org/" },
+  pytorch: { id: "pytorch", label: "PyTorch", workspace: "tensor", docs: "https://pytorch.org/docs/stable/index.html" },
   any: { id: "any", label: "Any", workspace: null, docs: null },
 };
 
 export const PROBLEM_LANGUAGE_IDS = Object.keys(PROBLEM_LANGUAGES);
 
-/** Language IDs that use C/C++ style syntax and indentation in the editor (c, cpp, rust, cuda, vulkan, sycl). */
-export const C_LIKE_LANGUAGE_IDS = ["c", "cpp", "rust", "cuda", "vulkan", "sycl"];
-/** Language IDs that use shell-style editing (indent-only, no C++ grammar). */
-export const SHELL_LANGUAGE_IDS = ["bash", "awk", "unix"];
+/** Language IDs that use C/C++ style syntax and indentation in the editor (c, cpp, rust, cuda). */
+export const C_LIKE_LANGUAGE_IDS = ["c", "cpp", "rust", "cuda"];
+/** Language IDs that use shell-style editing (none in the current GPU-focused labs). */
+export const SHELL_LANGUAGE_IDS = [];
 
 export const WORKSPACES = {
-  systems: {
-    id: "systems",
-    label: "Systems",
-    defaultProblemLanguage: "bash",
-    problemLanguages: ["bash", "awk", "unix", "c", "cpp", "rust", "any"],
-    dockerImageName: "systems-workspace:latest",
-    dockerfileName: "Dockerfile.systems",
-    kind: "systems",
+  kernel: {
+    id: "kernel",
+    label: "Kernel Lab",
+    defaultProblemLanguage: "cuda",
+    problemLanguages: ["c", "cpp", "rust", "cuda"],
+    dockerImageName: "kernel-workspace:latest",
+    dockerfileName: "Dockerfile.kernel",
+    kind: "kernel",
     allowLanguageSwitch: true,
     showWebGpuTab: false,
-    codeThemeKey: "systems-dark",
+    codeThemeKey: "kernel-dark",
   },
-  gpu: {
-    id: "gpu",
-    label: "GPU Programming",
-    defaultProblemLanguage: "cuda",
-    problemLanguages: ["cuda", "vulkan", "sycl"],
-    dockerImageName: "gpu-workspace:latest",
-    dockerfileName: "Dockerfile.gpu",
-    kind: "gpu",
+  tensor: {
+    id: "tensor",
+    label: "Tensor Lab",
+    defaultProblemLanguage: "python",
+    problemLanguages: ["python", "triton", "pytorch"],
+    dockerImageName: "tensor-workspace:latest",
+    dockerfileName: "Dockerfile.tensor",
+    kind: "tensor",
     allowLanguageSwitch: true,
-    showWebGpuTab: true,
-    codeThemeKey: "cuda-dark",
+    showWebGpuTab: false,
+    codeThemeKey: "tensor-dark",
   },
 };
 
 export const WORKSPACE_IDS = Object.keys(WORKSPACES);
 
-export const DEFAULT_WORKSPACE = "systems";
+export const DEFAULT_WORKSPACE = "kernel";
 
 /**
  * Editor theme specs keyed by codeThemeKey.
@@ -97,40 +95,17 @@ const DRACULA = {
 };
 
 export const CODE_EDITOR_THEME_SPECS = {
-  "systems-dark": ONE_DARK,
-  "cuda-dark": DRACULA,
-  "vulkan-dark": DRACULA,
-  "sycl-dark": DRACULA,
+  "kernel-dark": ONE_DARK,
+  "tensor-dark": DRACULA,
 };
 
 /** Default editor content when no problem is selected, keyed by language id. */
 export const DEFAULT_STARTER_CODE = {
-  bash: '# Write your bash code here\necho "Hello from CodeMirror!"',
-  awk: '# Write your awk code here\n# Paste/type input in the terminal, then press Ctrl-D (EOF)\nBEGIN { print "AWK ready. Provide input to process." }\n{ print $2 }',
-  unix: '# Write your unix command here\necho "Hello, World!"',
   cuda: `// Simple host-only CUDA program compiled with nvcc
 #include <cstdio>
 
 int main() {
     printf("Hello from CUDA host code!\\n");
-    return 0;
-}
-`,
-  vulkan: `// Vulkan: minimal C++ host program
-#include <vulkan/vulkan.h>
-#include <cstdio>
-
-int main() {
-    printf("Hello from Vulkan!\\n");
-    return 0;
-}
-`,
-  sycl: `// SYCL: minimal program
-#include <sycl/sycl.hpp>
-#include <cstdio>
-
-int main() {
-    printf("Hello from SYCL!\\n");
     return 0;
 }
 `,
@@ -155,39 +130,61 @@ fn main() {
     println!("Hello from Rust!");
 }
 `,
+  python: `# Python (GPU): minimal program
+def main():
+    print("Hello from Python on the GPU workspace!")
+
+
+if __name__ == "__main__":
+    main()
+`,
+  triton: `# Triton: minimal skeleton (Python + Triton)
+import triton
+import triton.language as tl
+
+
+@triton.jit
+def kernel(x_ptr, n: tl.constexpr):
+    pid = tl.program_id(axis=0)
+    if pid < n:
+        tl.store(x_ptr + pid, pid)
+
+
+def main():
+    print("Hello from Triton! Implement your kernel and launch logic here.")
+
+
+if __name__ == "__main__":
+    main()
+`,
+  pytorch: `# PyTorch: minimal program
+import torch
+
+
+def main():
+    x = torch.tensor([1.0, 2.0, 3.0])
+    print("Tensor:", x)
+
+
+if __name__ == "__main__":
+    main()
+`,
 };
 
 export function getDefaultStarterCode(langId) {
-  return DEFAULT_STARTER_CODE[langId] ?? DEFAULT_STARTER_CODE.bash;
+  return DEFAULT_STARTER_CODE[langId] ?? DEFAULT_STARTER_CODE.cuda;
 }
 
-/**
- * Builds the shell command used to run user code with test input (for validation).
- * Caller must pass base64-encoded code and input; encoding is done by client/server.
- * Used by both client (Editor validation) and server (container exec).
- *
- * @param {string} languageId - One of PROBLEM_LANGUAGE_IDS (bash, awk, unix, cuda, any).
- * @param {string} codeBase64 - Base64-encoded user code.
- * @param {string} inputBase64 - Base64-encoded test input (stdin or file depending on language).
- * @returns {string} Shell command to run in the container.
- */
 export function getValidationCommand(languageId, codeBase64, inputBase64) {
   const code = codeBase64;
   const input = inputBase64;
   switch (languageId) {
-    case "awk":
-      return `echo ${code} | base64 -d > /tmp/exec.awk && echo ${input} | base64 -d > /tmp/exec_input.txt && awk -f /tmp/exec.awk /tmp/exec_input.txt`;
-    case "bash":
-      return `echo ${code} | base64 -d > /tmp/exec.sh && echo ${input} | base64 -d | /bin/bash /tmp/exec.sh`;
-    case "unix":
-    case "any":
-      return `echo ${code} | base64 -d > /tmp/exec.sh && echo ${input} | base64 -d | /bin/sh /tmp/exec.sh`;
     case "cuda":
       return `echo ${code} | base64 -d > /tmp/main.cu && nvcc /tmp/main.cu -o /tmp/a.out && echo ${input} | base64 -d | /tmp/a.out`;
-    case "vulkan":
-      return `echo ${code} | base64 -d > /tmp/main.cpp && g++ -std=c++17 -o /tmp/a.out /tmp/main.cpp -lvulkan && echo ${input} | base64 -d | /tmp/a.out`;
-    case "sycl":
-      return `echo ${code} | base64 -d > /tmp/main.cpp && dpcpp -o /tmp/a.out /tmp/main.cpp && echo ${input} | base64 -d | /tmp/a.out`;
+    case "python":
+    case "triton":
+    case "pytorch":
+      return `echo ${code} | base64 -d > /tmp/main.py && echo ${input} | base64 -d | python3 /tmp/main.py`;
     case "c":
       return `echo ${code} | base64 -d > /tmp/main.c && gcc -o /tmp/a.out /tmp/main.c && echo ${input} | base64 -d | /tmp/a.out`;
     case "cpp":

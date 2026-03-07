@@ -1,7 +1,7 @@
 {
-  "name": "unix-trainer",
+  "name": "tensor-trainer",
   "version": "1.0.0",
-  "description": "- React (TypeScript)\r - Node.js\r - Server and backend TBD\r - Authentication: Auth.js\r - Editor: Monaco editor\r - Terminal UI: xterm.js\r - Terminal: Fake shell interpreter (choose)\r - - wasm-bash\r - - webcontainer API (StackBlitz)\r - - JS Linux",
+  "description": "Tensor Trainer – LeetCode-style training for CUDA/C++ kernels and Python/Triton/PyTorch tensors.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
