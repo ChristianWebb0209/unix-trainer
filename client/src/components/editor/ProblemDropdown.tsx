@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { primaryPillUnselected } from "../../uiStyles";
 import { listProblems, type Difficulty, type ProblemSummary, type ProblemLanguage, type ProblemCompletionState } from "../../api/problems";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-expect-error – external ESM config module without bundled types
-import * as problemConfig from "../../../../problem-config.mjs";
+import * as problemConfig from "problem-config";
 
 type Workspace = ReturnType<typeof problemConfig.getWorkspaceIds>[number];
 
@@ -15,6 +13,8 @@ export interface ProblemDropdownProps {
     onProblemsLoaded: (problems: ProblemSummary[], workspace: Workspace) => void;
     completionStatuses: Record<string, ProblemCompletionState>;
     workspace: Workspace;
+    isPlaygroundMode?: boolean;
+    onGoToPlayground?: () => void;
 }
 
 const FILTER_STORAGE_KEY_PREFIX = "problems_dropdown_filters_v1_";
@@ -67,6 +67,8 @@ export default function ProblemDropdown({
     onProblemsLoaded,
     completionStatuses,
     workspace,
+    isPlaygroundMode,
+    onGoToPlayground,
 }: ProblemDropdownProps) {
     const overlayRef = useRef<HTMLDivElement | null>(null);
     const toggleButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -279,7 +281,7 @@ export default function ProblemDropdown({
                                             }}
                                         >
                                             <option value="all">All</option>
-                                            {(problemConfig.DIFFICULTIES as Difficulty[]).map((d) => (
+                                            {[...problemConfig.DIFFICULTIES].map((d) => (
                                                 <option key={d} value={d}>
                                                     {getDifficultyLabel(d)}
                                                 </option>
@@ -483,6 +485,34 @@ export default function ProblemDropdown({
                                     </ul>
                                 )}
                             </div>
+                            {onGoToPlayground && !isPlaygroundMode && (
+                                <div
+                                    style={{
+                                        flexShrink: 0,
+                                        borderTop: "1px solid var(--border-color)",
+                                        paddingTop: "0.75rem",
+                                        marginTop: "0.25rem",
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => onGoToPlayground()}
+                                        style={{
+                                            width: "100%",
+                                            padding: "0.5rem 0.75rem",
+                                            borderRadius: "8px",
+                                            border: "1px solid var(--border-color)",
+                                            background: "var(--bg-tertiary)",
+                                            color: "var(--text-primary)",
+                                            fontSize: "0.9rem",
+                                            cursor: "pointer",
+                                            textAlign: "center",
+                                        }}
+                                    >
+                                        Open Playground
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -11,6 +11,7 @@ import ResizeHandle from "../components/editor/ResizeHandle.tsx";
 import { CodeEditorPane } from "../components/editor/CodeEditorPane.tsx";
 import { TerminalPane } from "../components/editor/TerminalPane.tsx";
 import ProblemDescription from "../components/editor/ProblemDescription.tsx";
+import PlaygroundSidebar from "../components/editor/PlaygroundSidebar.tsx";
 import AppHeader from "../components/ui/AppHeader.tsx";
 import NotificationBanner from "../components/ui/NotificationBanner.tsx";
 import { primaryPillSelected } from "../uiStyles";
@@ -21,6 +22,8 @@ import type { ProblemSummary, ProblemLanguage, ProblemCompletionState, ProblemCo
 import { listProblems, fetchProblemCompletions, saveProblemProgress, validateProblem } from "../api/problems";
 import type { ValidationResult } from "../types/validation";
 import * as problemConfig from "problem-config";
+import { updateFile } from "../api/files";
+import type { PlaygroundFile } from "../api/files";
 
 type Workspace = ReturnType<typeof problemConfig.getWorkspaceIds>[number];
 type TerminalViewMode = "terminal" | "webgpu";
@@ -114,6 +117,7 @@ export default function Editor() {
         ? (rawWorkspace as Workspace)
         : (problemConfig.DEFAULT_WORKSPACE as Workspace);
     const workspace: Workspace = (WORKSPACES[resolvedWorkspace] ? resolvedWorkspace : knownWorkspaces[0]) as Workspace;
+    const isPlaygroundMode = location.pathname.endsWith("/playground");
     const [code, setCode] = useState("# Write your bash code here\necho \"Hello from CodeMirror!\"");
     const [containerId, setContainerId] = useState<string | null>(null);
     const [isCreatingContainer, setIsCreatingContainer] = useState(false);
@@ -124,7 +128,7 @@ export default function Editor() {
     const [problemTitle, setProblemTitle] = useState<string>("");
     const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
         const ws = problemConfig.WORKSPACES[workspace as keyof typeof problemConfig.WORKSPACES];
-        return (ws?.defaultProblemLanguage ?? "bash") as string;
+        return (ws?.defaultProblemLanguage ?? "cuda") as string;
     });
     const [lockedLanguage, setLockedLanguage] = useState<ProblemLanguage | null>(null);
     const [completionStatuses, setCompletionStatuses] = useState<Record<string, ProblemCompletionState>>({});
@@ -135,6 +139,9 @@ export default function Editor() {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [visibleProblems, setVisibleProblems] = useState<ProblemSummary[]>([]);
     const [isSidebarOverlayOpen, setIsSidebarOverlayOpen] = useState(false);
+    const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(isPlaygroundMode);
+    const [playgroundFileId, setPlaygroundFileId] = useState<string | null>(null);
+    const playgroundSaveTimeoutRef = useRef<number | null>(null);
     const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
     const [activeCudaView, setActiveCudaView] = useState<TerminalViewMode>("terminal");
     const [problemTests, setProblemTests] = useState<ProblemTestCase[]>([]);
@@ -258,7 +265,8 @@ export default function Editor() {
 
     const runInWebGPU = () => {
         const canvas = webgpuCanvasRef.current;
-        if (canvas && WORKSPACES[workspace]?.isGpu) void runWebGpuProgram(canvas, code);
+        const canRunWebGpu = WORKSPACES[workspace]?.isGpu || WORKSPACES[workspace]?.showWebGpuTab;
+        if (canvas && canRunWebGpu) void runWebGpuProgram(canvas, code);
     };
 
     const markProblemCompleted = async () => {
@@ -412,15 +420,44 @@ export default function Editor() {
         }
     };
 
+    /** Save current playground file (same UX as problem save: status, toast, lastSavedAt). */
+    const savePlaygroundFile = async (reason: "debounce" | "switch") => {
+        if (!playgroundFileId || !hasUnsavedChanges) return;
+        if (playgroundSaveTimeoutRef.current !== null) {
+            window.clearTimeout(playgroundSaveTimeoutRef.current);
+            playgroundSaveTimeoutRef.current = null;
+        }
+        try {
+            setSaveStatus("saving");
+            await updateFile(playgroundFileId, { code });
+            setLastSavedAt(new Date());
+            setHasUnsavedChanges(false);
+            setSaveStatus("idle");
+            setShowSavedToast(true);
+        } catch (err) {
+            console.error(`Failed to save playground file (${reason})`, err);
+            setSaveStatus("error");
+        }
+    };
+
     const handleCodeChange = (val: string) => {
         setCode(val);
         setHasUnsavedChanges(true);
-        if (debounceSaveTimeoutRef.current !== null) {
-            window.clearTimeout(debounceSaveTimeoutRef.current);
+        if (playgroundFileId) {
+            if (playgroundSaveTimeoutRef.current !== null) {
+                window.clearTimeout(playgroundSaveTimeoutRef.current);
+            }
+            playgroundSaveTimeoutRef.current = window.setTimeout(() => {
+                void savePlaygroundFile("debounce");
+            }, 2000);
+        } else {
+            if (debounceSaveTimeoutRef.current !== null) {
+                window.clearTimeout(debounceSaveTimeoutRef.current);
+            }
+            debounceSaveTimeoutRef.current = window.setTimeout(() => {
+                void saveProgress("debounce");
+            }, 2000);
         }
-        debounceSaveTimeoutRef.current = window.setTimeout(() => {
-            void saveProgress("debounce");
-        }, 2000);
     };
 
     const handleWorkspaceChange = async (next: Workspace) => {
@@ -572,7 +609,8 @@ export default function Editor() {
             }
         }
 
-        if (WORKSPACES[workspace]?.isGpu && activeCudaView === "webgpu") {
+        const useWebGpuView = (WORKSPACES[workspace]?.isGpu || WORKSPACES[workspace]?.showWebGpuTab) && activeCudaView === "webgpu";
+        if (useWebGpuView) {
             runInWebGPU();
         } else {
             await runInTerminal();
@@ -684,11 +722,14 @@ export default function Editor() {
         return () => window.removeEventListener("beforeunload", handler);
     }, [selectedProblem, code, selectedLanguage]);
 
-    // Clear pending debounce timer on unmount
+    // Clear pending debounce and playground save timers on unmount
     useEffect(() => {
         return () => {
             if (debounceSaveTimeoutRef.current !== null) {
                 window.clearTimeout(debounceSaveTimeoutRef.current);
+            }
+            if (playgroundSaveTimeoutRef.current !== null) {
+                window.clearTimeout(playgroundSaveTimeoutRef.current);
             }
         };
     }, []);
@@ -696,6 +737,16 @@ export default function Editor() {
     // Adjust editor language when workspace changes
     useEffect(() => {
         const wsDef = WORKSPACES[workspace];
+        if (isPlaygroundMode) {
+            const wsLangs = (problemConfig.getLanguagesForWorkspace(workspace) as string[]).filter((id) => id !== "any");
+            const first = wsLangs[0] ?? "bash";
+            setLockedLanguage(null);
+            setSelectedLanguage((prev) => (wsLangs.includes(prev) ? prev : first));
+            if (!wsLangs.includes(selectedLanguage)) {
+                setCode(problemConfig.getDefaultStarterCode(first));
+            }
+            return;
+        }
         if (wsDef?.isGpu) {
             const defLang = wsDef.defaultLanguage;
             setLockedLanguage(defLang);
@@ -704,12 +755,13 @@ export default function Editor() {
         } else {
             setLockedLanguage(null);
             if (!isSupportedLanguage(selectedLanguage as string)) {
-                setSelectedLanguage("bash");
-                setCode(problemConfig.getDefaultStarterCode("bash"));
+                const def = workspaceDefinition.defaultLanguage;
+                setSelectedLanguage(def);
+                setCode(problemConfig.getDefaultStarterCode(def));
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [workspace]);
+    }, [workspace, isPlaygroundMode]);
 
     // When workspace loads or changes: fetch problems for this workspace and auto-select first
     useEffect(() => {
@@ -731,7 +783,7 @@ export default function Editor() {
                     return a.id.localeCompare(b.id);
                 });
                 setVisibleProblems(allowed);
-                if (allowed.length > 0) {
+                if (allowed.length > 0 && !isPlaygroundMode) {
                     const preferredId = initialProblemIdRef.current;
                     const match = preferredId ? allowed.find((p) => p.id === preferredId) : null;
                     if (match) {
@@ -752,7 +804,7 @@ export default function Editor() {
             cancelled = true;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [workspace]);
+    }, [workspace, isPlaygroundMode]);
 
     // xterm.js PTY terminal - connects to container via WebSocket
     useEffect(() => {
@@ -998,11 +1050,35 @@ export default function Editor() {
 
             <div className="editor-main">
                 <AppHeader>
+                    {isPlaygroundMode && (
+                        <button
+                            type="button"
+                            onClick={() => navigate(`/editor/${workspace}`)}
+                            style={{
+                                marginRight: "0.75rem",
+                                padding: "0.35rem 0.75rem",
+                                borderRadius: "999px",
+                                border: "1px solid var(--border-color)",
+                                background: "var(--bg-tertiary)",
+                                color: "var(--text-secondary)",
+                                fontSize: "0.9rem",
+                                cursor: "pointer",
+                            }}
+                        >
+                            ← Back to problems
+                        </button>
+                    )}
                     <ProblemDropdown
                         isOpen={isSidebarOverlayOpen}
                         onOpenChange={setIsSidebarOverlayOpen}
                         selectedProblemId={selectedProblem?.id ?? null}
                         onSelectProblem={handleSelectProblem}
+                        workspace={workspace}
+                        isPlaygroundMode={isPlaygroundMode}
+                        onGoToPlayground={() => {
+                            setIsSidebarOverlayOpen(false);
+                            navigate(`/editor/${workspace}/playground`);
+                        }}
                         onProblemsLoaded={(problems, ws) => {
                             if (ws !== workspace) return;
                             setVisibleProblems((prev) => {
@@ -1031,7 +1107,6 @@ export default function Editor() {
                             // Do not auto-change selection when filters change; only when user clicks a problem
                         }}
                         completionStatuses={completionStatuses}
-                        workspace={workspace}
                     />
 
                     {/* Workspace selector (dropdown) */}
@@ -1080,28 +1155,40 @@ export default function Editor() {
                                 return "Unsaved";
                             })()}
                         </span>
-                        {WORKSPACES[workspace]?.allowLanguageSwitch && (() => {
-                            const languageOptions = WORKSPACES[workspace]?.isGpu
-                                ? (problemConfig.getLanguagesForWorkspace(workspace) as string[]).filter((id) => id !== "any").map((id) => ({
+                        {(WORKSPACES[workspace]?.allowLanguageSwitch || isPlaygroundMode) && (() => {
+                            const workspaceLangIds = (problemConfig.getLanguagesForWorkspace(workspace) as string[]).filter((id) => id !== "any");
+                            const languageOptions = isPlaygroundMode
+                                ? workspaceLangIds.map((id) => ({
                                     id,
                                     name: (problemConfig.PROBLEM_LANGUAGES as Record<string, { label?: string }>)[id]?.label ?? id,
                                 }))
-                                : TERMINAL_LANGUAGES;
+                                : WORKSPACES[workspace]?.isGpu
+                                    ? workspaceLangIds.map((id) => ({
+                                        id,
+                                        name: (problemConfig.PROBLEM_LANGUAGES as Record<string, { label?: string }>)[id]?.label ?? id,
+                                    }))
+                                    : TERMINAL_LANGUAGES;
                             const uniqueLanguagesInProblems = visibleProblems.length > 0
                                 ? new Set(visibleProblems.map((p) => p.language)).size
                                 : 0;
                             const singleLanguage =
-                                languageOptions.length <= 1 ||
-                                (uniqueLanguagesInProblems === 1 && visibleProblems.length > 0);
+                                !isPlaygroundMode &&
+                                (languageOptions.length <= 1 ||
+                                    (uniqueLanguagesInProblems === 1 && visibleProblems.length > 0));
+                            const languageDisabled = isPlaygroundMode ? false : lockedLanguage !== null;
                             return (
                                 <select
                                     value={selectedLanguage}
-                                    disabled={lockedLanguage !== null}
+                                    disabled={languageDisabled}
                                     onChange={(e) => {
                                         const next = e.target.value;
                                         setSelectedLanguage(next);
-                                        setCode(problemConfig.getDefaultStarterCode(next));
-                                        setLockedLanguage(null);
+                                        if (isPlaygroundMode) {
+                                            setCode(problemConfig.getDefaultStarterCode(next));
+                                        } else {
+                                            setCode(problemConfig.getDefaultStarterCode(next));
+                                            setLockedLanguage(null);
+                                        }
                                     }}
                                     style={{
                                         padding: "0.2rem 0.7rem",
@@ -1109,8 +1196,8 @@ export default function Editor() {
                                         border: "1px solid var(--border-color)",
                                         backgroundColor: "var(--bg-primary)",
                                         color: "var(--text-primary)",
-                                        cursor: lockedLanguage ? "not-allowed" : "pointer",
-                                        opacity: lockedLanguage ? 0.7 : 1,
+                                        cursor: languageDisabled ? "not-allowed" : "pointer",
+                                        opacity: languageDisabled ? 0.7 : 1,
                                         ...(singleLanguage
                                             ? {
                                                 appearance: "none" as const,
@@ -1140,30 +1227,129 @@ export default function Editor() {
                     </div>
                 </AppHeader>
 
-                <PanelGroup direction="horizontal" style={{ flex: 1 }}>
-
-                    {/* Middle: Problem Description */}
+                <div style={{ display: "flex", flex: 1, minWidth: 0 }}>
+                    {/* Left: Problem Description (problem mode) or Files/Projects (playground mode); collapsible */}
                     {!isTerminalExpanded && (
-                    <Panel defaultSize={30} minSize={20}>
-                        <ProblemDescription
-                            selectedProblem={selectedProblem}
-                            problemTitle={problemTitle}
-                            problemDescription={problemDescription}
-                            visibleProblems={visibleProblems}
-                            completionStatuses={completionStatuses}
-                            onSelectProblem={(p) => void handleSelectProblem(p)}
-                            lastValidationResult={lastValidationResult}
-                            codeTheme={workspaceDefinition.codeTheme}
-                            solution={problemSolution}
-                        />
-                    </Panel>
+                        <>
+                            <div
+                                className="editor-side-panel-wrapper"
+                                style={{
+                                    width: isSidePanelCollapsed ? 0 : "30%",
+                                    minWidth: 0,
+                                    overflow: "hidden",
+                                    transition: "width 0.25s ease-out",
+                                    flexShrink: 0,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        width: "100%",
+                                        minWidth: 320,
+                                        height: "100%",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        position: "relative",
+                                        backgroundColor: "var(--bg-secondary)",
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        aria-label={isSidePanelCollapsed ? "Expand side panel" : "Collapse side panel"}
+                                        onClick={() => setIsSidePanelCollapsed((v) => !v)}
+                                        className="editor-side-panel-toggle"
+                                        style={{
+                                            position: "absolute",
+                                            top: "0.75rem",
+                                            right: "0.75rem",
+                                            zIndex: 10,
+                                            padding: "0.35rem 0.5rem",
+                                            borderRadius: "6px",
+                                            border: "1px solid var(--border-color)",
+                                            background: "var(--bg-tertiary)",
+                                            color: "var(--text-secondary)",
+                                            cursor: "pointer",
+                                            fontSize: "1rem",
+                                            lineHeight: 1,
+                                        }}
+                                    >
+                                        {isSidePanelCollapsed ? "◀" : "▶"}
+                                    </button>
+                                    {isPlaygroundMode ? (
+                                        <PlaygroundSidebar
+                                            selectedFileId={playgroundFileId}
+                                            code={code}
+                                            selectedLanguage={selectedLanguage}
+                                            defaultCodeForNewFile={problemConfig.getDefaultStarterCode(workspaceDefinition.defaultLanguage)}
+                                            onSelectFile={async (file: PlaygroundFile) => {
+                                                await savePlaygroundFile("switch");
+                                                setCode(file.code);
+                                                setPlaygroundFileId(file.id);
+                                            }}
+                                            onCodeChange={setCode}
+                                            onSelectedFileIdChange={setPlaygroundFileId}
+                                        />
+                                    ) : (
+                                        <ProblemDescription
+                                            selectedProblem={selectedProblem}
+                                            problemTitle={problemTitle}
+                                            problemDescription={problemDescription}
+                                            visibleProblems={visibleProblems}
+                                            completionStatuses={completionStatuses}
+                                            onSelectProblem={(p) => void handleSelectProblem(p)}
+                                            lastValidationResult={lastValidationResult}
+                                            codeTheme={workspaceDefinition.codeTheme}
+                                            solution={problemSolution}
+                                            workspace={workspace}
+                                            isPlaygroundMode={isPlaygroundMode}
+                                            onGoToPlayground={() => navigate(`/editor/${workspace}/playground`)}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                            {!isSidePanelCollapsed && <ResizeHandle />}
+                        </>
                     )}
 
-                    {!isTerminalExpanded && <ResizeHandle />}
-
                     {/* Right: Editor & Terminal */}
-                    <Panel defaultSize={isTerminalExpanded ? 100 : 70} minSize={30}>
-                        <PanelGroup direction="vertical">
+                    <div
+                        style={{
+                            flex: 1,
+                            minWidth: 0,
+                            display: "flex",
+                            flexDirection: "column",
+                            position: "relative",
+                        }}
+                    >
+                        {!isTerminalExpanded && isSidePanelCollapsed && (
+                            <button
+                                type="button"
+                                aria-label="Expand side panel"
+                                onClick={() => setIsSidePanelCollapsed(false)}
+                                style={{
+                                    position: "absolute",
+                                    left: 0,
+                                    top: "50%",
+                                    transform: "translateY(-50%)",
+                                    zIndex: 5,
+                                    width: "28px",
+                                    height: "64px",
+                                    padding: 0,
+                                    borderRadius: "0 8px 8px 0",
+                                    border: "1px solid var(--border-color)",
+                                    borderLeft: "none",
+                                    background: "var(--bg-tertiary)",
+                                    color: "var(--text-secondary)",
+                                    cursor: "pointer",
+                                    fontSize: "1rem",
+                                    boxShadow: "2px 0 8px rgba(0,0,0,0.2)",
+                                }}
+                            >
+                                ◀
+                            </button>
+                        )}
+                        <PanelGroup direction="vertical" style={{ flex: 1 }}>
 
                             {/* Top: Code Editor */}
                             {!isTerminalExpanded && (
@@ -1202,9 +1388,9 @@ export default function Editor() {
                             </Panel>
 
                         </PanelGroup>
-                    </Panel>
+                    </div>
 
-                </PanelGroup>
+                </div>
             </div>
             {showCelebration && (
                 <div

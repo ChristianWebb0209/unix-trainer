@@ -1,6 +1,9 @@
-import type { Difficulty, ProblemLanguage } from "problem-config";
+import * as problemConfig from "problem-config";
 
-export type { Difficulty, ProblemLanguage };
+/** Difficulty level for problems. Derived from problem-config. */
+export type Difficulty = (typeof problemConfig.DIFFICULTIES)[number];
+/** Problem language id. Derived from problem-config. */
+export type ProblemLanguage = (typeof problemConfig.PROBLEM_LANGUAGE_IDS)[number];
 
 export interface ProblemSummary {
     id: string;

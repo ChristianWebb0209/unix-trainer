@@ -352,6 +352,15 @@ body {
   border-color: var(--accent-hover);
 }
 
+.editor-side-panel-wrapper {
+  transition: width 0.25s ease-out;
+}
+
+.editor-side-panel-toggle:hover {
+  background-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
 input,
 select,
 textarea {

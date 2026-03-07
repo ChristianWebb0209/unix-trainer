@@ -10,6 +10,8 @@
     "db:migrate": "node src/db/migrate.js",
     "db:sync-problems": "node scripts/sync-problems.js",
     "db:sync-problems:hard": "node scripts/sync-problems.js -- --hard",
+    "db:sync-projects": "node scripts/sync-projects.js",
+    "db:sync-projects:hard": "node scripts/sync-projects.js -- --hard",
     "db:cleanup-completions": "node scripts/cleanup-completions.js",
     "docker:build": "node scripts/build-docker.js",
     "dev:seed-user": "node scripts/create-dev-user.js"

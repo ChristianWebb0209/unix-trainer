@@ -182,6 +182,8 @@ function ResolvedContentBody({
 const truncateTitle = (title: string, maxLen: number) =>
   title.length > maxLen ? `${title.slice(0, maxLen)}...` : title;
 
+type Workspace = string;
+
 export interface ProblemDescriptionProps {
   selectedProblem: ProblemSummary | null;
   problemTitle: string;
@@ -194,6 +196,9 @@ export interface ProblemDescriptionProps {
   codeTheme: Extension;
   /** Reference solution (schema: solution). Null when not available. Same rendering as description (code blocks in read-only CodeMirror). */
   solution: string | null;
+  workspace?: Workspace;
+  isPlaygroundMode?: boolean;
+  onGoToPlayground?: () => void;
 }
 
 export default function ProblemDescription({
@@ -206,6 +211,9 @@ export default function ProblemDescription({
   lastValidationResult,
   codeTheme,
   solution,
+  workspace: _workspace,
+  isPlaygroundMode,
+  onGoToPlayground,
 }: ProblemDescriptionProps) {
   const [activeTab, setActiveTab] = useState<TabKind>("problem");
   const validationResultRef = useRef<HTMLDivElement | null>(null);
@@ -519,7 +527,7 @@ export default function ProblemDescription({
       )}
       </div>
 
-      {/* Problem / Solution toggle at bottom */}
+      {/* Problem / Solution toggle at bottom; Playground button to the right */}
       <div
         style={{
           flexShrink: 0,
@@ -527,6 +535,8 @@ export default function ProblemDescription({
           borderTop: "1px solid var(--border-color)",
           display: "flex",
           gap: "0.5rem",
+          alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
         <button
@@ -543,6 +553,16 @@ export default function ProblemDescription({
         >
           Solution
         </button>
+        {onGoToPlayground && !isPlaygroundMode && (
+          <button
+            type="button"
+            className="editor-tab-button"
+            onClick={onGoToPlayground}
+            style={{ marginLeft: "auto" }}
+          >
+            Playground
+          </button>
+        )}
       </div>
     </div>
   );

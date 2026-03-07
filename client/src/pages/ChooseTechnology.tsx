@@ -4,9 +4,7 @@ import technologies from "../assets/technologies.json";
 import systemsIcon from "../assets/icons/systems-icon.svg";
 import gpuIcon from "../assets/icons/gpu-icon.svg";
 import AppHeader from "../components/ui/AppHeader";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-expect-error – external ESM config module without bundled types
-import * as problemConfig from "../../../problem-config.mjs";
+import * as problemConfig from "problem-config";
 
 type WorkspaceId = ReturnType<typeof problemConfig.getWorkspaceIds>[number];
 

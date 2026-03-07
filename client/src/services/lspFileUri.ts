@@ -1,7 +1,7 @@
 /**
  * Map editor language id to LSP file URI and LSP language id for the container workspace.
  */
-const LSP_SUPPORTED = ["bash", "awk", "unix", "c", "cpp", "rust", "cuda", "python", "triton", "pytorch"] as const;
+const LSP_SUPPORTED = ["bash", "awk", "unix", "c", "cpp", "rust", "cuda", "sycl", "python", "triton", "pytorch"] as const;
 
 const EXT_MAP: Record<string, string> = {
     bash: ".sh",
@@ -11,6 +11,7 @@ const EXT_MAP: Record<string, string> = {
     cpp: ".cpp",
     rust: ".rs",
     cuda: ".cu",
+    sycl: ".cpp",
     python: ".py",
     triton: ".py",
     pytorch: ".py",
@@ -24,6 +25,7 @@ const LSP_LANG_MAP: Record<string, string> = {
     cpp: "cpp",
     rust: "rust",
     cuda: "cuda",
+    sycl: "cpp",
     python: "python",
     triton: "python",
     pytorch: "python",

@@ -9,8 +9,12 @@ import { createContainerRouter } from "./routes/container.routes.js";
 import { problemRouter } from "./routes/problem.routes.js";
 import { createValidationRouter } from "./routes/validation.routes.js";
 import { completionRouter } from "./routes/completion.routes.js";
+import { fileRouter } from "./routes/file.routes.js";
+import { projectRouter } from "./routes/project.routes.js";
 import { ContainerService } from "./services/container.service.js";
 import { seedProblemsToSupabase } from "../scripts/problem-seeder.js";
+import { syncProjectsToDb } from "../scripts/sync-projects.js";
+import { testConnection } from "./config/database.config.js";
 import { setupLSPWebSocket } from "./services/lsp-ws.js";
 import { setupTerminalWebSocket } from "./services/terminal-ws.js";
 import { ensureDockerRunning } from "./utils/docker-health.js";
@@ -110,15 +114,26 @@ async function bootstrap() {
   app.use("/api/problems", problemRouter);
   app.use("/api/problems", createValidationRouter(containerService));
   app.use("/api/completions", completionRouter);
+  app.use("/api/files", fileRouter);
+  app.use("/api/projects", projectRouter);
 
   app.get("/", (req, res) => {
     res.send("API running");
   });
 
-  // Sync problems from local JSON into Supabase on startup (upsert: insert new, update existing by id)
-  void seedProblemsToSupabase().catch((err) => {
-    console.error("[Server] Problem seed failed:", err?.message ?? err);
-  }).finally(() => {
+  // Sync problems and projects on startup
+  const runStartupSync = async () => {
+    await seedProblemsToSupabase().catch((err) => {
+      console.error("[Server] Problem seed failed:", err?.message ?? err);
+    });
+    const dbOk = await testConnection();
+    if (dbOk) {
+      await syncProjectsToDb().catch((err) => {
+        console.error("[Server] Project sync failed:", err?.message ?? err);
+      });
+    }
+  };
+  void runStartupSync().finally(() => {
     startListening();
   });
 
