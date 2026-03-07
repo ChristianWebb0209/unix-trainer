@@ -1,6 +1,7 @@
 /**
  * Playground files API (user_id, name, code).
  */
+import { apiUrl } from "../services/apiOrigin";
 
 export interface PlaygroundFile {
   id: string;
@@ -36,7 +37,7 @@ export async function listFiles(): Promise<ListFilesResponse> {
 export async function getFile(id: string): Promise<{ file: PlaygroundFile }> {
   const userId = getUserId();
   if (!userId) throw new Error("Log in to open files");
-  const res = await fetch(`/api/files/${id}?userId=${encodeURIComponent(userId)}`);
+  const res = await fetch(apiUrl(`/api/files/${id}?userId=${encodeURIComponent(userId)}`));
   if (!res.ok) throw new Error(`Failed to get file: ${res.status}`);
   return res.json();
 }
@@ -63,7 +64,7 @@ export async function updateFile(
 ): Promise<{ file: PlaygroundFile }> {
   const userId = getUserId();
   if (!userId) throw new Error("Log in to update files");
-  const res = await fetch(`/api/files/${id}`, {
+  const res = await fetch(apiUrl(`/api/files/${id}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, ...params }),
@@ -75,7 +76,7 @@ export async function updateFile(
 export async function deleteFile(id: string): Promise<void> {
   const userId = getUserId();
   if (!userId) throw new Error("Log in to delete files");
-  const res = await fetch(`/api/files/${id}`, {
+  const res = await fetch(apiUrl(`/api/files/${id}`), {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId }),

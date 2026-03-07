@@ -83,7 +83,8 @@ export class VerificationService {
       throw new Error(`Problem ${problemId} not found`);
     }
 
-    const problemDefaultKind = (problem.validation && problem.validation.kind) || DEFAULT_VALIDATION_KIND;
+    const problemDefaultKind =
+      (problem?.validation && typeof problem.validation === 'object' && problem.validation.kind) || DEFAULT_VALIDATION_KIND;
     const tests = await this.problemService.getTestCases(problemId, Visibility.HIDDEN);
 
     if (!tests.length) {

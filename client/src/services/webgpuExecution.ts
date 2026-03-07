@@ -5,6 +5,7 @@
  * that must define `vsMain` and `fsMain` entry points. If compilation fails,
  * we fall back to a simple built‑in shader.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- WebGPU API types not in DOM lib */
 
 export async function runWebGpuProgram(canvas: HTMLCanvasElement, userShaderSource: string): Promise<void> {
   const nav: any = navigator as any;
@@ -65,7 +66,7 @@ fn fsMain() -> @location(0) vec4<f32> {
   }
 
   const trimmed = userShaderSource.trim();
-  let shaderModule =
+  const shaderModule =
     (trimmed && (await createShaderModule(trimmed))) ||
     (await createShaderModule(fallbackShaderCode));
 
@@ -152,7 +153,7 @@ export async function runWebGpuAndSampleCenterPixel(
   }
 
   const trimmed = userShaderSource.trim();
-  let shaderModule =
+  const shaderModule =
     (trimmed && (await createShaderModule(trimmed))) || (await createShaderModule(fallbackShaderCode));
   if (!shaderModule) return null;
 

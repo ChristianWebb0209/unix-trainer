@@ -55,7 +55,34 @@ export const SHELL_LANGUAGE_IDS = [];
 // ---------------------------------------------------------------------------
 
 /** @typedef {"kernel"|"tensor"} WorkspaceId */
-/** @typedef {{ id: WorkspaceId; label: string; defaultProblemLanguage: ProblemLanguageId; problemLanguages: ProblemLanguageId[]; dockerImageName: string; dockerfileName: string; kind: string; allowLanguageSwitch: boolean; showWebGpuTab: boolean; codeThemeKey: string }} SharedWorkspace */
+/** @typedef {{ id: WorkspaceId; label: string; defaultProblemLanguage: ProblemLanguageId; problemLanguages: ProblemLanguageId[]; dockerImageName: string; dockerfileName: string; kind: string; allowLanguageSwitch: boolean; showWebGpuTab: boolean; showImagePanel: boolean; codeThemeKey: string; terminalThemeKey: string }} SharedWorkspace */
+
+/** Terminal theme keys (subtle dark variants per workspace). */
+export const TERMINAL_THEME_KEYS = /** @type {const} */ (["kernel-dark", "tensor-dark"]);
+
+/** xterm.js theme objects: dark, subtle, terminal aesthetic. background/foreground/cursor only. */
+export const TERMINAL_THEMES = /** @type {Record<typeof TERMINAL_THEME_KEYS[number], { background: string; foreground: string; cursor: string; cursorAccent?: string }>} */ ({
+  "kernel-dark": {
+    background: "#1a1b1e",
+    foreground: "#e4e6eb",
+    cursor: "#5c6370",
+    cursorAccent: "#1a1b1e",
+  },
+  "tensor-dark": {
+    background: "#1c1a1d",
+    foreground: "#e6e4eb",
+    cursor: "#6b5c70",
+    cursorAccent: "#1c1a1d",
+  },
+});
+
+/**
+ * @param {string} terminalThemeKey
+ * @returns {typeof TERMINAL_THEMES[keyof typeof TERMINAL_THEMES]}
+ */
+export function getTerminalTheme(terminalThemeKey) {
+  return TERMINAL_THEMES[terminalThemeKey] ?? TERMINAL_THEMES["kernel-dark"];
+}
 
 /** @type {Record<WorkspaceId, SharedWorkspace>} */
 export const WORKSPACES = {
@@ -69,7 +96,9 @@ export const WORKSPACES = {
     kind: "kernel",
     allowLanguageSwitch: true,
     showWebGpuTab: true,
+    showImagePanel: false,
     codeThemeKey: "kernel-dark",
+    terminalThemeKey: "kernel-dark",
   },
   tensor: {
     id: "tensor",
@@ -81,7 +110,9 @@ export const WORKSPACES = {
     kind: "tensor",
     allowLanguageSwitch: true,
     showWebGpuTab: false,
+    showImagePanel: true,
     codeThemeKey: "tensor-dark",
+    terminalThemeKey: "tensor-dark",
   },
 };
 

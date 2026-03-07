@@ -143,4 +143,8 @@ async function runScript() {
   process.exit(errors > 0 ? 1 : 0);
 }
 
-runScript();
+// Only run as a standalone script; when imported by the server we only export syncProjectsToDb.
+const isRunDirectly = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename);
+if (isRunDirectly) {
+  runScript();
+}

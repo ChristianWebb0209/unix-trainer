@@ -7,6 +7,7 @@ import TextType from "../components/effects/TextType.tsx";
 import * as problemConfig from "problem-config";
 import type { ProblemOfTheDay, Difficulty } from "../api/problems";
 import { getProblemOfTheDay } from "../api/problems";
+import { apiUrl } from "../services/apiOrigin";
 import { DIFFICULTY_TAG_STYLES } from "../uiStyles";
 import technologies from "../assets/technologies.json";
 import systemsIcon from "../assets/icons/systems-icon.svg";
@@ -51,7 +52,7 @@ export default function Home() {
 
                 // Fetch full problem details so we can get starterCode for the inline editor.
                 try {
-                    const res = await fetch(`/api/problems/${problem.id}`);
+                    const res = await fetch(apiUrl(`/api/problems/${problem.id}`));
                     if (active && res.ok) {
                         const data = (await res.json()) as {
                             problem?: { starterCode?: string };

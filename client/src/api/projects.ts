@@ -1,6 +1,7 @@
 /**
  * Playground projects API (.md files on server).
  */
+import { apiUrl } from "../services/apiOrigin";
 
 export interface ProjectSummary {
   id: string;
@@ -18,13 +19,13 @@ export interface ListProjectsResponse {
 }
 
 export async function listProjects(): Promise<ListProjectsResponse> {
-  const res = await fetch("/api/projects");
+  const res = await fetch(apiUrl("/api/projects"));
   if (!res.ok) throw new Error(`Failed to list projects: ${res.status}`);
   return res.json();
 }
 
 export async function getProject(id: string): Promise<{ project: Project }> {
-  const res = await fetch(`/api/projects/${encodeURIComponent(id)}`);
+  const res = await fetch(apiUrl(`/api/projects/${encodeURIComponent(id)}`));
   if (!res.ok) throw new Error(`Failed to get project: ${res.status}`);
   return res.json();
 }

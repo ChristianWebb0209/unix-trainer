@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { primaryPillUnselected } from "../../uiStyles";
+import { unifiedSelectTriggerStyle, unifiedInputStyle, unifiedButtonStyle, UNIFIED_RADIUS } from "../../uiStyles";
+import UnifiedSelect from "../ui/UnifiedSelect.tsx";
 import { listProblems, type Difficulty, type ProblemSummary, type ProblemLanguage, type ProblemCompletionState } from "../../api/problems";
 import * as problemConfig from "problem-config";
 
@@ -213,38 +214,33 @@ export default function ProblemDropdown({
                 ref={toggleButtonRef}
                 type="button"
                 onClick={() => onOpenChange(!isOpen)}
-                style={{ marginLeft: "0.5rem", ...primaryPillUnselected }}
+                style={{ marginLeft: "0.5rem", ...unifiedSelectTriggerStyle }}
             >
-                Problems {isOpen ? "▲" : "▼"}
+                <span>Problems</span>
+                <span style={{ flexShrink: 0, fontSize: "0.65rem", lineHeight: 1 }} aria-hidden>
+                    {isOpen ? "▲" : "▼"}
+                </span>
             </button>
             {isOpen && (
                 <div
                     ref={overlayRef}
                     style={{
                         position: "fixed",
-                        top: "40px",
-                        left: 0,
+                        top: "48px",
+                        left: "12rem",
+                        width: "360px",
+                        height: "70vh",
                         zIndex: 25,
+                        borderRadius: "10px",
+                        boxShadow: "0 18px 40px rgba(0,0,0,0.6)",
+                        overflow: "hidden",
+                        backgroundColor: "var(--bg-secondary)",
                         display: "flex",
-                        alignItems: "flex-start",
+                        flexDirection: "column",
+                        padding: "1rem",
+                        boxSizing: "border-box",
                     }}
                 >
-                    <div
-                        style={{
-                            marginLeft: "12rem",
-                            marginTop: "0.5rem",
-                            width: "360px",
-                            height: "70vh",
-                            borderRadius: "10px",
-                            boxShadow: "0 18px 40px rgba(0,0,0,0.6)",
-                            overflow: "hidden",
-                            backgroundColor: "var(--bg-secondary)",
-                            display: "flex",
-                            flexDirection: "column",
-                            padding: "1rem",
-                            boxSizing: "border-box",
-                        }}
-                    >
                         <div style={{ display: "flex", flexDirection: "column", gap: "1rem", flex: 1, overflow: "hidden" }}>
                             <div style={{ flexShrink: 0 }}>
                                 <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "0.4rem" }}>
@@ -254,65 +250,38 @@ export default function ProblemDropdown({
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     placeholder="Search by name"
-                                    style={{
-                                        width: "100%",
-                                        padding: "0.4rem 0.5rem",
-                                        borderRadius: "4px",
-                                        border: "1px solid var(--border-color)",
-                                        backgroundColor: "var(--bg-tertiary)",
-                                        color: "var(--text-primary)",
-                                    }}
+                                    style={unifiedInputStyle}
                                 />
                                 <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.6rem" }}>
                                     <div style={{ flex: 1 }}>
                                         <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
                                             Difficulty
                                         </label>
-                                        <select
+                                        <UnifiedSelect
                                             value={difficulty}
-                                            onChange={(e) => setDifficulty(e.target.value as "all" | Difficulty)}
-                                            style={{
-                                                width: "100%",
-                                                padding: "0.35rem",
-                                                borderRadius: "4px",
-                                                border: "1px solid var(--border-color)",
-                                                backgroundColor: "var(--bg-tertiary)",
-                                                color: "var(--text-primary)",
-                                            }}
-                                        >
-                                            <option value="all">All</option>
-                                            {[...problemConfig.DIFFICULTIES].map((d) => (
-                                                <option key={d} value={d}>
-                                                    {getDifficultyLabel(d)}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            onChange={(v) => setDifficulty(v as "all" | Difficulty)}
+                                            options={[
+                                                { value: "all", label: "All" },
+                                                ...([...problemConfig.DIFFICULTIES].map((d) => ({ value: d, label: getDifficultyLabel(d) }))),
+                                            ]}
+                                            fullWidth
+                                        />
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
                                             Language
                                         </label>
-                                        <select
+                                        <UnifiedSelect
                                             value={language}
-                                            onChange={(e) => setLanguage(e.target.value as "all" | ProblemLanguage)}
-                                            style={{
-                                                width: "100%",
-                                                padding: "0.35rem",
-                                                borderRadius: "4px",
-                                                border: "1px solid var(--border-color)",
-                                                backgroundColor: "var(--bg-tertiary)",
-                                                color: "var(--text-primary)",
-                                            }}
-                                        >
-                                            <option value="all">All</option>
-                                            {getWorkspaceLanguages(workspace)
-                                                .filter((langId) => langId !== "any")
-                                                .map((langId) => (
-                                                    <option key={langId} value={langId}>
-                                                        {getLanguageLabel(langId)}
-                                                    </option>
-                                                ))}
-                                        </select>
+                                            onChange={(v) => setLanguage(v as "all" | ProblemLanguage)}
+                                            options={[
+                                                { value: "all", label: "All" },
+                                                ...getWorkspaceLanguages(workspace)
+                                                    .filter((langId) => langId !== "any")
+                                                    .map((langId) => ({ value: langId, label: getLanguageLabel(langId) })),
+                                            ]}
+                                            fullWidth
+                                        />
                                     </div>
                                 </div>
                                 {totalCount !== null && totalCount > 0 && (
@@ -344,7 +313,7 @@ export default function ProblemDropdown({
                                                     fontSize: "0.75rem",
                                                     lineHeight: 1,
                                                     border: "1px solid var(--border-color)",
-                                                    borderRadius: "4px",
+                                                    borderRadius: UNIFIED_RADIUS,
                                                     background: page <= 1 ? "var(--bg-tertiary)" : "var(--bg-primary)",
                                                     color: page <= 1 ? "var(--text-secondary)" : "var(--text-primary)",
                                                     cursor: page <= 1 ? "not-allowed" : "pointer",
@@ -366,7 +335,7 @@ export default function ProblemDropdown({
                                                     fontSize: "0.75rem",
                                                     lineHeight: 1,
                                                     border: "1px solid var(--border-color)",
-                                                    borderRadius: "4px",
+                                                    borderRadius: UNIFIED_RADIUS,
                                                     background: page >= totalPages ? "var(--bg-tertiary)" : "var(--bg-primary)",
                                                     color: page >= totalPages ? "var(--text-secondary)" : "var(--text-primary)",
                                                     cursor: page >= totalPages ? "not-allowed" : "pointer",
@@ -497,17 +466,7 @@ export default function ProblemDropdown({
                                     <button
                                         type="button"
                                         onClick={() => onGoToPlayground()}
-                                        style={{
-                                            width: "100%",
-                                            padding: "0.5rem 0.75rem",
-                                            borderRadius: "8px",
-                                            border: "1px solid var(--border-color)",
-                                            background: "var(--bg-tertiary)",
-                                            color: "var(--text-primary)",
-                                            fontSize: "0.9rem",
-                                            cursor: "pointer",
-                                            textAlign: "center",
-                                        }}
+                                        style={unifiedButtonStyle}
                                     >
                                         Open Playground
                                     </button>
@@ -515,7 +474,6 @@ export default function ProblemDropdown({
                             )}
                         </div>
                     </div>
-                </div>
             )}
         </>
     );

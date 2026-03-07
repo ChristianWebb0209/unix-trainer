@@ -76,7 +76,7 @@ export async function seedProblemsToSupabase() {
               ? p.starter_code
               : null;
 
-        const row = {
+        rows.push({
           id: p.id,
           title: p.title,
           instructions,
@@ -85,11 +85,7 @@ export async function seedProblemsToSupabase() {
           language,
           tests,
           starter_code: starterCode,
-        };
-        if (p.validation != null && typeof p.validation === "object") {
-          row.validation = p.validation;
-        }
-        rows.push(row);
+        });
       }
     } catch (err) {
       console.error("[ProblemSeeder] Failed to parse", filePath, err?.message ?? err);

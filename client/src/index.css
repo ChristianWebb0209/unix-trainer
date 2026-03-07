@@ -89,6 +89,7 @@ body {
 
 .editor-main {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -352,6 +353,17 @@ body {
   border-color: var(--accent-hover);
 }
 
+/* Problem description: animated loading dots */
+@keyframes problem-loading-dot {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+.problem-description-loading-dots span {
+  animation: problem-loading-dot 0.6s ease-in-out infinite;
+}
+.problem-description-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.problem-description-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
 .editor-side-panel-wrapper {
   transition: width 0.25s ease-out;
 }
@@ -482,6 +494,21 @@ button.editor-problem-nav-button:focus-visible {
 .resize-handle[data-panel-group-direction="vertical"][data-resize-handle-active] .resize-handle-inner {
   background-color: var(--accent-color);
   height: 4px;
+}
+
+/* Sidebar divider (not a PanelResizeHandle; sidebar is outside PanelGroup) */
+.sidebar-divider {
+  flex: 0 0 auto;
+  width: 6px;
+  margin: 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--border-color);
+  transition: background-color 0.2s ease;
+}
+.sidebar-divider:hover {
+  background-color: var(--accent-color);
 }
 
 /* Technologies marquee on home page */

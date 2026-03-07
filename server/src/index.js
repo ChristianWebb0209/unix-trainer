@@ -26,7 +26,6 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 const PORT = process.env.PORT || 3000;
 
 async function bootstrap() {
-  // Ensure Docker is up before we create any containers or accept API traffic.
   try {
     await ensureDockerRunning();
   } catch (err) {
@@ -39,9 +38,13 @@ async function bootstrap() {
 
   let hasRetriedPort = false;
 
+  const containerService = new ContainerService();
+
   const startListening = () => {
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      setupTerminalWebSocket(httpServer, containerService);
+      setupLSPWebSocket(httpServer, containerService);
     });
   };
 
@@ -103,10 +106,6 @@ async function bootstrap() {
     }
   });
 
-  const containerService = new ContainerService();
-  setupTerminalWebSocket(httpServer, containerService);
-  setupLSPWebSocket(httpServer, containerService);
-
   app.use(cors());
   app.use(express.json());
 
@@ -121,7 +120,9 @@ async function bootstrap() {
     res.send("API running");
   });
 
-  // Sync problems and projects on startup
+  // Sync problems and projects on startup, then listen. Attach WebSocket upgrade
+  // only after the server is listening to avoid Windows libuv handle assertion
+  // (UV_HANDLE_CLOSING in src/win/async.c) when upgrade handlers are added before listen.
   const runStartupSync = async () => {
     await seedProblemsToSupabase().catch((err) => {
       console.error("[Server] Problem seed failed:", err?.message ?? err);
@@ -133,6 +134,7 @@ async function bootstrap() {
       });
     }
   };
+
   void runStartupSync().finally(() => {
     startListening();
   });

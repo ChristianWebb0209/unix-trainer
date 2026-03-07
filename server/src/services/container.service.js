@@ -285,6 +285,49 @@ export class ContainerService {
         };
     }
 
+    /** Output directory for plots/images (Tensor Lab). Paths restricted to this. */
+    static OUTPUTS_PATH = "/tmp/outputs";
+
+    /**
+     * Lists image files in the container's /tmp/outputs directory.
+     * @param {string} containerId
+     * @returns {Promise<string[]>} Filenames (e.g. ["plot.png", "loss.png"])
+     */
+    async listOutputFiles(containerId) {
+        if (!this.containers.has(containerId)) {
+            throw new Error(`Container ${containerId} not found or already destroyed.`);
+        }
+        this.recordActivity(containerId);
+        const result = await this.runCommand(
+            containerId,
+            `find ${ContainerService.OUTPUTS_PATH} -maxdepth 1 -type f \\( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.gif" -o -name "*.webp" \\) -printf "%f\\n" 2>/dev/null | sort`
+        );
+        const lines = (result.stdout || "").trim().split("\n").filter(Boolean);
+        return lines;
+    }
+
+    /**
+     * Reads a file from /tmp/outputs and returns base64-encoded content.
+     * @param {string} containerId
+     * @param {string} filename Safe filename only (no path traversal)
+     * @returns {Promise<string>} Base64-encoded file content
+     */
+    async getOutputFileContent(containerId, filename) {
+        if (!this.containers.has(containerId)) {
+            throw new Error(`Container ${containerId} not found or already destroyed.`);
+        }
+        if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+            throw new Error("Invalid filename");
+        }
+        this.recordActivity(containerId);
+        const path = `${ContainerService.OUTPUTS_PATH}/${filename}`;
+        const result = await this.runCommand(
+            containerId,
+            `base64 -w0 "${path}" 2>/dev/null || true`
+        );
+        return (result.stdout || "").trim();
+    }
+
     /**
      * Creates a persistent PTY shell session attached to the container.
      * Returns a duplex stream - write to send stdin, read 'data' for stdout/stderr.
@@ -301,11 +344,12 @@ export class ContainerService {
 
         const container = this.docker.getContainer(containerId);
         const exec = await container.exec({
-            Cmd: ["/bin/sh"],
+            Cmd: ["/bin/sh", "-i"],
             AttachStdin: true,
             AttachStdout: true,
             AttachStderr: true,
             Tty: true,
+            Env: ["TERM=xterm-256color"],
         });
 
         const stream = await exec.start({ hijack: true, stdin: true });

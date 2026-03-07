@@ -43,6 +43,11 @@ function buildBashLsPath() {
   return parts.join(':') + (process.env.PATH ? ':' + process.env.PATH : '');
 }
 
+/** PATH that includes npm global bin so pyright-langserver is findable when exec has minimal env. */
+function buildNodeBinPath() {
+  return buildBashLsPath();
+}
+
 function getLSP(lang) {
   switch (lang) {
     case 'bash':
@@ -51,48 +56,64 @@ function getLSP(lang) {
         cmd: resolveCmd('bash-language-server', ['/usr/local/bin/bash-language-server', '/usr/bin/bash-language-server']),
         args: ['start'],
         env: { ...process.env, PATH: buildBashLsPath() },
+        cwd: undefined,
       };
     case 'awk':
       return {
         cmd: resolveCmd('bash-language-server', ['/usr/local/bin/bash-language-server', '/usr/bin/bash-language-server']),
         args: ['start'],
         env: { ...process.env, PATH: buildBashLsPath() },
+        cwd: undefined,
       };
     case 'c':
     case 'cpp':
-      return { cmd: 'clangd', args: ['--background-index'], env: { ...process.env, PATH: buildClangdPath() } };
+      return { cmd: 'clangd', args: ['--background-index'], env: { ...process.env, PATH: buildClangdPath() }, cwd: undefined };
     case 'rust':
       return {
         cmd: resolveCmd('rust-analyzer', ['/usr/local/bin/rust-analyzer', '/usr/bin/rust-analyzer']),
         args: [],
         env: undefined,
+        cwd: undefined,
       };
     case 'cuda':
     case 'vulkan':
     case 'sycl':
-      return { cmd: 'clangd', args: ['--background-index'], env: { ...process.env, PATH: buildClangdPath() } };
+      return { cmd: 'clangd', args: ['--background-index'], env: { ...process.env, PATH: buildClangdPath() }, cwd: undefined };
     case 'python':
     case 'triton':
-    case 'pytorch':
+    case 'pytorch': {
+      // Pyright needs a workspace root (cwd) or it can hang during initialization.
+      const pyrightPaths = [
+        '/usr/local/bin/pyright-langserver',
+        '/usr/bin/pyright-langserver',
+        join(process.env.npm_config_prefix || '/usr/local', 'bin', 'pyright-langserver'),
+      ];
+      const pyrightCmd = resolveCmd('pyright-langserver', pyrightPaths);
+      const useNpx = pyrightCmd === 'pyright-langserver';
       return {
-        cmd: resolveCmd('pyright-langserver', ['/usr/local/bin/pyright-langserver', '/usr/bin/pyright-langserver']),
-        args: ['--stdio'],
-        env: process.env,
+        cmd: useNpx ? 'npx' : pyrightCmd,
+        args: useNpx ? ['--yes', 'pyright-langserver', '--stdio'] : ['--stdio'],
+        env: { ...process.env, PATH: buildNodeBinPath() },
+        cwd: '/workspace',
       };
+    }
     default:
       return {
         cmd: resolveCmd('bash-language-server', ['/usr/local/bin/bash-language-server', '/usr/bin/bash-language-server']),
         args: ['start'],
         env: { ...process.env, PATH: buildBashLsPath() },
+        cwd: undefined,
       };
   }
 }
 
-const { cmd, args, env } = getLSP(language);
-const child = spawn(cmd, args, {
+const { cmd, args, env, cwd } = getLSP(language);
+const spawnOpts = {
   stdio: ['pipe', 'pipe', 'pipe'],
   env: env || process.env,
-});
+};
+if (cwd) spawnOpts.cwd = cwd;
+const child = spawn(cmd, args, spawnOpts);
 
 process.stdin.pipe(child.stdin);
 child.stdout.pipe(process.stdout);

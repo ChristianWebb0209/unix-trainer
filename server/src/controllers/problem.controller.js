@@ -60,7 +60,6 @@ export class ProblemController {
                 difficulty: problem.difficulty,
                 language: problem.language ?? problem.type ?? 'any',
                 starterCode: problem.starterCode ?? null,
-                validation: problem.validation ?? null,
                 tests: publicTestCases.map((tc) => {
                     const out = { input: tc.input, expected_stdout: tc.expected_stdout };
                     if (Array.isArray(tc.expected_values)) out.expected_values = tc.expected_values;

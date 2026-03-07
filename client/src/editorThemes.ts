@@ -6,6 +6,7 @@
 import type { Extension } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 
-export function getCodeEditorTheme(_themeKey: string): Extension {
+export function getCodeEditorTheme(themeKey: string): Extension {
+  void themeKey;
   return oneDark;
 }

@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import CodeMirror from "@uiw/react-codemirror";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import type { Extension } from "@codemirror/state";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 import type { PlaygroundFile } from "../../api/files";
 import type { ProjectSummary, Project } from "../../api/projects";
 import {
@@ -11,6 +18,81 @@ import {
 import { listProjects, getProject } from "../../api/projects";
 import * as problemConfig from "problem-config";
 
+const READ_ONLY_EXTENSIONS: Extension[] = [
+  EditorState.readOnly.of(true),
+  EditorView.editable.of(false),
+];
+
+/** Renders full markdown project content with CodeMirror for fenced code blocks. */
+function ProjectContentBody({ content, codeTheme }: { content: string; codeTheme: Extension }) {
+  const components = useMemo((): Components => {
+    return {
+      code({ className, children, ...props }) {
+        const code = String(children).replace(/\n$/, "");
+        const isBlock = code.includes("\n") || (className != null && /language-/.test(className));
+        if (isBlock && code.trim()) {
+          return (
+            <div
+              style={{
+                margin: "0.75rem 0",
+                borderRadius: "6px",
+                overflow: "hidden",
+                border: "1px solid var(--border-color)",
+                fontSize: "0.9rem",
+              }}
+            >
+              <CodeMirror
+                value={code}
+                height="120px"
+                theme={codeTheme}
+                extensions={READ_ONLY_EXTENSIONS}
+                basicSetup={{ lineNumbers: false, foldGutter: false }}
+                style={{ fontSize: "0.9rem" }}
+              />
+            </div>
+          );
+        }
+        return (
+          <code
+            style={{
+              padding: "0.15em 0.35em",
+              borderRadius: "4px",
+              fontSize: "0.9em",
+              backgroundColor: "var(--bg-tertiary)",
+              border: "1px solid var(--border-color)",
+            }}
+            {...props}
+          >
+            {children}
+          </code>
+        );
+      },
+      p: ({ children }) => <p style={{ marginBottom: "0.9rem" }}>{children}</p>,
+      ul: ({ children }) => <ul style={{ marginBottom: "0.9rem", paddingLeft: "1.25rem" }}>{children}</ul>,
+      ol: ({ children }) => <ol style={{ marginBottom: "0.9rem", paddingLeft: "1.25rem" }}>{children}</ol>,
+      h1: ({ children }) => <h1 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.5rem" }}>{children}</h1>,
+      h2: ({ children }) => <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.4rem" }}>{children}</h2>,
+      h3: ({ children }) => <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.35rem" }}>{children}</h3>,
+      a: ({ href, children }) => (
+        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-color)" }}>
+          {children}
+        </a>
+      ),
+      blockquote: ({ children }) => (
+        <blockquote style={{ margin: "0.75rem 0", paddingLeft: "1rem", borderLeft: "4px solid var(--border-color)", color: "var(--text-secondary)" }}>
+          {children}
+        </blockquote>
+      ),
+    };
+  }, [codeTheme]);
+
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      {content}
+    </ReactMarkdown>
+  );
+}
+
 type TabKind = "files" | "projects";
 
 export interface PlaygroundSidebarProps {
@@ -22,6 +104,8 @@ export interface PlaygroundSidebarProps {
   selectedLanguage: string;
   /** Default code for auto-created first file (workspace default language starter). */
   defaultCodeForNewFile?: string;
+  /** Code editor theme for rendering code blocks in Projects tab. */
+  codeTheme?: Extension;
   /** Callback when user selects a file: load its code. */
   onSelectFile: (file: PlaygroundFile) => void | Promise<void>;
   /** Callback when code should be updated (e.g. after creating/selecting a file). */
@@ -35,6 +119,7 @@ export default function PlaygroundSidebar({
   code,
   selectedLanguage,
   defaultCodeForNewFile,
+  codeTheme,
   onSelectFile,
   onCodeChange,
   onSelectedFileIdChange,
@@ -55,6 +140,9 @@ export default function PlaygroundSidebar({
   const didAutoCreateRef = useRef(false);
   const newFileInputRef = useRef<HTMLInputElement>(null);
   const filesListRef = useRef<HTMLDivElement>(null);
+  /** Cache full file content by id so we can switch between files instantly without refetching. */
+  const fileCacheRef = useRef<Map<string, PlaygroundFile>>(new Map());
+  const handleOpenFileRef = useRef<(file: PlaygroundFile) => Promise<void>>(async () => {});
 
   const loadFiles = useCallback(async () => {
     setError(null);
@@ -77,6 +165,9 @@ export default function PlaygroundSidebar({
         }
       } else {
         setFiles(list);
+        list.forEach((f) => {
+          if (f.code !== undefined) fileCacheRef.current.set(f.id, { ...f });
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load files");
@@ -111,19 +202,41 @@ export default function PlaygroundSidebar({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeTab !== "files") return;
-      if (e.key === "Delete" || e.key === "Backspace") {
-        const targetId = focusedFileId ?? selectedFileId;
-        if (!targetId) return;
-        const file = files.find((f) => f.id === targetId);
-        if (file && !editingNameId && !isCreatingNew) {
-          e.preventDefault();
-          setDeleteConfirmFile(file);
-        }
-      }
       if (e.key === "Escape") {
         setContextMenu(null);
         setDeleteConfirmFile(null);
+        return;
+      }
+      if (activeTab !== "files" || editingNameId || isCreatingNew) return;
+      if (!filesListRef.current?.contains(document.activeElement ?? null)) return;
+
+      if (e.key === "Delete") {
+        const targetId = focusedFileId ?? selectedFileId;
+        if (!targetId) return;
+        const file = files.find((f) => f.id === targetId);
+        if (file) {
+          e.preventDefault();
+          setDeleteConfirmFile(file);
+        }
+        return;
+      }
+
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (files.length === 0) return;
+        e.preventDefault();
+        const idx = files.findIndex((f) => f.id === (focusedFileId ?? selectedFileId));
+        const nextIdx = e.key === "ArrowDown"
+          ? (idx < 0 ? 0 : Math.min(idx + 1, files.length - 1))
+          : (idx <= 0 ? files.length - 1 : idx - 1);
+        const target = files[nextIdx];
+        if (target) {
+          setFocusedFileId(target.id);
+          void handleOpenFileRef.current(target);
+          setTimeout(() => {
+            const el = filesListRef.current?.querySelector(`[data-file-id="${target.id}"]`);
+            if (el && el instanceof HTMLElement) el.focus();
+          }, 0);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -154,6 +267,7 @@ export default function PlaygroundSidebar({
         name,
         code: defaultCodeForNewFile ?? "",
       });
+      fileCacheRef.current.set(file.id, { ...file });
       setFiles((prev) => [file, ...prev]);
       onSelectFile(file);
       onCodeChange(file.code);
@@ -172,8 +286,30 @@ export default function PlaygroundSidebar({
   };
 
   const handleOpenFile = async (file: PlaygroundFile) => {
+    const cache = fileCacheRef.current;
+
+    // Before switching: persist current editor content into cache for the previously selected file
+    if (selectedFileId && selectedFileId !== file.id) {
+      const prevEntry = files.find((f) => f.id === selectedFileId);
+      cache.set(selectedFileId, {
+        id: selectedFileId,
+        name: prevEntry?.name ?? "untitled",
+        code,
+      });
+    }
+
+    const cached = cache.get(file.id);
+    if (cached) {
+      onSelectFile(cached);
+      onCodeChange(cached.code);
+      onSelectedFileIdChange(cached.id);
+      setFocusedFileId(cached.id);
+      return;
+    }
+
     try {
       const { file: full } = await getFile(file.id);
+      cache.set(full.id, { ...full });
       onSelectFile(full);
       onCodeChange(full.code);
       onSelectedFileIdChange(full.id);
@@ -182,6 +318,7 @@ export default function PlaygroundSidebar({
       setError(err instanceof Error ? err.message : "Failed to open file");
     }
   };
+  handleOpenFileRef.current = handleOpenFile;
 
   const startEditName = (file: PlaygroundFile) => {
     setEditingNameId(file.id);
@@ -194,6 +331,8 @@ export default function PlaygroundSidebar({
     setEditingNameId(null);
     try {
       const updated = await updateFile(editingNameId, { name: value });
+      const existing = fileCacheRef.current.get(editingNameId);
+      if (existing) fileCacheRef.current.set(editingNameId, { ...existing, name: updated.file.name });
       setFiles((prev) =>
         prev.map((f) => (f.id === updated.file.id ? { ...f, name: updated.file.name } : f))
       );
@@ -207,6 +346,7 @@ export default function PlaygroundSidebar({
     setLoading(true);
     try {
       await deleteFile(id);
+      fileCacheRef.current.delete(id);
       setFiles((prev) => prev.filter((f) => f.id !== id));
       if (selectedFileId === id) {
         onSelectedFileIdChange(null);
@@ -226,12 +366,18 @@ export default function PlaygroundSidebar({
     if (selectedFileId === file.id) {
       codeToExport = code;
     } else {
-      try {
-        const { file: full } = await getFile(file.id);
-        codeToExport = full.code;
-      } catch {
-        setError("Failed to load file for export");
-        return;
+      const cached = fileCacheRef.current.get(file.id);
+      if (cached) {
+        codeToExport = cached.code;
+      } else {
+        try {
+          const { file: full } = await getFile(file.id);
+          fileCacheRef.current.set(full.id, { ...full });
+          codeToExport = full.code;
+        } catch {
+          setError("Failed to load file for export");
+          return;
+        }
       }
     }
     const lang = problemConfig.PROBLEM_LANGUAGES[selectedLanguage as keyof typeof problemConfig.PROBLEM_LANGUAGES];
@@ -317,27 +463,35 @@ export default function PlaygroundSidebar({
               disabled={loading || isCreatingNew}
               style={{
                 width: "100%",
-                padding: "0.4rem 0.75rem",
-                borderRadius: "6px",
+                padding: "0.35rem 0.65rem",
+                borderRadius: "999px",
                 border: "1px solid var(--border-color)",
                 background: "var(--bg-tertiary)",
                 color: "var(--text-primary)",
                 fontSize: "0.9rem",
                 cursor: loading || isCreatingNew ? "not-allowed" : "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
               }}
             >
               + New file
             </button>
           </div>
-          <div ref={filesListRef} style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+          <div
+            ref={filesListRef}
+            style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setFocusedFileId(null);
+            }}
+          >
             {isCreatingNew && (
               <div
                 style={{
-                  padding: "0.5rem 0.4rem",
-                  marginBottom: "0.25rem",
-                  borderRadius: "6px",
+                  padding: "0.35rem 0.65rem",
+                  marginBottom: 0,
+                  borderRadius: "999px",
                   border: "1px solid var(--accent-color)",
                   backgroundColor: "var(--bg-tertiary)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
                 }}
               >
                 <input
@@ -373,13 +527,21 @@ export default function PlaygroundSidebar({
                 No files yet. Create one or log in to see saved files.
               </p>
             )}
-            {files.map((file) => (
+            {files.map((file) => {
+              const isSelected = selectedFileId === file.id;
+              const isFocused = focusedFileId === file.id;
+              return (
               <div
                 key={file.id}
-                onClick={() => setFocusedFileId(file.id)}
+                data-file-id={file.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFocusedFileId(file.id);
+                  if (!isSelected) void handleOpenFile(file);
+                }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  void handleOpenFile(file);
+                  startEditName(file);
                 }}
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -387,18 +549,22 @@ export default function PlaygroundSidebar({
                 }}
                 tabIndex={0}
                 style={{
-                  padding: "0.5rem 0.4rem",
-                  marginBottom: "0.25rem",
-                  borderRadius: "6px",
+                  padding: "0.35rem 0.65rem",
+                  marginBottom: 0,
+                  borderRadius: "999px",
                   cursor: "pointer",
-                  backgroundColor:
-                    (focusedFileId === file.id || selectedFileId === file.id)
+                  backgroundColor: isSelected
+                    ? "var(--accent-color)"
+                    : isFocused
                       ? "var(--bg-tertiary)"
                       : "transparent",
-                  border:
-                    (focusedFileId === file.id || selectedFileId === file.id)
-                      ? "1px solid var(--accent-color)"
+                  color: isSelected ? "var(--button-text)" : "var(--text-primary)",
+                  border: isSelected
+                    ? "1px solid var(--accent-color)"
+                    : isFocused
+                      ? "1px solid var(--border-color)"
                       : "1px solid transparent",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
                   display: "flex",
                   alignItems: "center",
                   gap: "0.35rem",
@@ -479,7 +645,8 @@ export default function PlaygroundSidebar({
                   </>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
         </>
       )}
@@ -620,10 +787,15 @@ export default function PlaygroundSidebar({
                 backgroundColor: "var(--bg-tertiary)",
                 fontSize: "0.9rem",
                 lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
               }}
             >
-              {selectedProject.content}
+              {codeTheme ? (
+                <ProjectContentBody content={selectedProject.content} codeTheme={codeTheme} />
+              ) : (
+                <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+                  {selectedProject.content}
+                </pre>
+              )}
             </div>
           )}
         </div>

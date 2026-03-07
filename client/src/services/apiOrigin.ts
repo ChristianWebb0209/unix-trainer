@@ -14,6 +14,21 @@ export function getApiOrigin(): string {
     return window.location.origin;
 }
 
+/** Call once in dev to log the API base URL for troubleshooting connection issues. */
+export function logApiOriginInDev(): void {
+    if (import.meta.env?.DEV && typeof window !== "undefined") {
+        const origin = getApiOrigin();
+        console.log("[apiOrigin] Client will request API at:", origin);
+    }
+}
+
+/** Full URL for an API path. Use this for all fetch() so in dev we hit the server on 3000, not Vite on 5173. */
+export function apiUrl(path: string): string {
+    const base = getApiOrigin();
+    const p = path.startsWith("/") ? path : `/${path}`;
+    return `${base}${p}`;
+}
+
 /** WebSocket base URL (ws: or wss:) for the same host as the API. */
 export function getApiWsOrigin(): string {
     const origin = getApiOrigin();

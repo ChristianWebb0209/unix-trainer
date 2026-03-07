@@ -57,5 +57,32 @@ export function createContainerRouter(containerService) {
         }
     });
 
+    router.get('/:containerId/outputs', async (req, res) => {
+        const { containerId } = req.params;
+        try {
+            const files = await containerService.listOutputFiles(containerId);
+            res.json({ files });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    router.get('/:containerId/outputs/:filename', async (req, res) => {
+        const { containerId, filename } = req.params;
+        try {
+            const base64 = await containerService.getOutputFileContent(containerId, filename);
+            if (!base64) {
+                return res.status(404).json({ error: 'File not found' });
+            }
+            const buf = Buffer.from(base64, 'base64');
+            const ext = filename.split('.').pop()?.toLowerCase() || '';
+            const mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' }[ext] || 'application/octet-stream';
+            res.set('Content-Type', mime);
+            res.send(buf);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
     return router;
 }

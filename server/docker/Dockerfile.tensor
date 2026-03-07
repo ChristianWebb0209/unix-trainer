@@ -25,8 +25,11 @@ RUN mkdir -p /etc/apt/keyrings && \
     apt-get update && apt-get install -y --no-install-recommends nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-# Python GPU stack
-RUN pip3 install --no-cache-dir torch triton
+# Python GPU stack + matplotlib for plot output
+RUN pip3 install --no-cache-dir torch triton matplotlib
+
+# Output directory for plots (save to /tmp/outputs/ to see in Images tab)
+RUN mkdir -p /tmp/outputs
 
 # Pyright language server for Python/Triton/PyTorch
 RUN npm install -g pyright
