@@ -1,7 +1,7 @@
 /**
  * File Service
  * ------------
- * CRUD for playground files stored in file_data (one row per user, files in JSONB array).
+ * CRUD for playground files stored in user_file (one row per user, files JSONB column).
  * Uses Supabase; requires supabaseAdmin.
  */
 
@@ -18,7 +18,7 @@ function validUserId(userId) {
 
 export class FileService {
   /**
-   * Get or create the single file_data row for this user.
+   * Get or create the single user_file row for this user (table: user_file, column: files).
    * @returns {{ id: string, user_id: string, files: FileEntry[] }}
    */
   async getOrCreateUserFile(userId) {
@@ -26,7 +26,7 @@ export class FileService {
     if (!supabaseAdmin) throw new Error('Database not configured');
 
     const { data: existing, error: fetchError } = await supabaseAdmin
-      .from('file_data')
+      .from('user_file')
       .select('id, user_id, files')
       .eq('user_id', userId)
       .single();
@@ -34,7 +34,7 @@ export class FileService {
     if (!fetchError && existing) return existing;
 
     const { data: inserted, error: insertError } = await supabaseAdmin
-      .from('file_data')
+      .from('user_file')
       .insert({ user_id: userId, files: [] })
       .select('id, user_id, files')
       .single();
@@ -42,7 +42,7 @@ export class FileService {
     if (insertError) {
       if (insertError.code === '23505') {
         const { data: retry } = await supabaseAdmin
-          .from('file_data')
+          .from('user_file')
           .select('id, user_id, files')
           .eq('user_id', userId)
           .single();
@@ -85,7 +85,7 @@ export class FileService {
     files.unshift(file);
 
     const { error } = await supabaseAdmin
-      .from('file_data')
+      .from('user_file')
       .update({ files })
       .eq('user_id', userId);
 
@@ -109,7 +109,7 @@ export class FileService {
     if (typeof code === 'string') files[idx].code = code;
 
     const { error } = await supabaseAdmin
-      .from('file_data')
+      .from('user_file')
       .update({ files })
       .eq('user_id', userId);
 
@@ -128,7 +128,7 @@ export class FileService {
     const files = Array.isArray(row.files) ? row.files.filter((f) => f.id !== id) : [];
 
     const { error } = await supabaseAdmin
-      .from('file_data')
+      .from('user_file')
       .update({ files })
       .eq('user_id', userId);
 
@@ -159,7 +159,7 @@ export class FileService {
 
     const row = await this.getOrCreateUserFile(userId);
     const { error } = await supabaseAdmin
-      .from('file_data')
+      .from('user_file')
       .update({ files: list })
       .eq('id', row.id);
 
