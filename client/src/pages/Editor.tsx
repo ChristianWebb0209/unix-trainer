@@ -3,30 +3,27 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import type { Extension } from "@codemirror/state";
 import { getCodeEditorTheme } from "../editorThemes";
 import { Panel, PanelGroup } from "react-resizable-panels";
-import { Terminal } from "@xterm/xterm";
-import { AttachAddon } from "@xterm/addon-attach";
-import { FitAddon } from "@xterm/addon-fit";
 import ProblemDropdown from "../components/editor/ProblemDropdown.tsx";
-import ResizeHandle from "../components/editor/ResizeHandle.tsx";
+import ResizeHandle from "../components/ui/ResizeHandle.tsx";
 import { CodeEditorPane } from "../components/editor/CodeEditorPane.tsx";
-import { TerminalPane } from "../components/editor/TerminalPane.tsx";
+import { TerminalPane, type TerminalPaneHandle } from "../components/editor/TerminalPane.tsx";
 import ProblemDescription from "../components/editor/ProblemDescription.tsx";
 import PlaygroundSidebar from "../components/editor/PlaygroundSidebar.tsx";
 import AppHeader from "../components/ui/AppHeader.tsx";
 import NotificationBanner from "../components/ui/NotificationBanner.tsx";
-import { primaryPillSelected } from "../uiStyles";
-import { getApiWsOrigin } from "../services/apiOrigin";
-import { getTerminalRunPayload, TERMINAL_LANGUAGES, isSupportedLanguage, type SupportedLanguage } from "../services/codeExecution";
-import { runWebGpuProgram, runWebGpuAndSampleCenterPixel } from "../services/webgpuExecution";
+import UnifiedSelect from "../components/ui/UnifiedSelect.tsx";
+import { primaryPillSelected, primaryPillUnselected } from "../uiStyles";
+import { TERMINAL_LANGUAGES, isSupportedLanguage, type SupportedLanguage } from "../services/codeExecution";
+import { runWebGpuAndSampleCenterPixel } from "../services/webgpuExecution";
 import type { ProblemSummary, ProblemLanguage, ProblemCompletionState, ProblemCompletion } from "../api/problems";
 import { listProblems, fetchProblemCompletions, saveProblemProgress, validateProblem } from "../api/problems";
 import type { ValidationResult } from "../types/validation";
 import * as problemConfig from "problem-config";
+import { apiUrl } from "../services/apiOrigin";
 import { updateFile } from "../api/files";
 import type { PlaygroundFile } from "../api/files";
 
 type Workspace = ReturnType<typeof problemConfig.getWorkspaceIds>[number];
-type TerminalViewMode = "terminal" | "webgpu";
 
 const WORKSPACES: Record<
     Workspace,
@@ -87,24 +84,18 @@ type ProblemTestCase = {
     expected_stdout?: string | null;
     expected_values?: number[];
 };
-const CLIENT_ID_KEY = "editor_client_id";
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-
-
-const getClientId = (): string => {
-    try {
-        const existing = window.localStorage.getItem(CLIENT_ID_KEY);
-        if (existing && existing.trim()) return existing.trim();
-        const generated =
-            (typeof crypto !== "undefined" && "randomUUID" in crypto && crypto.randomUUID()) ||
-            `anon-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        window.localStorage.setItem(CLIENT_ID_KEY, generated);
-        return generated;
-    } catch {
-        return "anonymous";
-    }
+type CachedProblemData = {
+    title: string;
+    instructions: string;
+    solution: string | null;
+    tests: ProblemTestCase[];
+    validation: { kind: string } | null;
+    starterCode: string | undefined;
+    language: string | undefined;
 };
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function Editor() {
     const navigate = useNavigate();
@@ -122,6 +113,7 @@ export default function Editor() {
     const [containerId, setContainerId] = useState<string | null>(null);
     const [isCreatingContainer, setIsCreatingContainer] = useState(false);
     const [isRunning, setIsRunning] = useState(false);
+    const terminalPaneRef = useRef<TerminalPaneHandle>(null);
     const [selectedProblem, setSelectedProblem] = useState<ProblemSummary | null>(null);
     const [problemDescription, setProblemDescription] = useState<string>("");
     const [problemSolution, setProblemSolution] = useState<string | null>(null);
@@ -139,11 +131,10 @@ export default function Editor() {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [visibleProblems, setVisibleProblems] = useState<ProblemSummary[]>([]);
     const [isSidebarOverlayOpen, setIsSidebarOverlayOpen] = useState(false);
-    const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(isPlaygroundMode);
+    const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(false);
     const [playgroundFileId, setPlaygroundFileId] = useState<string | null>(null);
     const playgroundSaveTimeoutRef = useRef<number | null>(null);
     const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
-    const [activeCudaView, setActiveCudaView] = useState<TerminalViewMode>("terminal");
     const [problemTests, setProblemTests] = useState<ProblemTestCase[]>([]);
     const [problemValidation, setProblemValidation] = useState<{ kind: string } | null>(null);
     const [isValidating, setIsValidating] = useState(false);
@@ -152,12 +143,10 @@ export default function Editor() {
     const [showNextHint, setShowNextHint] = useState(false);
     const initialProblemIdRef = useRef<string | null>(navState.initialProblemId ?? null);
     const initialCodeRef = useRef<string | null>(navState.initialCode ?? null);
-    const terminalContainerRef = useRef<HTMLDivElement>(null);
-    const terminalWsRef = useRef<WebSocket | null>(null);
-    const pendingRunRef = useRef<{ code: string; language: string } | null>(null);
     const cacheUserIdRef = useRef<string | null>(null);
-    const webgpuCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const debounceSaveTimeoutRef = useRef<number | null>(null);
+    const problemCacheRef = useRef<Map<string, CachedProblemData>>(new Map());
+    const [isProblemDataLoading, setIsProblemDataLoading] = useState(false);
     const [now, setNow] = useState(() => Date.now());
 
     const workspaceOptions = Object.values(WORKSPACES);
@@ -186,89 +175,6 @@ export default function Editor() {
         }
     };
 
-    const createContainer = async (): Promise<string | null> => {
-        setIsCreatingContainer(true);
-        try {
-            const response = await fetch("/api/containers", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ workspace, clientId: getClientId() }),
-            });
-            const data = await response.json();
-            if (data.containerId) {
-                setContainerId(data.containerId);
-                return data.containerId as string;
-            }
-            return null;
-        } catch (err) {
-            console.error("Container creation failed", err);
-            return null;
-        } finally {
-            setIsCreatingContainer(false);
-        }
-    };
-
-    const destroyContainer = async (id: string) => {
-        if (!id) return;
-        terminalWsRef.current = null;
-        try {
-            await fetch(`/api/containers/${id}`, { method: "DELETE" });
-        } catch (err) {
-            console.error("Container destroy failed", err);
-        }
-    };
-
-    const handleResetContainer = async () => {
-        if (containerId) {
-            await destroyContainer(containerId);
-            setContainerId(null);
-        }
-        await createContainer();
-    };
-
-    const runInTerminal = async () => {
-        if (!isSupportedLanguage(selectedLanguage)) return;
-
-        let id = containerId;
-        if (!id) id = await createContainer();
-        if (!id) return;
-
-        const { prepareCommand, payload } = getTerminalRunPayload(selectedLanguage as SupportedLanguage, code);
-        if (prepareCommand) {
-            try {
-                await fetch(`/api/containers/${id}/exec`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ command: prepareCommand }),
-                });
-            } catch (err) {
-                console.error("Failed to prepare run script", err);
-                return;
-            }
-        }
-
-        const tryInject = () => {
-            const ws = terminalWsRef.current;
-            if (ws?.readyState === WebSocket.OPEN) {
-                ws.send(payload);
-                setIsRunning(false);
-                return true;
-            }
-            return false;
-        };
-        if (tryInject()) return;
-        pendingRunRef.current = { code, language: selectedLanguage };
-        setIsRunning(true);
-    };
-
-    const runInWebGPU = () => {
-        const canvas = webgpuCanvasRef.current;
-        const canRunWebGpu = WORKSPACES[workspace]?.isGpu || WORKSPACES[workspace]?.showWebGpuTab;
-        if (canvas && canRunWebGpu) void runWebGpuProgram(canvas, code);
-    };
-
     const markProblemCompleted = async () => {
         const userId = cacheUserIdRef.current ?? loadUserIdFromStorage();
         cacheUserIdRef.current = userId;
@@ -293,9 +199,22 @@ export default function Editor() {
         }
     };
 
-    const loadProblem = async (problemId: string) => {
+    const applyCachedProblem = (cached: CachedProblemData) => {
+        setProblemTitle(cached.title);
+        setProblemDescription(cached.instructions);
+        setProblemSolution(cached.solution);
+        setProblemTests(cached.tests);
+        setProblemValidation(cached.validation);
+    };
+
+    const loadProblem = useCallback(async (problemId: string): Promise<{ starterCode: string | undefined; language: string | undefined } | null> => {
+        const cached = problemCacheRef.current.get(problemId);
+        if (cached) {
+            applyCachedProblem(cached);
+            return { starterCode: cached.starterCode, language: cached.language };
+        }
         try {
-            const response = await fetch(`/api/problems/${problemId}`);
+            const response = await fetch(apiUrl(`/api/problems/${problemId}`));
             if (!response.ok) {
                 console.error("Failed to load problem", problemId, "status:", response.status);
                 setProblemTests([]);
@@ -311,16 +230,18 @@ export default function Editor() {
             }
             const res = data as { problem?: { title?: string; instructions?: string; solution?: string | null; starterCode?: string; language?: string; tests?: unknown; validation?: { kind: string } } };
             if (res?.problem) {
-                setProblemTitle(res.problem.title ?? "");
-                setProblemDescription(res.problem.instructions ?? "");
-                setProblemSolution(res.problem.solution ?? null);
-                const tests = Array.isArray(res.problem.tests) ? (res.problem.tests as ProblemTestCase[]) : [];
-                setProblemTests(tests);
-                setProblemValidation(res.problem.validation ?? null);
-                return {
-                    starterCode: typeof res.problem.starterCode === "string" ? res.problem.starterCode : undefined,
-                    language: res.problem.language as string | undefined,
-                };
+                const p = res.problem;
+                const title = p.title ?? "";
+                const instructions = p.instructions ?? "";
+                const solution = p.solution ?? null;
+                const tests = Array.isArray(p.tests) ? (p.tests as ProblemTestCase[]) : [];
+                const validation = p.validation ?? null;
+                const starterCode = typeof p.starterCode === "string" ? p.starterCode : undefined;
+                const language = p.language as string | undefined;
+                const toCache: CachedProblemData = { title, instructions, solution, tests, validation, starterCode, language };
+                problemCacheRef.current.set(problemId, toCache);
+                applyCachedProblem(toCache);
+                return { starterCode, language };
             }
             setProblemTests([]);
             setProblemValidation(null);
@@ -331,7 +252,7 @@ export default function Editor() {
             setProblemValidation(null);
             return null;
         }
-    };
+    }, []);
 
     // Clear validation result when switching to a different problem.
     useEffect(() => {
@@ -468,8 +389,7 @@ export default function Editor() {
         setProblemDescription("");
         setProblemSolution(null);
         setIsTerminalExpanded(false);
-        setActiveCudaView("terminal");
-        navigate(`/editor/${next}`);
+        navigate(isPlaygroundMode ? `/editor/${next}/playground` : `/editor/${next}`);
     };
 
     const handleSelectProblem = async (problem: ProblemSummary, opts?: { initialCode?: string | null }) => {
@@ -478,30 +398,36 @@ export default function Editor() {
         }
 
         setSelectedProblem(problem);
-        const loaded = await loadProblem(problem.id);
+        const cached = problemCacheRef.current.has(problem.id);
+        if (!cached) setIsProblemDataLoading(true);
+        try {
+            const loaded = await loadProblem(problem.id);
 
-        const lang = (problem.language || loaded?.language || "any").toLowerCase() as ProblemLanguage;
-        if (lang === "any") {
-            setLockedLanguage(null);
-            return;
-        }
-
-        if (isSupportedLanguage(lang)) {
-            setSelectedLanguage(lang);
-            const incoming = opts?.initialCode;
-            const existing = completionDetails[problem.id];
-            if (incoming && incoming.trim().length > 0) {
-                setCode(incoming);
-            } else if (existing && typeof existing.solution_code === "string" && existing.solution_code.trim().length > 0) {
-                setCode(existing.solution_code);
-            } else if (loaded?.starterCode) {
-                setCode(loaded.starterCode);
-            } else {
-                setCode(problemConfig.getDefaultStarterCode(lang));
+            const lang = (problem.language || loaded?.language || "any").toLowerCase() as ProblemLanguage;
+            if (lang === "any") {
+                setLockedLanguage(null);
+                return;
             }
-            setLockedLanguage(lang);
-        } else {
-            setLockedLanguage(null);
+
+            if (isSupportedLanguage(lang)) {
+                setSelectedLanguage(lang);
+                const incoming = opts?.initialCode;
+                const existing = completionDetails[problem.id];
+                if (incoming && incoming.trim().length > 0) {
+                    setCode(incoming);
+                } else if (existing && typeof existing.solution_code === "string" && existing.solution_code.trim().length > 0) {
+                    setCode(existing.solution_code);
+                } else if (loaded?.starterCode) {
+                    setCode(loaded.starterCode);
+                } else {
+                    setCode(problemConfig.getDefaultStarterCode(lang));
+                }
+                setLockedLanguage(lang);
+            } else {
+                setLockedLanguage(null);
+            }
+        } finally {
+            if (!cached) setIsProblemDataLoading(false);
         }
     };
 
@@ -521,21 +447,27 @@ export default function Editor() {
         await handleSelectProblem(next);
     }, [selectedProblem, visibleProblems, handleSelectProblem]);
 
+    const onTerminalRunStart = useCallback(() => setIsRunning(true), []);
+    const onTerminalRunEnd = useCallback(() => setIsRunning(false), []);
+    const onTerminalToggleExpanded = useCallback(() => setIsTerminalExpanded((v) => !v), []);
+
     const handleRunCode = useCallback(async () => {
         await saveProgress("run");
         const wasCompletedBefore =
             selectedProblem && completionStatuses[selectedProblem.id] === "completed";
+        const pane = terminalPaneRef.current;
+        const activeView = pane?.getActiveView() ?? "terminal";
 
         const isWebGpuNumeric =
             selectedProblem &&
             problemValidation?.kind === "webgpu_numeric" &&
             WORKSPACES[workspace]?.isGpu &&
-            activeCudaView === "webgpu";
+            activeView === "webgpu";
 
-        if (isWebGpuNumeric && selectedProblem) {
-            const canvas = webgpuCanvasRef.current;
+        if (isWebGpuNumeric && selectedProblem && pane) {
+            const canvas = pane.getWebGpuCanvas();
             if (canvas) {
-                runInWebGPU();
+                pane.runInWebGpu(code);
                 setIsValidating(true);
                 setLastValidationResult(null);
                 try {
@@ -574,10 +506,10 @@ export default function Editor() {
             selectedProblem &&
             problemTests.length > 0 &&
             isSupportedLanguage(selectedLanguage) &&
-            problemValidation?.kind !== "webgpu_numeric"
+            problemValidation?.kind !== "webgpu_numeric" &&
+            pane
         ) {
-            let id = containerId;
-            if (!id) id = await createContainer();
+            const id = pane.getContainerId();
             if (id) {
                 setIsValidating(true);
                 setLastValidationResult(null);
@@ -609,11 +541,12 @@ export default function Editor() {
             }
         }
 
-        const useWebGpuView = (WORKSPACES[workspace]?.isGpu || WORKSPACES[workspace]?.showWebGpuTab) && activeCudaView === "webgpu";
-        if (useWebGpuView) {
-            runInWebGPU();
-        } else {
-            await runInTerminal();
+        if (pane) {
+            if ((WORKSPACES[workspace]?.isGpu || WORKSPACES[workspace]?.showWebGpuTab) && activeView === "webgpu") {
+                pane.runInWebGpu(code);
+            } else {
+                await pane.runInTerminal(code, selectedLanguage);
+            }
         }
     }, [
         saveProgress,
@@ -621,15 +554,10 @@ export default function Editor() {
         completionStatuses,
         problemValidation,
         workspace,
-        activeCudaView,
         code,
-        containerId,
-        createContainer,
         selectedLanguage,
         problemTests,
         markProblemCompleted,
-        runInWebGPU,
-        runInTerminal,
     ]);
 
     // Global keyboard shortcuts:
@@ -711,7 +639,7 @@ export default function Editor() {
                 };
                 const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
                 if (navigator.sendBeacon) {
-                    navigator.sendBeacon("/api/completions", blob);
+                    navigator.sendBeacon(apiUrl("/api/completions"), blob);
                 }
             } catch {
                 // best-effort only
@@ -806,245 +734,6 @@ export default function Editor() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workspace, isPlaygroundMode]);
 
-    // xterm.js PTY terminal - connects to container via WebSocket
-    useEffect(() => {
-        if (!containerId) return;
-
-        const wsBase = getApiWsOrigin();
-        const wsUrl = `${wsBase}/api/containers/${containerId}/terminal`;
-
-        const socket = new WebSocket(wsUrl);
-        terminalWsRef.current = socket;
-        let term: Terminal | null = null;
-        let fitAddon: FitAddon | null = null;
-        let resizeObserver: ResizeObserver | null = null;
-        let terminalElement: HTMLElement | null = null;
-        let onTerminalContextMenu: ((e: MouseEvent) => void) | null = null;
-        const closedByUs = { current: false };
-
-        const cleanup = () => {
-            closedByUs.current = true;
-            terminalWsRef.current = null;
-            resizeObserver?.disconnect();
-            resizeObserver = null;
-            if (terminalElement && onTerminalContextMenu) {
-                terminalElement.removeEventListener("contextmenu", onTerminalContextMenu);
-            }
-            terminalElement = null;
-            onTerminalContextMenu = null;
-            if (term) {
-                term.dispose();
-                term = null;
-            }
-            fitAddon = null;
-            if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-                socket.close();
-            }
-        };
-
-        const attachTerminal = () => {
-            if (!terminalContainerRef.current) {
-                // Ref not attached yet; try again shortly.
-                window.setTimeout(attachTerminal, 50);
-                return;
-            }
-
-            term = new Terminal({
-                cursorBlink: true,
-                fontSize: 13,
-                fontFamily: "monospace",
-                theme: { background: "#1a1a1a", foreground: "#e5e7eb" },
-            });
-            fitAddon = new FitAddon();
-            term.loadAddon(fitAddon);
-            term.loadAddon(new AttachAddon(socket));
-            term.open(terminalContainerRef.current);
-            fitAddon.fit();
-            term.focus();
-
-            const isMacLike = () => {
-                const platform =
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (navigator as any).userAgentData?.platform ?? navigator.platform ?? "";
-                return /mac|iphone|ipad|ipod/i.test(String(platform));
-            };
-
-            const writeClipboardText = async (text: string) => {
-                if (!text) return false;
-                try {
-                    if (navigator.clipboard?.writeText) {
-                        await navigator.clipboard.writeText(text);
-                        return true;
-                    }
-                } catch {
-                    // fall through to execCommand fallback
-                }
-
-                const textarea = document.createElement("textarea");
-                textarea.value = text;
-                textarea.setAttribute("readonly", "true");
-                textarea.style.position = "fixed";
-                textarea.style.left = "-9999px";
-                textarea.style.top = "-9999px";
-                document.body.appendChild(textarea);
-                textarea.focus();
-                textarea.select();
-                let ok = false;
-                try {
-                    ok = document.execCommand("copy");
-                } catch {
-                    ok = false;
-                } finally {
-                    document.body.removeChild(textarea);
-                }
-                return ok;
-            };
-
-            const readClipboardText = async () => {
-                if (!window.isSecureContext) return null;
-                if (!navigator.clipboard?.readText) return null;
-                try {
-                    return await navigator.clipboard.readText();
-                } catch {
-                    return null;
-                }
-            };
-
-            const getTerminalSelection = () => {
-                if (!term) return "";
-                const xtermSelection = term.getSelection();
-                if (xtermSelection) return xtermSelection;
-                if (window.getSelection) {
-                    const domSel = window.getSelection();
-                    if (domSel && !domSel.isCollapsed) {
-                        return String(domSel);
-                    }
-                }
-                return "";
-            };
-
-            term.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
-                if (ev.type !== "keydown") return true;
-                if (!term) return true;
-
-                const key = (ev.key || "").toLowerCase();
-                const mac = isMacLike();
-                const ctrlOrMeta = mac ? ev.metaKey : ev.ctrlKey;
-                const selection = getTerminalSelection();
-                const hasSelection = selection.length > 0;
-
-                const isCopy =
-                    (ctrlOrMeta && key === "c") ||
-                    (ev.ctrlKey && ev.shiftKey && key === "c") ||
-                    (ev.ctrlKey && key === "insert");
-                const isPaste =
-                    (ctrlOrMeta && key === "v") ||
-                    (ev.ctrlKey && ev.shiftKey && key === "v") ||
-                    (ev.shiftKey && key === "insert");
-
-                // Preserve normal SIGINT behavior: only hijack copy shortcuts when there is a selection.
-                if (isCopy && hasSelection) {
-                    void writeClipboardText(selection);
-                    ev.preventDefault();
-                    return false;
-                }
-
-                // Prefer clipboard API for paste when available; otherwise let xterm handle native paste events.
-                if (isPaste) {
-                    if (window.isSecureContext && navigator.clipboard && typeof navigator.clipboard.readText === "function") {
-                        void readClipboardText().then((text) => {
-                            if (text && term) term.paste(text);
-                        });
-                        ev.preventDefault();
-                        return false;
-                    }
-                    return true;
-                }
-
-                return true;
-            });
-
-            resizeObserver = new ResizeObserver(() => fitAddon && fitAddon.fit());
-            resizeObserver.observe(terminalContainerRef.current);
-
-            terminalElement = term.element ?? null;
-            if (terminalElement) {
-                // Right click: copy selection if present, otherwise paste.
-                onTerminalContextMenu = (e: MouseEvent) => {
-                    if (!term) return;
-                    e.preventDefault();
-                    const selection = term.getSelection();
-                    if (selection) {
-                        void writeClipboardText(selection);
-                        return;
-                    }
-                    void readClipboardText().then((text) => {
-                        if (text && term) term.paste(text);
-                    });
-                };
-                terminalElement.addEventListener("contextmenu", onTerminalContextMenu);
-            }
-
-            const pending = pendingRunRef.current;
-            if (pending && isSupportedLanguage(pending.language)) {
-                const { prepareCommand, payload } = getTerminalRunPayload(pending.language as SupportedLanguage, pending.code);
-                const sendPayload = () => {
-                    socket.send(payload);
-                    pendingRunRef.current = null;
-                    setIsRunning(false);
-                };
-                if (prepareCommand && containerId) {
-                    void fetch(`/api/containers/${containerId}/exec`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ command: prepareCommand }),
-                    }).then(() => sendPayload()).catch(() => sendPayload());
-                } else {
-                    sendPayload();
-                }
-            }
-        };
-
-        socket.onopen = () => {
-            attachTerminal();
-        };
-
-        socket.onerror = () => {
-                if (closedByUs.current) return;
-                if (terminalContainerRef.current && !term) {
-                terminalContainerRef.current.innerHTML =
-                    '<div style="color:var(--danger-color);padding:1rem;">Failed to connect. Is Docker running?</div>';
-            }
-                setContainerId(null);
-        };
-
-        socket.onclose = (ev) => {
-                if (!closedByUs.current && ev.code !== 1000 && ev.code !== 1005) {
-                setContainerId(null);
-            }
-            cleanup();
-        };
-
-        return () => cleanup();
-    }, [containerId]);
-
-    // Destroy container when leaving editor page
-    useEffect(() => {
-        return () => {
-            if (containerId) {
-                destroyContainer(containerId);
-            }
-        };
-    }, [containerId]);
-
-    // Ensure a workspace container is created as soon as the editor loads,
-    // rather than waiting for the first Run Code action.
-    useEffect(() => {
-        if (containerId) return;
-        void createContainer();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [workspace, containerId]);
-
     return (
         <div className="editor-page">
 
@@ -1055,17 +744,17 @@ export default function Editor() {
                             type="button"
                             onClick={() => navigate(`/editor/${workspace}`)}
                             style={{
+                                ...primaryPillUnselected,
                                 marginRight: "0.75rem",
-                                padding: "0.35rem 0.75rem",
-                                borderRadius: "999px",
-                                border: "1px solid var(--border-color)",
-                                background: "var(--bg-tertiary)",
-                                color: "var(--text-secondary)",
-                                fontSize: "0.9rem",
-                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: "0.25rem",
                             }}
+                            title="Back to problems list"
                         >
-                            ← Back to problems
+                            <span style={{ fontSize: "0.9rem", lineHeight: 1 }}>←</span>
+                            <span style={{ fontSize: "0.75rem" }}>Back to problems</span>
                         </button>
                     )}
                     <ProblemDropdown
@@ -1110,19 +799,11 @@ export default function Editor() {
                     />
 
                     {/* Workspace selector (dropdown) */}
-                    <div style={{}}>
-                        <select
-                            value={workspace}
-                            onChange={(e) => void handleWorkspaceChange(e.target.value as Workspace)}
-                            className="editor-workspace-select"
-                        >
-                            {workspaceOptions.map((ws) => (
-                                <option key={ws.id} value={ws.id}>
-                                    {ws.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <UnifiedSelect
+                        value={workspace}
+                        onChange={(v) => void handleWorkspaceChange(v as Workspace)}
+                        options={workspaceOptions.map((ws) => ({ value: ws.id, label: ws.label }))}
+                    />
 
                     <span style={{ marginLeft: "0.75rem" }}>Editor Workspace</span>
                     <div className="editor-header-status-row">
@@ -1168,51 +849,26 @@ export default function Editor() {
                                         name: (problemConfig.PROBLEM_LANGUAGES as Record<string, { label?: string }>)[id]?.label ?? id,
                                     }))
                                     : TERMINAL_LANGUAGES;
-                            const uniqueLanguagesInProblems = visibleProblems.length > 0
-                                ? new Set(visibleProblems.map((p) => p.language)).size
-                                : 0;
-                            const singleLanguage =
-                                !isPlaygroundMode &&
-                                (languageOptions.length <= 1 ||
-                                    (uniqueLanguagesInProblems === 1 && visibleProblems.length > 0));
                             const languageDisabled = isPlaygroundMode ? false : lockedLanguage !== null;
                             return (
-                                <select
+                                <UnifiedSelect
                                     value={selectedLanguage}
-                                    disabled={languageDisabled}
-                                    onChange={(e) => {
-                                        const next = e.target.value;
-                                        setSelectedLanguage(next);
+                                    onChange={(next) => {
                                         if (isPlaygroundMode) {
-                                            setCode(problemConfig.getDefaultStarterCode(next));
+                                            const currentDefault = problemConfig.getDefaultStarterCode(selectedLanguage);
+                                            if (code === currentDefault) {
+                                                setCode(problemConfig.getDefaultStarterCode(next));
+                                            }
+                                            setSelectedLanguage(next);
                                         } else {
+                                            setSelectedLanguage(next);
                                             setCode(problemConfig.getDefaultStarterCode(next));
                                             setLockedLanguage(null);
                                         }
                                     }}
-                                    style={{
-                                        padding: "0.2rem 0.7rem",
-                                        borderRadius: "999px",
-                                        border: "1px solid var(--border-color)",
-                                        backgroundColor: "var(--bg-primary)",
-                                        color: "var(--text-primary)",
-                                        cursor: languageDisabled ? "not-allowed" : "pointer",
-                                        opacity: languageDisabled ? 0.7 : 1,
-                                        ...(singleLanguage
-                                            ? {
-                                                appearance: "none" as const,
-                                                WebkitAppearance: "none" as const,
-                                                MozAppearance: "none" as const,
-                                            }
-                                            : {}),
-                                    }}
-                                >
-                                    {languageOptions.map((lang) => (
-                                        <option key={lang.id} value={lang.id}>
-                                            {lang.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    options={languageOptions.map((lang) => ({ value: lang.id, label: lang.name }))}
+                                    disabled={languageDisabled}
+                                />
                             );
                         })()}
                         {WORKSPACES[workspace]?.isGpu && !WORKSPACES[workspace]?.allowLanguageSwitch && (
@@ -1227,61 +883,47 @@ export default function Editor() {
                     </div>
                 </AppHeader>
 
-                <div style={{ display: "flex", flex: 1, minWidth: 0 }}>
-                    {/* Left: Problem Description (problem mode) or Files/Projects (playground mode); collapsible */}
+                {/* Full-width content area; sidebar overlays from the left so header/main never resize */}
+                <div style={{ position: "relative", flex: 1, minWidth: 0, minHeight: 0, width: "100%" }}>
+                    {/* Sidebar: absolute overlay so collapsing it does not affect header or editor/terminal width */}
                     {!isTerminalExpanded && (
-                        <>
+                        <div
+                            className="editor-side-panel-wrapper"
+                            style={{
+                                position: "absolute",
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: isSidePanelCollapsed ? 0 : "30%",
+                                minWidth: 0,
+                                maxWidth: "100%",
+                                overflow: "hidden",
+                                transition: "width 0.25s ease-out",
+                                display: "flex",
+                                flexDirection: "column",
+                                zIndex: 2,
+                                borderRight: isSidePanelCollapsed ? "none" : "1px solid var(--border-color)",
+                                boxSizing: "border-box",
+                            }}
+                        >
                             <div
-                                className="editor-side-panel-wrapper"
                                 style={{
-                                    width: isSidePanelCollapsed ? 0 : "30%",
-                                    minWidth: 0,
-                                    overflow: "hidden",
-                                    transition: "width 0.25s ease-out",
-                                    flexShrink: 0,
+                                    width: "100%",
+                                    minWidth: isSidePanelCollapsed ? 0 : 320,
+                                    height: "100%",
                                     display: "flex",
                                     flexDirection: "column",
+                                    position: "relative",
+                                    backgroundColor: "var(--bg-secondary)",
                                 }}
                             >
-                                <div
-                                    style={{
-                                        width: "100%",
-                                        minWidth: 320,
-                                        height: "100%",
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        position: "relative",
-                                        backgroundColor: "var(--bg-secondary)",
-                                    }}
-                                >
-                                    <button
-                                        type="button"
-                                        aria-label={isSidePanelCollapsed ? "Expand side panel" : "Collapse side panel"}
-                                        onClick={() => setIsSidePanelCollapsed((v) => !v)}
-                                        className="editor-side-panel-toggle"
-                                        style={{
-                                            position: "absolute",
-                                            top: "0.75rem",
-                                            right: "0.75rem",
-                                            zIndex: 10,
-                                            padding: "0.35rem 0.5rem",
-                                            borderRadius: "6px",
-                                            border: "1px solid var(--border-color)",
-                                            background: "var(--bg-tertiary)",
-                                            color: "var(--text-secondary)",
-                                            cursor: "pointer",
-                                            fontSize: "1rem",
-                                            lineHeight: 1,
-                                        }}
-                                    >
-                                        {isSidePanelCollapsed ? "◀" : "▶"}
-                                    </button>
-                                    {isPlaygroundMode ? (
-                                        <PlaygroundSidebar
+                                {isPlaygroundMode ? (
+                                    <PlaygroundSidebar
                                             selectedFileId={playgroundFileId}
                                             code={code}
                                             selectedLanguage={selectedLanguage}
                                             defaultCodeForNewFile={problemConfig.getDefaultStarterCode(workspaceDefinition.defaultLanguage)}
+                                            codeTheme={workspaceDefinition.codeTheme}
                                             onSelectFile={async (file: PlaygroundFile) => {
                                                 await savePlaygroundFile("switch");
                                                 setCode(file.code);
@@ -1304,29 +946,35 @@ export default function Editor() {
                                             workspace={workspace}
                                             isPlaygroundMode={isPlaygroundMode}
                                             onGoToPlayground={() => navigate(`/editor/${workspace}/playground`)}
+                                            isLoading={isProblemDataLoading}
                                         />
                                     )}
                                 </div>
                             </div>
-                            {!isSidePanelCollapsed && <ResizeHandle />}
-                        </>
                     )}
 
-                    {/* Right: Editor & Terminal */}
+                    {/* Editor & Terminal: positioned to the right of the sidebar so run button and code are not behind it */}
                     <div
                         style={{
-                            flex: 1,
+                            position: "absolute",
+                            left: isSidePanelCollapsed ? 0 : "30%",
+                            top: 0,
+                            right: 0,
+                            bottom: 0,
+                            width: isSidePanelCollapsed ? "100%" : "70%",
+                            transition: "left 0.25s ease-out, width 0.25s ease-out",
                             minWidth: 0,
+                            minHeight: 0,
                             display: "flex",
                             flexDirection: "column",
-                            position: "relative",
+                            overflow: "hidden",
                         }}
                     >
-                        {!isTerminalExpanded && isSidePanelCollapsed && (
+                        {!isTerminalExpanded && (
                             <button
                                 type="button"
-                                aria-label="Expand side panel"
-                                onClick={() => setIsSidePanelCollapsed(false)}
+                                aria-label={isSidePanelCollapsed ? "Expand side panel" : "Collapse side panel"}
+                                onClick={() => setIsSidePanelCollapsed((v) => !v)}
                                 style={{
                                     position: "absolute",
                                     left: 0,
@@ -1346,10 +994,10 @@ export default function Editor() {
                                     boxShadow: "2px 0 8px rgba(0,0,0,0.2)",
                                 }}
                             >
-                                ◀
+                                {isSidePanelCollapsed ? "▶" : "◀"}
                             </button>
                         )}
-                        <PanelGroup direction="vertical" style={{ flex: 1 }}>
+                        <PanelGroup direction="vertical" style={{ flex: 1, minHeight: 0 }}>
 
                             {/* Top: Code Editor */}
                             {!isTerminalExpanded && (
@@ -1371,19 +1019,18 @@ export default function Editor() {
 
                             {!isTerminalExpanded && <ResizeHandle />}
 
-                            {/* Bottom: Interactive Terminal (real PTY via WebSocket or WebGPU for CUDA) */}
+                            {/* Bottom: Terminal (PTY, WebGPU, Images) - owned by TerminalPane */}
                             <Panel defaultSize={isTerminalExpanded ? 100 : 30} minSize={15}>
                                 <TerminalPane
-                                    containerId={containerId}
+                                    ref={terminalPaneRef}
+                                    workspace={workspace}
                                     isExpanded={isTerminalExpanded}
-                                    onToggleExpanded={() => setIsTerminalExpanded((v) => !v)}
-                                    onResetContainer={handleResetContainer}
-                                    isCreatingContainer={isCreatingContainer}
-                                    showWebGpuTab={workspaceDefinition.showWebGpuTab}
-                                    activeView={activeCudaView}
-                                    onActiveViewChange={setActiveCudaView}
-                                    terminalContainerRef={terminalContainerRef}
-                                    webgpuCanvasRef={webgpuCanvasRef}
+                                    onToggleExpanded={onTerminalToggleExpanded}
+                                    code={code}
+                                    onContainerIdChange={setContainerId}
+                                    onRunStart={onTerminalRunStart}
+                                    onRunEnd={onTerminalRunEnd}
+                                    onCreatingChange={setIsCreatingContainer}
                                 />
                             </Panel>
 
