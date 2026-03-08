@@ -1,6 +1,10 @@
-import type { Difficulty, ProblemLanguage } from "problem-config";
+import * as problemConfig from "problem-config";
+import { apiUrl } from "../services/apiOrigin";
 
-export type { Difficulty, ProblemLanguage };
+/** Difficulty level for problems. Derived from problem-config. */
+export type Difficulty = (typeof problemConfig.DIFFICULTIES)[number];
+/** Problem language id. Derived from problem-config. */
+export type ProblemLanguage = (typeof problemConfig.PROBLEM_LANGUAGE_IDS)[number];
 
 export interface ProblemSummary {
     id: string;
@@ -135,7 +139,7 @@ export async function listProblems(params: ListProblemsParams): Promise<ListProb
     if (params.limit) searchParams.set("limit", (params.limit ?? 50).toString());
 
     const query = searchParams.toString();
-    const url = query ? `/api/problems?${query}` : "/api/problems";
+    const url = apiUrl(query ? `/api/problems?${query}` : "/api/problems");
 
     const res = await fetch(url);
     if (!res.ok) {
@@ -160,7 +164,7 @@ export async function listProblems(params: ListProblemsParams): Promise<ListProb
 }
 
 export async function getProblemOfTheDay(): Promise<ProblemOfTheDay> {
-    const res = await fetch("http://localhost:3000/api/problems/of-the-day");
+    const res = await fetch(apiUrl("/api/problems/of-the-day"));
     if (!res.ok) {
         throw new Error(`Failed to fetch problem of the day: ${res.status}`);
     }
@@ -171,7 +175,7 @@ export async function getProblemOfTheDay(): Promise<ProblemOfTheDay> {
 export async function fetchProblemCompletions(userId: string): Promise<ProblemCompletion[]> {
     const params = new URLSearchParams();
     params.set("userId", userId);
-    const res = await fetch(`/api/completions?${params.toString()}`);
+    const res = await fetch(apiUrl(`/api/completions?${params.toString()}`));
     if (!res.ok) {
         throw new Error(`Failed to fetch problem completions: ${res.status}`);
     }
@@ -208,12 +212,12 @@ export interface ValidateProblemParams {
     solutionCode: string;
     containerId: string | null;
     language: string;
-    /** For webgpu_numeric: client-run output per test (e.g. center pixel [r,g,b]). */
+    /** For numeric validation kinds: client-run output per test (e.g. [r,g,b] or numeric values). */
     testOutputs?: Array<{ testId: string; values: number[] }>;
 }
 
 export async function validateProblem(problemId: string, params: ValidateProblemParams): Promise<ValidationResult> {
-    const res = await fetch(`/api/problems/${problemId}/validate`, {
+    const res = await fetch(apiUrl(`/api/problems/${problemId}/validate`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

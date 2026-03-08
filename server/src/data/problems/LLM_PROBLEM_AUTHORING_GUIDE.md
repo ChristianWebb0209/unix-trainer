@@ -162,7 +162,7 @@ Validation is **per test**: each test object can specify which validation method
 3. **Problem-level default:** if the problem has `validation: { "kind": "cuda_numeric" }`, any test that did not specify a method uses that kind.
 4. **Global default:** if nothing is set for a test and there is no problem default, the validator uses **`stdout_exact`**.
 
-**Available kinds:** `stdout_exact`, `terminal_command`, `terminal_observation`, `cuda_numeric`, `webgpu_numeric`. Match the kind to the test’s expectations (`expected_stdout` for stdout-based, `expected_values` for numeric).
+**Available kinds:** `stdout_exact`, `terminal_command`, `terminal_observation`, `cuda_numeric`. Match the kind to the test’s expectations (`expected_stdout` for stdout-based, `expected_values` for numeric).
 
 ### 4.3 Test case shape
 

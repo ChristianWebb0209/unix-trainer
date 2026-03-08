@@ -6,6 +6,7 @@ import { StreamLanguage, indentUnit } from "@codemirror/language";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { LSPClient, languageServerExtensions } from "@codemirror/lsp-client";
 import type { Extension } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import type { CSSProperties } from "react";
 import * as problemConfig from "problem-config";
 import { simpleWebSocketTransport } from "../../services/lspTransport";
@@ -17,6 +18,13 @@ import {
 } from "../../services/lspFileUri";
 
 const shellLanguage = StreamLanguage.define(shell);
+
+/** ~10 lines of extra scroll space below the last line. */
+const scrollPastEnd = EditorView.theme({
+    "& .cm-scroller": {
+        paddingBottom: "15em",
+    },
+});
 
 function getLanguageExtension(lang: string): Extension[] {
     const id = lang.toLowerCase();
@@ -60,32 +68,45 @@ export function CodeEditorPane({
 }: CodeEditorPaneProps) {
     const [lspExtension, setLspExtension] = useState<Extension | null>(null);
     const lspClientRef = useRef<LSPClient | null>(null);
+    const lspForRef = useRef<{ containerId: string; language: string } | null>(null);
 
     useEffect(() => {
         if (!containerId || !language || !isLspSupported(language)) {
+            lspForRef.current = null;
             if (lspClientRef.current) {
                 lspClientRef.current.disconnect();
                 lspClientRef.current = null;
             }
-            setLspExtension(null);
+            queueMicrotask(() => setLspExtension(null));
             return;
         }
 
         const uri = getLspFileUri(language);
         const languageId = getLspLanguageId(language);
         const url = getLspWebSocketUrl(containerId, language);
+        const thisConnection = { containerId, language };
+        lspForRef.current = thisConnection;
 
         let cancelled = false;
+        if (typeof window !== "undefined") {
+            console.debug("[LSP] client connecting", { language, containerId: containerId.slice(0, 12) });
+        }
         simpleWebSocketTransport(url)
             .then((transport) => {
                 if (cancelled) return;
+                if (lspForRef.current?.containerId !== thisConnection.containerId || lspForRef.current?.language !== thisConnection.language) return;
                 const client = new LSPClient({
                     extensions: languageServerExtensions(),
                     timeout: 60_000,
                 }).connect(transport);
                 lspClientRef.current = client;
                 const plugin = client.plugin(uri, languageId);
-                setLspExtension(plugin);
+                if (lspForRef.current?.containerId === thisConnection.containerId && lspForRef.current?.language === thisConnection.language) {
+                    setLspExtension(plugin);
+                } else {
+                    client.disconnect();
+                    lspClientRef.current = null;
+                }
             })
             .catch((err) => {
                 if (!cancelled) console.warn("[LSP] Failed to connect:", err);
@@ -97,13 +118,14 @@ export function CodeEditorPane({
                 lspClientRef.current.disconnect();
                 lspClientRef.current = null;
             }
-            setLspExtension(null);
+            queueMicrotask(() => setLspExtension(null));
         };
     }, [containerId, language]);
 
     const extensions = useMemo(() => {
         const base = getLanguageExtension(language);
-        return lspExtension ? [...base, lspExtension] : base;
+        const withTheme = [...base, scrollPastEnd];
+        return lspExtension ? [...withTheme, lspExtension] : withTheme;
     }, [language, lspExtension]);
 
     const renderLabel = () => {
@@ -139,7 +161,7 @@ export function CodeEditorPane({
                 style={{
                     position: "absolute",
                     bottom: "10px",
-                    left: "10px",
+                    left: "44px",
                     zIndex: 10,
                     display: "inline-flex",
                     alignItems: "center",

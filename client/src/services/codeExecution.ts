@@ -2,13 +2,14 @@
  * Code Execution Service
  * ----------------------
  * Interprets editor content by language and produces shell commands
- * to run in the terminal. Designed for dynamic language support.
+ * to run in the terminal. Uses problem-config as single source of truth.
  */
 
-export type SupportedLanguage = "unix" | "awk" | "bash" | "c" | "cpp" | "rust" | "cuda" | "vulkan" | "sycl";
-
-// Shared problem configuration (ESM module at repo root)
+import type { ProblemLanguage } from "../api/problems";
 import * as problemConfig from "problem-config";
+
+/** Languages that can run in the terminal; derived from problem-config (all except "any"). */
+export type SupportedLanguage = ProblemLanguage;
 
 const SUPPORTED: SupportedLanguage[] = problemConfig.PROBLEM_LANGUAGE_IDS.filter(
   (id): id is SupportedLanguage => id !== "any"
@@ -36,16 +37,8 @@ export function buildRunCommand(language: SupportedLanguage, code: string): stri
   const escaped = encoded.replace(/'/g, "'\"'\"'");
 
   switch (language) {
-    case "bash":
-      return `echo '${escaped}' | base64 -d > /tmp/run.sh && bash /tmp/run.sh`;
-    case "awk":
-      return `echo '${escaped}' | base64 -d > /tmp/run.awk && awk -f /tmp/run.awk`;
-    case "unix":
-      return `echo '${escaped}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
     case "cuda":
       return `echo '${escaped}' | base64 -d > /tmp/main.cu && nvcc /tmp/main.cu -o /tmp/a.out && /tmp/a.out`;
-    case "vulkan":
-      return `echo '${escaped}' | base64 -d > /tmp/main.cpp && g++ -std=c++17 -o /tmp/a.out /tmp/main.cpp -lvulkan && /tmp/a.out`;
     case "sycl":
       return `echo '${escaped}' | base64 -d > /tmp/main.cpp && dpcpp -o /tmp/a.out /tmp/main.cpp && /tmp/a.out`;
     case "c":
@@ -54,6 +47,10 @@ export function buildRunCommand(language: SupportedLanguage, code: string): stri
       return `echo '${escaped}' | base64 -d > /tmp/main.cpp && g++ -std=c++17 -o /tmp/a.out /tmp/main.cpp && /tmp/a.out`;
     case "rust":
       return `echo '${escaped}' | base64 -d > /tmp/main.rs && rustc -o /tmp/a.out /tmp/main.rs && /tmp/a.out`;
+    case "python":
+    case "triton":
+    case "pytorch":
+      return `echo '${escaped}' | base64 -d > /tmp/main.py && python3 /tmp/main.py`;
     default:
       return `echo '${escaped}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
   }
@@ -73,36 +70,15 @@ export type TerminalRunPayload = {
  * pending payload is sent when it connects.
  */
 export function getTerminalRunPayload(language: SupportedLanguage, code: string): TerminalRunPayload {
-  const encoded = toBase64(code);
-  const escaped = encoded.replace(/'/g, "'\"'\"'");
-
-  switch (language) {
-    case "awk":
-      return {
-        prepareCommand: `echo '${escaped}' | base64 -d > /tmp/run.awk`,
-        payload: "printf '\\n' | awk -f /tmp/run.awk\r\n",
-      };
-    case "bash":
-      return {
-        prepareCommand: `echo '${escaped}' | base64 -d > /tmp/run.sh`,
-        payload: "bash /tmp/run.sh\r\n",
-      };
-    case "unix":
-      return {
-        prepareCommand: `echo '${escaped}' | base64 -d > /tmp/run.sh`,
-        payload: "sh /tmp/run.sh\r\n",
-      };
-    default:
-      return {
-        prepareCommand: null,
-        payload: buildRunCommand(language, code) + "\r\n",
-      };
-  }
+  return {
+    prepareCommand: null,
+    payload: buildRunCommand(language, code) + "\r\n",
+  };
 }
 
+/** Kernel Lab languages shown in the terminal language dropdown (excludes cuda/sycl which use workspace selector). */
 export const TERMINAL_LANGUAGES: { id: SupportedLanguage; name: string }[] = SUPPORTED
-  // GPU languages (cuda, vulkan, sycl) use the GPU workspace dropdown only.
-  .filter((id) => id !== "cuda" && id !== "vulkan" && id !== "sycl")
+  .filter((id) => id !== "cuda" && id !== "sycl")
   .map((id) => ({
     id,
     name: problemConfig.PROBLEM_LANGUAGES[id].label || id,

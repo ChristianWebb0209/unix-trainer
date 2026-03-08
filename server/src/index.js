@@ -9,8 +9,15 @@ import { createContainerRouter } from "./routes/container.routes.js";
 import { problemRouter } from "./routes/problem.routes.js";
 import { createValidationRouter } from "./routes/validation.routes.js";
 import { completionRouter } from "./routes/completion.routes.js";
+import { fileRouter } from "./routes/file.routes.js";
+import { projectRouter } from "./routes/project.routes.js";
 import { ContainerService } from "./services/container.service.js";
+import { FileService } from "./services/file.service.js";
 import { seedProblemsToSupabase } from "../scripts/problem-seeder.js";
+import { syncProjectsToDb } from "../scripts/sync-projects.js";
+import { syncHelpFilesToDb } from "../scripts/sync-help-files.js";
+import { helpFileRouter } from "./routes/helpFile.routes.js";
+import { testConnection } from "./config/database.config.js";
 import { setupLSPWebSocket } from "./services/lsp-ws.js";
 import { setupTerminalWebSocket } from "./services/terminal-ws.js";
 import { ensureDockerRunning } from "./utils/docker-health.js";
@@ -22,7 +29,6 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 const PORT = process.env.PORT || 3000;
 
 async function bootstrap() {
-  // Ensure Docker is up before we create any containers or accept API traffic.
   try {
     await ensureDockerRunning();
   } catch (err) {
@@ -35,9 +41,14 @@ async function bootstrap() {
 
   let hasRetriedPort = false;
 
+  const containerService = new ContainerService();
+  const fileService = new FileService();
+
   const startListening = () => {
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      setupTerminalWebSocket(httpServer, containerService);
+      setupLSPWebSocket(httpServer, containerService);
     });
   };
 
@@ -99,26 +110,40 @@ async function bootstrap() {
     }
   });
 
-  const containerService = new ContainerService();
-  setupTerminalWebSocket(httpServer, containerService);
-  setupLSPWebSocket(httpServer, containerService);
-
   app.use(cors());
   app.use(express.json());
 
-  app.use("/api/containers", createContainerRouter(containerService));
+  app.use("/api/containers", createContainerRouter(containerService, fileService));
   app.use("/api/problems", problemRouter);
   app.use("/api/problems", createValidationRouter(containerService));
   app.use("/api/completions", completionRouter);
+  app.use("/api/files", fileRouter);
+  app.use("/api/projects", projectRouter);
+  app.use("/api/help-files", helpFileRouter);
 
   app.get("/", (req, res) => {
     res.send("API running");
   });
 
-  // Sync problems from local JSON into Supabase on startup (upsert: insert new, update existing by id)
-  void seedProblemsToSupabase().catch((err) => {
-    console.error("[Server] Problem seed failed:", err?.message ?? err);
-  }).finally(() => {
+  // Sync problems and projects on startup, then listen. Attach WebSocket upgrade
+  // only after the server is listening to avoid Windows libuv handle assertion
+  // (UV_HANDLE_CLOSING in src/win/async.c) when upgrade handlers are added before listen.
+  const runStartupSync = async () => {
+    await seedProblemsToSupabase().catch((err) => {
+      console.error("[Server] Problem seed failed:", err?.message ?? err);
+    });
+    const dbOk = await testConnection();
+    if (dbOk) {
+      await syncProjectsToDb().catch((err) => {
+        console.error("[Server] Project sync failed:", err?.message ?? err);
+      });
+      await syncHelpFilesToDb().catch((err) => {
+        console.error("[Server] Help files sync failed:", err?.message ?? err);
+      });
+    }
+  };
+
+  void runStartupSync().finally(() => {
     startListening();
   });
 

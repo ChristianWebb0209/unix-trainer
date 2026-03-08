@@ -4,13 +4,7 @@ import { supabase } from "../supabaseClient";
 import type { ProblemLanguage, ProblemSummary, ProblemCompletionState, ProblemCompletion } from "../api/problems";
 import { listProblems, fetchProblemCompletions } from "../api/problems";
 import AppHeader from "../components/ui/AppHeader";
-// Shared problem configuration
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-expect-error – external ESM config module without bundled types
-import * as problemConfigModule from "../../../problem-config.mjs";
-const problemConfig = problemConfigModule as {
-  PROBLEM_LANGUAGE_IDS: string[];
-};
+import * as problemConfig from "problem-config";
 
 export default function Account() {
   const navigate = useNavigate();
@@ -83,16 +77,10 @@ export default function Account() {
   );
 
   const statsByLanguage = useMemo(() => {
-    const result: Record<
+    const result: Partial<Record<
       ProblemLanguage,
       { completed: number; attempted: number; notAttempted: number }
-    > = {
-      bash: { completed: 0, attempted: 0, notAttempted: 0 },
-      awk: { completed: 0, attempted: 0, notAttempted: 0 },
-      unix: { completed: 0, attempted: 0, notAttempted: 0 },
-      cuda: { completed: 0, attempted: 0, notAttempted: 0 },
-      any: { completed: 0, attempted: 0, notAttempted: 0 },
-    };
+    >> = {};
 
     for (const lang of languages) {
       const relevant = problems.filter((p) => p.language === lang);
@@ -107,7 +95,7 @@ export default function Account() {
       result[lang] = { completed, attempted, notAttempted };
     }
     return result;
-  }, [problems, completionStates]);
+  }, [languages, problems, completionStates]);
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -403,16 +391,13 @@ export default function Account() {
           >
             {languages.map((lang) => {
               const stats = statsByLanguage[lang];
+              if (!stats) return null;
               const total = stats.completed + stats.attempted + stats.notAttempted;
               const completedPct = total ? (stats.completed / total) * 100 : 0;
               const attemptedPct = total ? (stats.attempted / total) * 100 : 0;
               const notAttemptedPct = Math.max(0, 100 - completedPct - attemptedPct);
 
-              const label =
-                lang === "bash" ? "Bash" :
-                lang === "awk" ? "Awk" :
-                lang === "unix" ? "Unix" :
-                "CUDA";
+              const label = problemConfig.PROBLEM_LANGUAGES[lang]?.label ?? lang;
 
               return (
                 <div

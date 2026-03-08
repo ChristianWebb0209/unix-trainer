@@ -1,4 +1,6 @@
+import { getApiOrigin } from "../services/apiOrigin";
+
 export async function pingServer() {
-  const res = await fetch("http://localhost:3000/")
-  return res.text()
+  const res = await fetch(`${getApiOrigin()}/`);
+  return res.text();
 }

@@ -50,7 +50,7 @@ export class ProblemService {
         }
         const { data, error } = await supabaseAdmin
             .from('problems')
-            .select('id,title,instructions,solution,difficulty,language,tests,starter_code,validation')
+            .select('id,title,instructions,solution,difficulty,language,tests,starter_code')
             .eq('id', problemId)
             .single();
         if (error) {

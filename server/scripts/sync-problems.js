@@ -4,7 +4,7 @@
  * Synchronizes problems from JSON files to the database (Supabase schema).
  *
  * Reads JSON from src/data/problems/*.json (top-level only).
- * Table: public.problems (id, title, instructions, solution, difficulty, language, tests, starter_code, validation).
+ * Table: public.problems (id, title, instructions, solution, difficulty, language, tests, starter_code).
  *
  * Usage:
  *   npm run db:sync-problems              Upsert problems (insert or update by id).
@@ -69,7 +69,6 @@ function loadProblemsFromJson() {
             language: prob.language ?? fileLanguage,
             tests: Array.isArray(prob.tests) ? prob.tests : [],
             starter_code: prob.starterCode ?? prob.starter_code ?? null,
-            validation: prob.validation ?? null,
           });
         }
       }
@@ -92,8 +91,7 @@ async function ensureTableExists() {
       difficulty VARCHAR(20) NOT NULL CHECK (difficulty IN ('learn', 'easy', 'medium', 'hard')),
       language VARCHAR(50) NOT NULL,
       tests JSONB NOT NULL DEFAULT '[]'::jsonb,
-      starter_code TEXT,
-      validation JSONB DEFAULT NULL
+      starter_code TEXT
     )
   `);
 
@@ -103,10 +101,6 @@ async function ensureTableExists() {
   await query(`
     CREATE INDEX IF NOT EXISTS idx_problems_language ON public.problems(language)
   `);
-
-  await query(`
-    ALTER TABLE public.problems ADD COLUMN IF NOT EXISTS validation JSONB DEFAULT NULL
-  `).catch(() => {});
 
   console.log("[Sync] problems table ensured");
 }
@@ -149,13 +143,12 @@ async function syncProblems() {
   let errors = 0;
 
   const testsJson = (v) => (v == null ? "[]" : JSON.stringify(Array.isArray(v) ? v : []));
-  const validationJson = (v) => (v == null ? null : JSON.stringify(v));
 
   for (const prob of problems) {
     try {
       await query(
-        `INSERT INTO public.problems (id, title, instructions, solution, difficulty, language, tests, starter_code, validation)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb)
+        `INSERT INTO public.problems (id, title, instructions, solution, difficulty, language, tests, starter_code)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
          ON CONFLICT (id) DO UPDATE SET
            title = EXCLUDED.title,
            instructions = EXCLUDED.instructions,
@@ -163,8 +156,7 @@ async function syncProblems() {
            difficulty = EXCLUDED.difficulty,
            language = EXCLUDED.language,
            tests = EXCLUDED.tests,
-           starter_code = EXCLUDED.starter_code,
-           validation = EXCLUDED.validation`,
+           starter_code = EXCLUDED.starter_code`,
         [
           prob.id,
           prob.title,
@@ -174,7 +166,6 @@ async function syncProblems() {
           prob.language,
           testsJson(prob.tests),
           prob.starter_code,
-          validationJson(prob.validation),
         ]
       );
       synced++;

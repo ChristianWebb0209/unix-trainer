@@ -44,6 +44,53 @@ CREATE INDEX IF NOT EXISTS idx_completions_user_id ON public.problem_completions
 CREATE INDEX IF NOT EXISTS idx_completions_problem_id ON public.problem_completions(problem_id);
 CREATE INDEX IF NOT EXISTS idx_completions_completed_at ON public.problem_completions(completed_at DESC);
 
+-- 4. Playground files (user_id, name, code)
+CREATE TABLE IF NOT EXISTS public.files (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    code TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_files_user_id ON public.files(user_id);
+
+-- 5. Projects (synced from src/data/projects/*.md). No created_at/updated_at.
+CREATE TABLE IF NOT EXISTS public.projects (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL DEFAULT ''
+);
+ALTER TABLE public.projects DROP COLUMN IF EXISTS created_at;
+ALTER TABLE public.projects DROP COLUMN IF EXISTS updated_at;
+
+-- 6. Help files (synced from src/data/help-files/*.md). Read-only docs for playground.
+CREATE TABLE IF NOT EXISTS public.help_files (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL DEFAULT ''
+);
+
+ALTER TABLE public.files ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own files" ON public.files FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create their own files" ON public.files FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own files" ON public.files FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own files" ON public.files FOR DELETE USING (auth.uid() = user_id);
+
+GRANT ALL ON public.files TO authenticated;
+
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view projects" ON public.projects FOR SELECT USING (true);
+GRANT SELECT ON public.projects TO authenticated;
+GRANT SELECT ON public.projects TO anon;
+
+ALTER TABLE public.help_files ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view help_files" ON public.help_files FOR SELECT USING (true);
+GRANT SELECT ON public.help_files TO authenticated;
+GRANT SELECT ON public.help_files TO anon;
+
 -- Set up Row Level Security (RLS)
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.problems ENABLE ROW LEVEL SECURITY;

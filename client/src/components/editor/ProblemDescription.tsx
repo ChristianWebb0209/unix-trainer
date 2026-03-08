@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, type ReactNode } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -182,6 +182,8 @@ function ResolvedContentBody({
 const truncateTitle = (title: string, maxLen: number) =>
   title.length > maxLen ? `${title.slice(0, maxLen)}...` : title;
 
+type Workspace = string;
+
 export interface ProblemDescriptionProps {
   selectedProblem: ProblemSummary | null;
   problemTitle: string;
@@ -194,6 +196,11 @@ export interface ProblemDescriptionProps {
   codeTheme: Extension;
   /** Reference solution (schema: solution). Null when not available. Same rendering as description (code blocks in read-only CodeMirror). */
   solution: string | null;
+  workspace?: Workspace;
+  isPlaygroundMode?: boolean;
+  onGoToPlayground?: () => void;
+  /** True while full problem data is being fetched (show Loading... in description area). */
+  isLoading?: boolean;
 }
 
 export default function ProblemDescription({
@@ -206,9 +213,17 @@ export default function ProblemDescription({
   lastValidationResult,
   codeTheme,
   solution,
+  workspace: _unusedWorkspace,
+  isPlaygroundMode,
+  onGoToPlayground,
+  isLoading = false,
 }: ProblemDescriptionProps) {
+  void _unusedWorkspace;
   const [activeTab, setActiveTab] = useState<TabKind>("problem");
   const validationResultRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const SCROLL_STORAGE_KEY_PREFIX = "editor_problem_scroll_";
 
   useEffect(() => {
     if (!lastValidationResult) return;
@@ -219,6 +234,36 @@ export default function ProblemDescription({
     });
     return () => cancelAnimationFrame(id);
   }, [lastValidationResult]);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !selectedProblem?.id) return;
+    const key = `${SCROLL_STORAGE_KEY_PREFIX}${selectedProblem.id}_${activeTab}`;
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved !== null) {
+        const scrollTop = parseInt(saved, 10);
+        if (Number.isFinite(scrollTop)) {
+          requestAnimationFrame(() => {
+            el.scrollTop = scrollTop;
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [selectedProblem?.id, activeTab]);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !selectedProblem?.id) return;
+    const key = `${SCROLL_STORAGE_KEY_PREFIX}${selectedProblem.id}_${activeTab}`;
+    try {
+      localStorage.setItem(key, String(el.scrollTop));
+    } catch {
+      // ignore
+    }
+  }, [selectedProblem?.id, activeTab]);
 
   return (
     <div
@@ -437,6 +482,8 @@ export default function ProblemDescription({
 
       {/* Scrollable main content: problem/solution body + validation */}
       <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
         style={{
           flex: 1,
           minHeight: 0,
@@ -445,10 +492,18 @@ export default function ProblemDescription({
         }}
       >
         {/* Problem (instructions) or Solution (reference solution); both support markdown and ``` code blocks */}
-        {!problemDescription && activeTab === "problem" && (
+        {activeTab === "problem" && selectedProblem && isLoading && (
+          <p className="problem-description-loading" style={{ color: "var(--text-secondary)", marginTop: "1rem" }}>
+            Loading
+            <span className="problem-description-loading-dots" aria-hidden>
+              <span>.</span><span>.</span><span>.</span>
+            </span>
+          </p>
+        )}
+        {!problemDescription && activeTab === "problem" && !isLoading && (
           <p style={{ color: "var(--text-secondary)" }}>Select a problem from the <strong>Problems</strong> menu above to view its description.</p>
         )}
-        {activeTab === "problem" && problemDescription && (
+        {activeTab === "problem" && problemDescription && !isLoading && (
           <ResolvedContentBody content={problemDescription} codeTheme={codeTheme} />
         )}
         {activeTab === "solution" && (
@@ -519,7 +574,7 @@ export default function ProblemDescription({
       )}
       </div>
 
-      {/* Problem / Solution toggle at bottom */}
+      {/* Problem / Solution toggle at bottom; Playground button to the right */}
       <div
         style={{
           flexShrink: 0,
@@ -527,6 +582,8 @@ export default function ProblemDescription({
           borderTop: "1px solid var(--border-color)",
           display: "flex",
           gap: "0.5rem",
+          alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
         <button
@@ -543,6 +600,16 @@ export default function ProblemDescription({
         >
           Solution
         </button>
+        {onGoToPlayground && !isPlaygroundMode && (
+          <button
+            type="button"
+            className="editor-tab-button"
+            onClick={onGoToPlayground}
+            style={{ marginLeft: "auto" }}
+          >
+            Playground
+          </button>
+        )}
       </div>
     </div>
   );
