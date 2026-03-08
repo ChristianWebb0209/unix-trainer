@@ -24,8 +24,9 @@
  * - Never expose raw errors
  */
 export class ContainerController {
-    constructor(containerService) {
+    constructor(containerService, fileService) {
         this.containerService = containerService;
+        this.fileService = fileService;
     }
 
     async createContainer(req, res) {
@@ -35,6 +36,7 @@ export class ContainerController {
             const rawLang = body.language;
             const rawClientId = body.clientId;
             const rawWorkspace = body.workspace;
+            const rawUserId = body.userId;
             const candidateLang = typeof rawLang === 'string' ? rawLang.toLowerCase() : '';
             const language = ALLOWED_LANGUAGES.includes(candidateLang) ? candidateLang : EXECUTION_DEFAULTS.language;
 
@@ -54,6 +56,21 @@ export class ContainerController {
                 workspace,
                 ownerKey: typeof rawClientId === 'string' && rawClientId.trim() ? rawClientId.trim() : undefined,
             });
+
+            const userId = typeof rawUserId === 'string' && rawUserId.trim() ? rawUserId.trim() : null;
+            let files = [];
+            if (userId && this.fileService) {
+                try {
+                    files = await this.fileService.getFilesForUser(userId);
+                } catch (fileErr) {
+                    console.warn('[ContainerController] getFilesForUser failed, injecting default files:', fileErr?.message ?? fileErr);
+                }
+            }
+            try {
+                await this.containerService.injectUserFilesToContainer(containerId, files);
+            } catch (injectErr) {
+                console.error('[ContainerController] Inject user files failed:', injectErr?.message ?? injectErr);
+            }
 
             res.status(200).json({ containerId });
         } catch (error) {

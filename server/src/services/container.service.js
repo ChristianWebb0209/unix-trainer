@@ -328,6 +328,51 @@ export class ContainerService {
         return (result.stdout || "").trim();
     }
 
+    /** Directory inside /workspace where user playground files are placed (terminal: cd /workspace/files). */
+    static USER_FILES_PATH = "/workspace/files";
+
+    /**
+     * Injects user playground files into the container at /workspace/files/.
+     * Call after createContainer when userId is provided. In the terminal, use: cd /workspace/files
+     * @param {string} containerId
+     * @param {Array<{ id: string, name: string, code: string }>} files
+     */
+    async injectUserFilesToContainer(containerId, files) {
+        if (!this.containers.has(containerId)) return;
+        const list = Array.isArray(files) && files.length > 0 ? files : [{ id: "default", name: "Untitled", code: "" }];
+
+        const { Readable } = await import("stream");
+        const { buildTarBuffer } = await import("../utils/tar-helpers.js");
+        const safeName = (n) => (typeof n === "string" && n.trim() ? String(n).replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 200) : "Untitled");
+        const entries = list.map((f) => ({ path: `files/${safeName(f.name)}`, content: f.code ?? "" }));
+        const tar = buildTarBuffer(entries);
+        const container = this.docker.getContainer(containerId);
+        const stream = Readable.from(tar);
+        await new Promise((resolve, reject) => {
+            container.putArchive(stream, { path: "/workspace" }, (err) => (err ? reject(err) : resolve()));
+        });
+        this.recordActivity(containerId);
+    }
+
+    /**
+     * Reads files from /workspace/files in the container (for syncing terminal edits back to user_file).
+     * @param {string} containerId
+     * @returns {Promise<Array<{ name: string, code: string }>>}
+     */
+    async readWorkspaceFromContainer(containerId) {
+        if (!this.containers.has(containerId)) throw new Error(`Container ${containerId} not found or already destroyed.`);
+        this.recordActivity(containerId);
+        const listResult = await this.runCommand(containerId, `ls -1 ${ContainerService.USER_FILES_PATH} 2>/dev/null || true`);
+        const names = (listResult.stdout || "").trim().split("\n").filter((n) => n && !/^\.\.?$/.test(n));
+        const out = [];
+        for (const name of names) {
+            if (!/^[a-zA-Z0-9._-]+$/.test(name)) continue;
+            const r = await this.runCommand(containerId, `cat "${ContainerService.USER_FILES_PATH}/${name.replace(/"/g, '\\"')}" 2>/dev/null || true`);
+            out.push({ name, code: r.stdout || "" });
+        }
+        return out;
+    }
+
     /**
      * Creates a persistent PTY shell session attached to the container.
      * Returns a duplex stream - write to send stdin, read 'data' for stdout/stderr.
@@ -344,7 +389,7 @@ export class ContainerService {
 
         const container = this.docker.getContainer(containerId);
         const exec = await container.exec({
-            Cmd: ["/bin/sh", "-i"],
+            Cmd: ["/bin/bash", "-i"],
             AttachStdin: true,
             AttachStdout: true,
             AttachStderr: true,

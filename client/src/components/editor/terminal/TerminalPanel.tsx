@@ -26,6 +26,11 @@ type TerminalPanelProps = {
     /** Ref to pending run; when socket opens we run it and parent clears. */
     pendingRunRef: React.MutableRefObject<{ code: string; language: string } | null>;
     onPendingRunSent: () => void;
+    /** If true, this panel is the active tab and should consume pending run when socket opens. */
+    isActive?: boolean;
+    /** Ref to pending cd path; when socket opens and active, send `cd path` and parent clears. */
+    pendingCdRef?: React.MutableRefObject<string | null>;
+    onCdSent?: () => void;
 };
 
 function isMacLike(): boolean {
@@ -75,13 +80,17 @@ async function readClipboardText(): Promise<string | null> {
 }
 
 export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>(function TerminalPanel(
-    { containerId, terminalTheme, onContainerLost, pendingRunRef, onPendingRunSent },
+    { containerId, terminalTheme, onContainerLost, pendingRunRef, onPendingRunSent, isActive = true, pendingCdRef, onCdSent },
     ref
 ) {
     const containerRef = useRef<HTMLDivElement>(null);
     const socketRef = useRef<WebSocket | null>(null);
     const onPendingRunSentRef = useRef(onPendingRunSent);
+    const onCdSentRef = useRef(onCdSent);
+    const isActiveRef = useRef(isActive);
     onPendingRunSentRef.current = onPendingRunSent;
+    onCdSentRef.current = onCdSent;
+    isActiveRef.current = isActive;
 
     useImperativeHandle(ref, () => ({
         sendPayload(payload: string): boolean {
@@ -93,6 +102,18 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
             return false;
         },
     }));
+
+    // When this panel becomes active and socket is already open, send any pending run (e.g. user clicked Run from another tab)
+    useEffect(() => {
+        if (!isActive) return;
+        const s = socketRef.current;
+        if (s?.readyState !== WebSocket.OPEN) return;
+        const pending = pendingRunRef.current;
+        if (!pending || !isSupportedLanguage(pending.language)) return;
+        const { payload } = getTerminalRunPayload(pending.language as SupportedLanguage, pending.code);
+        s.send(payload);
+        onPendingRunSentRef.current();
+    }, [isActive, pendingRunRef]);
 
     useEffect(() => {
         if (!containerId) return;
@@ -246,6 +267,12 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
                 } else {
                     doSend();
                 }
+            }
+            if (isActiveRef.current && pendingCdRef?.current) {
+                const path = pendingCdRef.current;
+                const safe = path.replace(/'/g, "'\\''");
+                socket.send(`cd '${safe}'\n`);
+                onCdSentRef.current?.();
             }
         };
 

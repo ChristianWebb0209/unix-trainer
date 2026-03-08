@@ -8,7 +8,7 @@ LeetCode-style practice for **GPU and systems programming**: kernels (C, C++, Ru
   **Kernel Lab** — C, C++, Rust, CUDA, SYCL. **Tensor Lab** — Python, Triton, PyTorch. Switch by workspace; language selector follows the workspace.
 
 - **Problem mode**  
-  Curated problems with instructions, reference solutions, and in-editor validation. Run in a **live terminal** (Docker) or, in Kernel Lab, in a **WebGPU** tab to preview GPU-style code in the browser. Progress (attempted/completed) is saved when signed in.
+  Curated problems with instructions, reference solutions, and in-editor validation. Run in a **live terminal** (Docker); in Kernel Lab you can add Render (Image/Video/Interactive) tabs to view output. Progress (attempted/completed) is saved when signed in.
 
 - **Playground mode**  
   Free-form coding without a selected problem. **Files** tab: create, rename, delete, and export files (with language-specific extensions); auto-save; double-click to open; Delete key + confirmation modal; right-click → Export. **Projects** tab: browse markdown project guides from the server. Any workspace language is available in the playground.

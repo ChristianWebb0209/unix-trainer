@@ -6,6 +6,7 @@ import { StreamLanguage, indentUnit } from "@codemirror/language";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { LSPClient, languageServerExtensions } from "@codemirror/lsp-client";
 import type { Extension } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import type { CSSProperties } from "react";
 import * as problemConfig from "problem-config";
 import { simpleWebSocketTransport } from "../../services/lspTransport";
@@ -17,6 +18,13 @@ import {
 } from "../../services/lspFileUri";
 
 const shellLanguage = StreamLanguage.define(shell);
+
+/** ~10 lines of extra scroll space below the last line. */
+const scrollPastEnd = EditorView.theme({
+    "& .cm-scroller": {
+        paddingBottom: "15em",
+    },
+});
 
 function getLanguageExtension(lang: string): Extension[] {
     const id = lang.toLowerCase();
@@ -116,7 +124,8 @@ export function CodeEditorPane({
 
     const extensions = useMemo(() => {
         const base = getLanguageExtension(language);
-        return lspExtension ? [...base, lspExtension] : base;
+        const withTheme = [...base, scrollPastEnd];
+        return lspExtension ? [...withTheme, lspExtension] : withTheme;
     }, [language, lspExtension]);
 
     const renderLabel = () => {

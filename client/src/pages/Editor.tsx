@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import type { Extension } from "@codemirror/state";
 import { getCodeEditorTheme } from "../editorThemes";
@@ -14,7 +14,6 @@ import NotificationBanner from "../components/ui/NotificationBanner.tsx";
 import UnifiedSelect from "../components/ui/UnifiedSelect.tsx";
 import { primaryPillSelected, primaryPillUnselected } from "../uiStyles";
 import { TERMINAL_LANGUAGES, isSupportedLanguage, type SupportedLanguage } from "../services/codeExecution";
-import { runWebGpuAndSampleCenterPixel } from "../services/webgpuExecution";
 import type { ProblemSummary, ProblemLanguage, ProblemCompletionState, ProblemCompletion } from "../api/problems";
 import { listProblems, fetchProblemCompletions, saveProblemProgress, validateProblem } from "../api/problems";
 import type { ValidationResult } from "../types/validation";
@@ -32,7 +31,6 @@ const WORKSPACES: Record<
         label: string;
         defaultLanguage: SupportedLanguage;
         codeTheme: Extension;
-        showWebGpuTab: boolean;
         isGpu: boolean;
         allowLanguageSwitch: boolean;
     }
@@ -45,7 +43,6 @@ const WORKSPACES: Record<
                 label: string;
                 defaultLanguage: SupportedLanguage;
                 codeTheme: Extension;
-                showWebGpuTab: boolean;
                 isGpu: boolean;
                 allowLanguageSwitch: boolean;
             }
@@ -59,7 +56,6 @@ const WORKSPACES: Record<
             label: ws.label,
             defaultLanguage: ws.defaultProblemLanguage as SupportedLanguage,
             codeTheme: getCodeEditorTheme(ws.codeThemeKey),
-            showWebGpuTab: Boolean(ws.showWebGpuTab),
             isGpu: ws.kind === "gpu",
             allowLanguageSwitch: Boolean(ws.allowLanguageSwitch),
         };
@@ -72,7 +68,6 @@ const WORKSPACES: Record<
             label: string;
             defaultLanguage: SupportedLanguage;
             codeTheme: Extension;
-            showWebGpuTab: boolean;
             isGpu: boolean;
             allowLanguageSwitch: boolean;
         }
@@ -135,6 +130,7 @@ export default function Editor() {
     const [playgroundFileId, setPlaygroundFileId] = useState<string | null>(null);
     const playgroundSaveTimeoutRef = useRef<number | null>(null);
     const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
+    const sidebarWasOpenBeforeExpandRef = useRef(false);
     const [problemTests, setProblemTests] = useState<ProblemTestCase[]>([]);
     const [problemValidation, setProblemValidation] = useState<{ kind: string } | null>(null);
     const [isValidating, setIsValidating] = useState(false);
@@ -393,6 +389,10 @@ export default function Editor() {
     };
 
     const handleSelectProblem = async (problem: ProblemSummary, opts?: { initialCode?: string | null }) => {
+        if (isPlaygroundMode) {
+            await savePlaygroundFile("switch");
+            navigate(`/editor/${workspace}`);
+        }
         if (selectedProblem && selectedProblem.id !== problem.id) {
             await saveProgress("switch");
         }
@@ -449,64 +449,29 @@ export default function Editor() {
 
     const onTerminalRunStart = useCallback(() => setIsRunning(true), []);
     const onTerminalRunEnd = useCallback(() => setIsRunning(false), []);
-    const onTerminalToggleExpanded = useCallback(() => setIsTerminalExpanded((v) => !v), []);
+    const onTerminalToggleExpanded = useCallback(() => {
+        const sidebarOpen = !isSidePanelCollapsed;
+        setIsTerminalExpanded((v) => {
+            if (!v) {
+                sidebarWasOpenBeforeExpandRef.current = sidebarOpen;
+                setIsSidePanelCollapsed(true);
+                return true;
+            }
+            if (sidebarWasOpenBeforeExpandRef.current) setIsSidePanelCollapsed(false);
+            return false;
+        });
+    }, [isSidePanelCollapsed]);
 
     const handleRunCode = useCallback(async () => {
         await saveProgress("run");
         const wasCompletedBefore =
             selectedProblem && completionStatuses[selectedProblem.id] === "completed";
         const pane = terminalPaneRef.current;
-        const activeView = pane?.getActiveView() ?? "terminal";
 
-        const isWebGpuNumeric =
-            selectedProblem &&
-            problemValidation?.kind === "webgpu_numeric" &&
-            WORKSPACES[workspace]?.isGpu &&
-            activeView === "webgpu";
-
-        if (isWebGpuNumeric && selectedProblem && pane) {
-            const canvas = pane.getWebGpuCanvas();
-            if (canvas) {
-                pane.runInWebGpu(code);
-                setIsValidating(true);
-                setLastValidationResult(null);
-                try {
-                    await new Promise((r) => setTimeout(r, 150));
-                    const pixel = await runWebGpuAndSampleCenterPixel(canvas, code);
-                    const testOutputs = pixel
-                        ? [{ testId: "pixel", values: pixel }]
-                        : [];
-                    const result = await validateProblem(selectedProblem.id, {
-                        solutionCode: code,
-                        containerId: null,
-                        language: selectedLanguage,
-                        testOutputs,
-                    });
-                    setLastValidationResult(result);
-                    if (result.passed) {
-                        if (!wasCompletedBefore) {
-                            setShowCelebration(true);
-                            setShowNextHint(true);
-                        }
-                        void markProblemCompleted();
-                        window.setTimeout(() => setShowCelebration(false), 3500);
-                    }
-                } catch (err) {
-                    console.error("Validation failed", err);
-                    setLastValidationResult({
-                        passed: false,
-                        tests: [],
-                        summary: err instanceof Error ? err.message : "Validation failed",
-                    });
-                } finally {
-                    setIsValidating(false);
-                }
-            }
-        } else if (
+        if (
             selectedProblem &&
             problemTests.length > 0 &&
             isSupportedLanguage(selectedLanguage) &&
-            problemValidation?.kind !== "webgpu_numeric" &&
             pane
         ) {
             const id = pane.getContainerId();
@@ -542,11 +507,7 @@ export default function Editor() {
         }
 
         if (pane) {
-            if ((WORKSPACES[workspace]?.isGpu || WORKSPACES[workspace]?.showWebGpuTab) && activeView === "webgpu") {
-                pane.runInWebGpu(code);
-            } else {
-                await pane.runInTerminal(code, selectedLanguage);
-            }
+            await pane.runInTerminal(code, selectedLanguage);
         }
     }, [
         saveProgress,
@@ -662,10 +623,30 @@ export default function Editor() {
         };
     }, []);
 
+    const initialPlaygroundFileId = useMemo(() => {
+        if (!isPlaygroundMode) return null;
+        try {
+            return localStorage.getItem(`playground_last_file_${workspace}`);
+        } catch {
+            return null;
+        }
+    }, [workspace, isPlaygroundMode]);
+
+    useEffect(() => {
+        if (isPlaygroundMode && playgroundFileId) {
+            try {
+                localStorage.setItem(`playground_last_file_${workspace}`, playgroundFileId);
+            } catch {
+                /* ignore */
+            }
+        }
+    }, [isPlaygroundMode, workspace, playgroundFileId]);
+
     // Adjust editor language when workspace changes
     useEffect(() => {
         const wsDef = WORKSPACES[workspace];
         if (isPlaygroundMode) {
+            setPlaygroundFileId(null);
             const wsLangs = (problemConfig.getLanguagesForWorkspace(workspace) as string[]).filter((id) => id !== "any");
             const first = wsLangs[0] ?? "bash";
             setLockedLanguage(null);
@@ -739,24 +720,6 @@ export default function Editor() {
 
             <div className="editor-main">
                 <AppHeader>
-                    {isPlaygroundMode && (
-                        <button
-                            type="button"
-                            onClick={() => navigate(`/editor/${workspace}`)}
-                            style={{
-                                ...primaryPillUnselected,
-                                marginRight: "0.75rem",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "0.25rem",
-                            }}
-                            title="Back to problems list"
-                        >
-                            <span style={{ fontSize: "0.9rem", lineHeight: 1 }}>←</span>
-                            <span style={{ fontSize: "0.75rem" }}>Back to problems</span>
-                        </button>
-                    )}
                     <ProblemDropdown
                         isOpen={isSidebarOverlayOpen}
                         onOpenChange={setIsSidebarOverlayOpen}
@@ -805,7 +768,7 @@ export default function Editor() {
                         options={workspaceOptions.map((ws) => ({ value: ws.id, label: ws.label }))}
                     />
 
-                    <span style={{ marginLeft: "0.75rem" }}>Editor Workspace</span>
+                    <span style={{ marginLeft: "0.75rem" }}>{isPlaygroundMode ? "Playground" : "Problems"}</span>
                     <div className="editor-header-status-row">
                         <span
                             className="editor-header-status-text"
@@ -885,16 +848,15 @@ export default function Editor() {
 
                 {/* Full-width content area; sidebar overlays from the left so header/main never resize */}
                 <div style={{ position: "relative", flex: 1, minWidth: 0, minHeight: 0, width: "100%" }}>
-                    {/* Sidebar: absolute overlay so collapsing it does not affect header or editor/terminal width */}
-                    {!isTerminalExpanded && (
-                        <div
-                            className="editor-side-panel-wrapper"
-                            style={{
-                                position: "absolute",
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: isSidePanelCollapsed ? 0 : "30%",
+                    {/* Sidebar: absolute overlay; when collapsed (e.g. terminal fullscreen) width is 0 */}
+                    <div
+                        className="editor-side-panel-wrapper"
+                        style={{
+                            position: "absolute",
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: isSidePanelCollapsed ? 0 : "30%",
                                 minWidth: 0,
                                 maxWidth: "100%",
                                 overflow: "hidden",
@@ -924,6 +886,7 @@ export default function Editor() {
                                             selectedLanguage={selectedLanguage}
                                             defaultCodeForNewFile={problemConfig.getDefaultStarterCode(workspaceDefinition.defaultLanguage)}
                                             codeTheme={workspaceDefinition.codeTheme}
+                                            initialFileId={initialPlaygroundFileId}
                                             onSelectFile={async (file: PlaygroundFile) => {
                                                 await savePlaygroundFile("switch");
                                                 setCode(file.code);
@@ -931,6 +894,7 @@ export default function Editor() {
                                             }}
                                             onCodeChange={setCode}
                                             onSelectedFileIdChange={setPlaygroundFileId}
+                                            onShowInTerminal={() => void terminalPaneRef.current?.showInTerminal?.("/workspace/files")}
                                         />
                                     ) : (
                                         <ProblemDescription
@@ -951,7 +915,6 @@ export default function Editor() {
                                     )}
                                 </div>
                             </div>
-                    )}
 
                     {/* Editor & Terminal: positioned to the right of the sidebar so run button and code are not behind it */}
                     <div
@@ -970,33 +933,31 @@ export default function Editor() {
                             overflow: "hidden",
                         }}
                     >
-                        {!isTerminalExpanded && (
-                            <button
-                                type="button"
-                                aria-label={isSidePanelCollapsed ? "Expand side panel" : "Collapse side panel"}
-                                onClick={() => setIsSidePanelCollapsed((v) => !v)}
-                                style={{
-                                    position: "absolute",
-                                    left: 0,
-                                    top: "50%",
-                                    transform: "translateY(-50%)",
-                                    zIndex: 5,
-                                    width: "28px",
-                                    height: "64px",
-                                    padding: 0,
-                                    borderRadius: "0 8px 8px 0",
-                                    border: "1px solid var(--border-color)",
-                                    borderLeft: "none",
-                                    background: "var(--bg-tertiary)",
-                                    color: "var(--text-secondary)",
-                                    cursor: "pointer",
-                                    fontSize: "1rem",
-                                    boxShadow: "2px 0 8px rgba(0,0,0,0.2)",
-                                }}
-                            >
-                                {isSidePanelCollapsed ? "▶" : "◀"}
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            aria-label={isSidePanelCollapsed ? "Expand side panel" : "Collapse side panel"}
+                            onClick={() => setIsSidePanelCollapsed((v) => !v)}
+                            style={{
+                                position: "absolute",
+                                left: 0,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                zIndex: 5,
+                                width: "28px",
+                                height: "64px",
+                                padding: 0,
+                                borderRadius: "0 8px 8px 0",
+                                border: "1px solid var(--border-color)",
+                                borderLeft: "none",
+                                background: "var(--bg-tertiary)",
+                                color: "var(--text-secondary)",
+                                cursor: "pointer",
+                                fontSize: "1rem",
+                                boxShadow: "2px 0 8px rgba(0,0,0,0.2)",
+                            }}
+                        >
+                            {isSidePanelCollapsed ? "▶" : "◀"}
+                        </button>
                         <PanelGroup direction="vertical" style={{ flex: 1, minHeight: 0 }}>
 
                             {/* Top: Code Editor */}
@@ -1019,7 +980,7 @@ export default function Editor() {
 
                             {!isTerminalExpanded && <ResizeHandle />}
 
-                            {/* Bottom: Terminal (PTY, WebGPU, Images) - owned by TerminalPane */}
+                            {/* Bottom: Terminal (PTY, Images, Render panels) - owned by TerminalPane */}
                             <Panel defaultSize={isTerminalExpanded ? 100 : 30} minSize={15}>
                                 <TerminalPane
                                     ref={terminalPaneRef}

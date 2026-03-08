@@ -6,23 +6,44 @@ import {
     useRef,
     useState,
 } from "react";
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+    arrayMove,
+    SortableContext,
+    useSortable,
+    horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import * as problemConfig from "problem-config";
+import { getUserId } from "../../api/files";
 import { apiUrl } from "../../services/apiOrigin";
 import { getTerminalRunPayload, isSupportedLanguage, type SupportedLanguage } from "../../services/codeExecution";
 import { TerminalPanel, type TerminalPanelHandle } from "./terminal/TerminalPanel";
-import { WebGpuPanel, type WebGpuPanelHandle } from "./terminal/WebGpuPanel";
 import { ImageViewerPanel } from "./terminal/ImageViewerPanel";
+import { RenderImagePanel, RenderVideoPanel, RenderInteractivePanel } from "./visualization";
 
-export type TerminalViewMode = "terminal" | "webgpu" | "images";
+export type TerminalViewMode = "terminal" | "images" | "render-image" | "render-video" | "render-interactive";
+
+export type PanelType = TerminalViewMode;
+
+type Panel = { id: string; type: PanelType };
 
 type WorkspaceId = ReturnType<typeof problemConfig.getWorkspaceIds>[number];
 
 export type TerminalPaneHandle = {
     runInTerminal: (code: string, language: string) => Promise<void>;
-    runInWebGpu: (code: string) => void;
-    getWebGpuCanvas: () => HTMLCanvasElement | null;
     getContainerId: () => string | null;
     getActiveView: () => TerminalViewMode;
+    /** Open a new terminal tab and cd to the given path (e.g. /workspace/files). */
+    showInTerminal: (dirPath: string) => Promise<void>;
 };
 
 const CLIENT_ID_KEY = "editor_client_id";
@@ -41,32 +62,100 @@ function getClientId(): string {
     }
 }
 
+function genPanelId(): string {
+    return (typeof crypto !== "undefined" && "randomUUID" in crypto && crypto.randomUUID()) ||
+        `p-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function panelLabel(type: PanelType): string {
+    switch (type) {
+        case "terminal": return "Terminal";
+        case "images": return "Images";
+        case "render-image": return "Render: Image";
+        case "render-video": return "Render: Video";
+        case "render-interactive": return "Render: Interactive";
+        default: return type;
+    }
+}
+
 type TerminalPaneProps = {
     workspace: WorkspaceId;
     isExpanded: boolean;
     onToggleExpanded: () => void;
-    /** Current editor code (for WebGPU run). */
     code: string;
-    /** Notify parent when containerId changes (e.g. for LSP). */
     onContainerIdChange?: (id: string | null) => void;
-    /** For Images panel: refetch when this changes. */
     imagesRefreshTrigger?: number;
     imagesPollAfterRun?: boolean;
     onImagesTabFocus?: () => void;
-    /** Called when a terminal run is queued (waiting for socket). */
     onRunStart?: () => void;
-    /** Called when a terminal run has been sent. */
     onRunEnd?: () => void;
-    /** Called when creating/destroying container. */
     onCreatingChange?: (creating: boolean) => void;
 };
+
+function SortableTab({
+    panel,
+    isActive,
+    onSelect,
+    onClose,
+    canClose,
+}: {
+    panel: Panel;
+    isActive: boolean;
+    onSelect: () => void;
+    onClose: (e: React.MouseEvent) => void;
+    canClose: boolean;
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: panel.id,
+    });
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+    };
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={`editor-tab-button ${isActive ? "editor-tab-button--selected" : ""}`}
+            {...attributes}
+            {...listeners}
+            onClick={onSelect}
+            role="tab"
+            aria-selected={isActive}
+        >
+            <span style={{ marginRight: canClose ? "0.25rem" : 0 }}>{panelLabel(panel.type)}</span>
+            {canClose && (
+                <button
+                    type="button"
+                    aria-label="Close tab"
+                    onClick={onClose}
+                    style={{
+                        padding: 0,
+                        margin: 0,
+                        border: "none",
+                        background: "none",
+                        color: "inherit",
+                        cursor: "pointer",
+                        fontSize: "0.9em",
+                        lineHeight: 1,
+                        opacity: 0.8,
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                >
+                    ×
+                </button>
+            )}
+        </div>
+    );
+}
 
 export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(function TerminalPane(
     {
         workspace,
         isExpanded,
         onToggleExpanded,
-        code,
+        code: _code,
         onContainerIdChange,
         imagesRefreshTrigger = 0,
         imagesPollAfterRun = false,
@@ -78,36 +167,58 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
     ref
 ) {
     const wsConfig = problemConfig.WORKSPACES[workspace as keyof typeof problemConfig.WORKSPACES];
-    const showWebGpuTab = Boolean(wsConfig?.showWebGpuTab);
+    const showRenderImageTab = Boolean(wsConfig?.showRenderImageTab);
+    const showRenderVideoTab = Boolean(wsConfig?.showRenderVideoTab);
+    const showRenderInteractiveTab = Boolean(wsConfig?.showRenderInteractiveTab);
     const showImagePanel = Boolean(wsConfig?.showImagePanel);
 
     const [containerId, setContainerId] = useState<string | null>(null);
     const [isCreatingContainer, setIsCreatingContainer] = useState(false);
-    const [activeView, setActiveView] = useState<TerminalViewMode>("terminal");
-    const [webGpuRunTrigger, setWebGpuRunTrigger] = useState(0);
+    const [addMenuOpen, setAddMenuOpen] = useState(false);
+    const addMenuRef = useRef<HTMLDivElement>(null);
+
+    const initialPanels = useRef<Panel[] | null>(null);
+    if (initialPanels.current === null) {
+        const list: Panel[] = [{ id: genPanelId(), type: "terminal" }];
+        if (showRenderImageTab) list.push({ id: genPanelId(), type: "render-image" });
+        if (showRenderVideoTab) list.push({ id: genPanelId(), type: "render-video" });
+        if (showRenderInteractiveTab) list.push({ id: genPanelId(), type: "render-interactive" });
+        if (showImagePanel) list.push({ id: genPanelId(), type: "images" });
+        initialPanels.current = list;
+    }
+    const [panels, setPanels] = useState<Panel[]>(() => initialPanels.current!);
+    const [activePanelId, setActivePanelId] = useState<string>(() => initialPanels.current![0].id);
+
     const pendingRunRef = useRef<{ code: string; language: string } | null>(null);
-    const terminalPanelRef = useRef<TerminalPanelHandle>(null);
-    const webGpuPanelRef = useRef<WebGpuPanelHandle>(null);
-    const activeViewRef = useRef<TerminalViewMode>(activeView);
-    /** When true, we lost the container (e.g. WebSocket closed); don't auto-create again to avoid a loop. */
+    const pendingCdRef = useRef<string | null>(null);
+    const terminalRefs = useRef(new Map<string, TerminalPanelHandle>());
     const lostContainerRef = useRef(false);
-    /** Count of connect failures (socket never opened); stop auto-create after this many to avoid a loop. */
     const connectFailureCountRef = useRef(0);
     const MAX_CONNECT_FAILURES = 3;
     const containerIdRef = useRef<string | null>(null);
     const onContainerIdChangeRef = useRef(onContainerIdChange);
+    const panelsRef = useRef(panels);
+    const activePanelIdRef = useRef(activePanelId);
     containerIdRef.current = containerId;
     onContainerIdChangeRef.current = onContainerIdChange;
-    activeViewRef.current = activeView;
+    panelsRef.current = panels;
+    activePanelIdRef.current = activePanelId;
+
+    const activePanel = panels.find((p) => p.id === activePanelId) ?? panels[0];
 
     const createContainer = useCallback(async (): Promise<string | null> => {
         setIsCreatingContainer(true);
         onCreatingChange?.(true);
         try {
+            const userId = getUserId();
             const response = await fetch(apiUrl("/api/containers"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ workspace, clientId: getClientId() }),
+                body: JSON.stringify({
+                    workspace,
+                    clientId: getClientId(),
+                    ...(userId ? { userId } : {}),
+                }),
             });
             const data = (await response.json()) as { containerId?: string };
             if (data.containerId) {
@@ -130,7 +241,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
     const destroyContainer = useCallback(async (id: string) => {
         if (!id) return;
         try {
-            await fetch(`/api/containers/${id}`, { method: "DELETE" });
+            await fetch(apiUrl(`/api/containers/${id}`), { method: "DELETE" });
         } catch (err) {
             console.error("Container destroy failed", err);
         }
@@ -156,25 +267,34 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
         void createContainer();
     }, [workspace, containerId, createContainer]);
 
-    const handleResetContainer = useCallback(async () => {
-        lostContainerRef.current = false;
-        connectFailureCountRef.current = 0;
-        if (containerId) {
-            await destroyContainer(containerId);
+    const workspaceChangedRef = useRef(false);
+    useEffect(() => {
+        if (!workspaceChangedRef.current) {
+            workspaceChangedRef.current = true;
+            return;
         }
-        await createContainer();
-    }, [containerId, createContainer, destroyContainer]);
+        const list: Panel[] = [{ id: genPanelId(), type: "terminal" }];
+        if (showRenderImageTab) list.push({ id: genPanelId(), type: "render-image" });
+        if (showRenderVideoTab) list.push({ id: genPanelId(), type: "render-video" });
+        if (showRenderInteractiveTab) list.push({ id: genPanelId(), type: "render-interactive" });
+        if (showImagePanel) list.push({ id: genPanelId(), type: "images" });
+        setPanels(list);
+        setActivePanelId(list[0].id);
+    }, [workspace, showRenderImageTab, showRenderVideoTab, showRenderInteractiveTab, showImagePanel]);
 
     const handlePendingRunSent = useCallback(() => {
         pendingRunRef.current = null;
         onRunEnd?.();
     }, [onRunEnd]);
 
+    const handleCdSent = useCallback(() => {
+        pendingCdRef.current = null;
+    }, []);
+
     const handleContainerLost = useCallback(
         (options?: { hadOpened?: boolean }) => {
-            if (options?.hadOpened) {
-                lostContainerRef.current = true;
-            } else {
+            if (options?.hadOpened) lostContainerRef.current = true;
+            else {
                 connectFailureCountRef.current += 1;
                 if (connectFailureCountRef.current >= MAX_CONNECT_FAILURES) lostContainerRef.current = true;
             }
@@ -182,6 +302,50 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
             onContainerIdChange?.(null);
         },
         [onContainerIdChange]
+    );
+
+    const addPanel = useCallback(
+        (type: PanelType, focus = true) => {
+            setAddMenuOpen(false);
+            const id = genPanelId();
+            setPanels((prev) => [...prev, { id, type }]);
+            if (focus) setActivePanelId(id);
+        },
+        []
+    );
+
+    const closePanel = useCallback((e: React.MouseEvent, panelId: string) => {
+        e.stopPropagation();
+        const nextList = panels.filter((p) => p.id !== panelId);
+        if (nextList.length === 0) {
+            const newPanel = { id: genPanelId(), type: "terminal" as PanelType };
+            setPanels([newPanel]);
+            setActivePanelId(newPanel.id);
+            return;
+        }
+        setPanels(nextList);
+        setActivePanelId((current) => {
+            if (current !== panelId) return current;
+            const idx = panels.findIndex((p) => p.id === panelId);
+            return nextList[Math.min(idx, nextList.length - 1)]?.id ?? nextList[0].id;
+        });
+    }, [panels]);
+
+    const handleDragEnd = useCallback((event: DragEndEvent) => {
+        const { active, over } = event;
+        if (over && active.id !== over.id) {
+            setPanels((prev) => {
+                const oldIndex = prev.findIndex((p) => p.id === active.id);
+                const newIndex = prev.findIndex((p) => p.id === over.id);
+                if (oldIndex === -1 || newIndex === -1) return prev;
+                return arrayMove(prev, oldIndex, newIndex);
+            });
+        }
+    }, []);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor)
     );
 
     useImperativeHandle(ref, () => ({
@@ -205,7 +369,14 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
                 }
             }
 
-            const sent = terminalPanelRef.current?.sendPayload(payload);
+            const panelsList = panelsRef.current;
+            let terminalId = panelsList.find((p) => p.type === "terminal")?.id;
+            if (!terminalId) {
+                addPanel("terminal", false);
+                terminalId = undefined;
+            }
+            const handle = terminalId ? terminalRefs.current.get(terminalId) : undefined;
+            const sent = handle?.sendPayload(payload);
             if (sent) {
                 onRunEnd?.();
                 return;
@@ -213,13 +384,28 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
             pendingRunRef.current = { code: runCode, language };
             onRunStart?.();
         },
-        runInWebGpu: () => {
-            setWebGpuRunTrigger((t) => t + 1);
-        },
-        getWebGpuCanvas: () => webGpuPanelRef.current?.getCanvas() ?? null,
         getContainerId: () => containerId,
-        getActiveView: () => activeViewRef.current,
-    }), [containerId, createContainer, onRunEnd, onRunStart]);
+        getActiveView: () => activePanel?.type ?? "terminal",
+        showInTerminal: async (dirPath: string) => {
+            pendingCdRef.current = dirPath;
+            let id = containerId;
+            if (!id) id = await createContainer();
+            if (!id) return;
+            addPanel("terminal");
+        },
+    }), [containerId, createContainer, onRunEnd, onRunStart, activePanel?.type, addPanel]);
+
+    useEffect(() => {
+        function onDocClick(ev: MouseEvent) {
+            if (addMenuRef.current && !addMenuRef.current.contains(ev.target as Node)) setAddMenuOpen(false);
+        }
+        document.addEventListener("click", onDocClick);
+        return () => document.removeEventListener("click", onDocClick);
+    }, []);
+
+    const terminalTheme = problemConfig.getTerminalTheme(
+        problemConfig.WORKSPACES[workspace as keyof typeof problemConfig.WORKSPACES]?.terminalThemeKey ?? "kernel-dark"
+    );
 
     return (
         <div
@@ -232,6 +418,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
                     justifyContent: "space-between",
                     alignItems: "center",
                     padding: "0.5rem 1rem",
+                    paddingLeft: "2rem",
                     backgroundColor: "#252525",
                     borderBottom: "1px solid #333",
                     flexShrink: 0,
@@ -241,8 +428,8 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
                     onClick={onToggleExpanded}
                     style={{
                         marginRight: "0.5rem",
-                        padding: "0.15rem 0.35rem",
-                        borderRadius: "4px",
+                        padding: "0.2rem 0.5rem",
+                        borderRadius: "999px",
                         backgroundColor: "transparent",
                         border: "1px solid #444",
                         color: "#aaa",
@@ -252,99 +439,212 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
                 >
                     {isExpanded ? "▼" : "▲"}
                 </button>
-                <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
-                    <button
-                        type="button"
-                        className={`editor-tab-button ${activeView === "terminal" ? "editor-tab-button--selected" : ""}`}
-                        onClick={() => setActiveView("terminal")}
-                    >
-                        Terminal
-                    </button>
-                    {showWebGpuTab && (
-                        <button
-                            type="button"
-                            className={`editor-tab-button ${activeView === "webgpu" ? "editor-tab-button--selected" : ""}`}
-                            onClick={() => setActiveView("webgpu")}
-                        >
-                            WebGPU
-                        </button>
-                    )}
-                    {showImagePanel && (
-                        <button
-                            type="button"
-                            className={`editor-tab-button ${activeView === "images" ? "editor-tab-button--selected" : ""}`}
-                            onClick={() => setActiveView("images")}
-                        >
-                            Images
-                        </button>
-                    )}
-                </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={panels.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
+                        <div style={{ display: "flex", gap: "0.25rem", alignItems: "center", flexWrap: "wrap" }}>
+                            {panels.map((panel) => (
+                                <SortableTab
+                                    key={panel.id}
+                                    panel={panel}
+                                    isActive={panel.id === activePanelId}
+                                    onSelect={() => setActivePanelId(panel.id)}
+                                    onClose={(e) => closePanel(e, panel.id)}
+                                    canClose={panels.length > 1}
+                                />
+                            ))}
+                            <div ref={addMenuRef} style={{ position: "relative" }}>
+                                <button
+                                    type="button"
+                                    className="editor-tab-button"
+                                    onClick={() => setAddMenuOpen((o) => !o)}
+                                    title="Add tab"
+                                    style={{ minWidth: "1.5rem" }}
+                                >
+                                    +
+                                </button>
+                                {addMenuOpen && (
+                                    <div
+                                        style={{
+                                            position: "absolute",
+                                            top: "100%",
+                                            left: 0,
+                                            marginTop: "2px",
+                                            background: "#333",
+                                            border: "1px solid #444",
+                                            borderRadius: "6px",
+                                            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                                            zIndex: 100,
+                                            padding: "0.25rem 0",
+                                            minWidth: "10rem",
+                                        }}
+                                    >
+                                        <button
+                                            type="button"
+                                            style={{
+                                                display: "block",
+                                                width: "100%",
+                                                padding: "0.4rem 0.75rem",
+                                                textAlign: "left",
+                                                border: "none",
+                                                background: "none",
+                                                color: "#e0e0e0",
+                                                cursor: "pointer",
+                                                fontSize: "0.8rem",
+                                            }}
+                                            onClick={() => addPanel("terminal")}
+                                        >
+                                            New Terminal
+                                        </button>
+                                        {showRenderImageTab && (
+                                            <button
+                                                type="button"
+                                                style={{
+                                                    display: "block",
+                                                    width: "100%",
+                                                    padding: "0.4rem 0.75rem",
+                                                    textAlign: "left",
+                                                    border: "none",
+                                                    background: "none",
+                                                    color: "#e0e0e0",
+                                                    cursor: "pointer",
+                                                    fontSize: "0.8rem",
+                                                }}
+                                                onClick={() => addPanel("render-image")}
+                                            >
+                                                Render: Image
+                                            </button>
+                                        )}
+                                        {showRenderVideoTab && (
+                                            <button
+                                                type="button"
+                                                style={{
+                                                    display: "block",
+                                                    width: "100%",
+                                                    padding: "0.4rem 0.75rem",
+                                                    textAlign: "left",
+                                                    border: "none",
+                                                    background: "none",
+                                                    color: "#e0e0e0",
+                                                    cursor: "pointer",
+                                                    fontSize: "0.8rem",
+                                                }}
+                                                onClick={() => addPanel("render-video")}
+                                            >
+                                                Render: Video
+                                            </button>
+                                        )}
+                                        {showRenderInteractiveTab && (
+                                            <button
+                                                type="button"
+                                                style={{
+                                                    display: "block",
+                                                    width: "100%",
+                                                    padding: "0.4rem 0.75rem",
+                                                    textAlign: "left",
+                                                    border: "none",
+                                                    background: "none",
+                                                    color: "#e0e0e0",
+                                                    cursor: "pointer",
+                                                    fontSize: "0.8rem",
+                                                }}
+                                                onClick={() => addPanel("render-interactive")}
+                                            >
+                                                Render: Interactive
+                                            </button>
+                                        )}
+                                        {showImagePanel && (
+                                            <button
+                                                type="button"
+                                                style={{
+                                                    display: "block",
+                                                    width: "100%",
+                                                    padding: "0.4rem 0.75rem",
+                                                    textAlign: "left",
+                                                    border: "none",
+                                                    background: "none",
+                                                    color: "#e0e0e0",
+                                                    cursor: "pointer",
+                                                    fontSize: "0.8rem",
+                                                }}
+                                                onClick={() => addPanel("images")}
+                                            >
+                                                Images
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </SortableContext>
+                </DndContext>
                 <div style={{ flex: 1, minWidth: 0 }} />
-                <span style={{ color: "#666", fontSize: "12px", marginRight: "0.75rem" }}>
-                    {containerId ? `container-${containerId.slice(0, 8)}` : isCreatingContainer ? "Starting…" : "Click Run Code to start"}
+                <span style={{ color: "#666", fontSize: "12px", marginRight: "0.75rem" }} title={containerId ? `Container: ${containerId}` : undefined}>
+                    {containerId ? "Your files: /workspace/files" : isCreatingContainer ? "Starting…" : "Click Run Code to start"}
                 </span>
-                <button
-                    type="button"
-                    onClick={() => void handleResetContainer()}
-                    disabled={isCreatingContainer}
-                    style={{
-                        padding: "0.25rem 0.6rem",
-                        borderRadius: "999px",
-                        border: "1px solid #444",
-                        background: "transparent",
-                        color: "#aaa",
-                        fontSize: "0.75rem",
-                        cursor: isCreatingContainer ? "not-allowed" : "pointer",
-                    }}
-                    title="Recreate container (fixes broken terminal)"
-                >
-                    {isCreatingContainer ? "…" : "Reset Terminal"}
-                </button>
             </div>
-            {showWebGpuTab && activeView === "webgpu" ? (
-                <WebGpuPanel ref={webGpuPanelRef} code={code} runTrigger={webGpuRunTrigger} />
-            ) : showImagePanel && activeView === "images" ? (
-                <ImageViewerPanel
-                    containerId={containerId}
-                    refreshTrigger={imagesRefreshTrigger}
-                    pollAfterRun={imagesPollAfterRun}
-                    onFocus={onImagesTabFocus}
-                />
-            ) : containerId ? (
-                <TerminalPanel
-                    ref={terminalPanelRef}
-                    containerId={containerId}
-                    terminalTheme={problemConfig.getTerminalTheme(
-                        problemConfig.WORKSPACES[workspace as keyof typeof problemConfig.WORKSPACES]?.terminalThemeKey ?? "kernel-dark"
-                    )}
-                    onContainerLost={handleContainerLost}
-                    pendingRunRef={pendingRunRef}
-                    onPendingRunSent={handlePendingRunSent}
-                />
-            ) : (
-                <div
-                    style={{
-                        flex: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#666",
-                        gap: "0.5rem",
-                    }}
-                >
-                    {isCreatingContainer ? (
-                        <span>Starting container…</span>
-                    ) : (
-                        <>
-                            <span>
-                                Click <strong>Run Code</strong> to launch the terminal
-                            </span>
-                            <span style={{ fontSize: "12px" }}>Output will appear here</span>
-                        </>
-                    )}
-                </div>
-            )}
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                {panels.map((panel) => (
+                    <div
+                        key={panel.id}
+                        style={{
+                            display: panel.id === activePanelId ? "flex" : "none",
+                            flex: 1,
+                            minHeight: 0,
+                            flexDirection: "column",
+                            overflow: "hidden",
+                        }}
+                    >
+                        {panel.type === "terminal" && (
+                            containerId ? (
+                                <TerminalPanel
+                                    ref={(r) => {
+                                        if (r) terminalRefs.current.set(panel.id, r);
+                                        else terminalRefs.current.delete(panel.id);
+                                    }}
+                                    containerId={containerId}
+                                    terminalTheme={terminalTheme}
+                                    onContainerLost={handleContainerLost}
+                                    pendingRunRef={pendingRunRef}
+                                    onPendingRunSent={handlePendingRunSent}
+                                    isActive={panel.id === activePanelId}
+                                    pendingCdRef={pendingCdRef}
+                                    onCdSent={handleCdSent}
+                                />
+                            ) : (
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "#666",
+                                        gap: "0.5rem",
+                                    }}
+                                >
+                                    {isCreatingContainer ? <span>Starting container…</span> : (
+                                        <>
+                                            <span>Click <strong>Run Code</strong> to launch the terminal</span>
+                                            <span style={{ fontSize: "12px" }}>Output will appear here</span>
+                                        </>
+                                    )}
+                                </div>
+                            )
+                        )}
+                        {panel.type === "render-image" && <RenderImagePanel />}
+                        {panel.type === "render-video" && <RenderVideoPanel containerId={containerId} />}
+                        {panel.type === "render-interactive" && <RenderInteractivePanel containerId={containerId} />}
+                        {panel.type === "images" && (
+                            <ImageViewerPanel
+                                containerId={containerId}
+                                refreshTrigger={imagesRefreshTrigger}
+                                pollAfterRun={imagesPollAfterRun}
+                                onFocus={onImagesTabFocus}
+                            />
+                        )}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 });

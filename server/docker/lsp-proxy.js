@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * LSP proxy: forwards stdio to a language server process.
- * Run inside container: node lsp-proxy.js <language>
+ * Run inside container: node /workspace/lsp-proxy.js <language>
  * Host runs this via docker exec -i and bridges WebSocket <-> this process's stdio.
  * Uses absolute paths where possible so LSPs are found when exec has a minimal PATH.
  */

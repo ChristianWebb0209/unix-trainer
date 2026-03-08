@@ -16,6 +16,7 @@ import {
   getFile,
 } from "../../api/files";
 import { listProjects, getProject } from "../../api/projects";
+import { listHelpFiles, getHelpFile, type HelpFileSummary, type HelpFile } from "../../api/help";
 import * as problemConfig from "problem-config";
 
 const READ_ONLY_EXTENSIONS: Extension[] = [
@@ -93,7 +94,7 @@ function ProjectContentBody({ content, codeTheme }: { content: string; codeTheme
   );
 }
 
-type TabKind = "files" | "projects";
+type TabKind = "files" | "projects" | "help";
 
 export interface PlaygroundSidebarProps {
   /** Currently selected file id (for Files tab). */
@@ -112,6 +113,10 @@ export interface PlaygroundSidebarProps {
   onCodeChange: (code: string) => void;
   /** Callback when selected file id changes (including clear). */
   onSelectedFileIdChange: (id: string | null) => void;
+  /** Callback to open a new terminal and cd to the files folder (e.g. /workspace/files). */
+  onShowInTerminal?: () => void;
+  /** Preferred file id to select when loading (e.g. from localStorage). If missing or not in list, first file is used. */
+  initialFileId?: string | null;
 }
 
 export default function PlaygroundSidebar({
@@ -123,11 +128,16 @@ export default function PlaygroundSidebar({
   onSelectFile,
   onCodeChange,
   onSelectedFileIdChange,
+  onShowInTerminal,
+  initialFileId,
 }: PlaygroundSidebarProps) {
   const [activeTab, setActiveTab] = useState<TabKind>("files");
   const [files, setFiles] = useState<PlaygroundFile[]>([]);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [helpFiles, setHelpFiles] = useState<HelpFileSummary[]>([]);
+  const [selectedHelp, setSelectedHelp] = useState<HelpFile | null>(null);
+  const [helpLoading, setHelpLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
@@ -152,7 +162,7 @@ export default function PlaygroundSidebar({
         didAutoCreateRef.current = true;
         try {
           const { file } = await createFile({
-            name: "untitled",
+            name: "Untitled",
             code: defaultCodeForNewFile,
           });
           setFiles([file]);
@@ -168,12 +178,31 @@ export default function PlaygroundSidebar({
         list.forEach((f) => {
           if (f.code !== undefined) fileCacheRef.current.set(f.id, { ...f });
         });
+        const currentSelectionValid = selectedFileId && list.some((f) => f.id === selectedFileId);
+        if (!currentSelectionValid && list.length > 0) {
+          const target = list.find((f) => f.id === (initialFileId ?? undefined)) ?? list[0];
+          const cached = fileCacheRef.current.get(target.id);
+          if (cached?.code !== undefined) {
+            onSelectFile(cached);
+            onCodeChange(cached.code);
+            onSelectedFileIdChange(cached.id);
+          } else {
+            getFile(target.id)
+              .then(({ file: full }) => {
+                fileCacheRef.current.set(full.id, { ...full });
+                onSelectFile(full);
+                onCodeChange(full.code);
+                onSelectedFileIdChange(full.id);
+              })
+              .catch((err) => setError(err instanceof Error ? err.message : "Failed to open file"));
+          }
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load files");
       setFiles([]);
     }
-  }, [defaultCodeForNewFile, onSelectFile, onCodeChange, onSelectedFileIdChange]);
+  }, [defaultCodeForNewFile, initialFileId, selectedFileId, onSelectFile, onCodeChange, onSelectedFileIdChange]);
 
   const loadProjects = useCallback(async () => {
     setError(null);
@@ -187,10 +216,23 @@ export default function PlaygroundSidebar({
     }
   }, []);
 
+  const loadHelpFiles = useCallback(async () => {
+    setError(null);
+    try {
+      const { helpFiles: list } = await listHelpFiles();
+      setHelpFiles(list);
+      setSelectedHelp(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load help");
+      setHelpFiles([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === "files") void loadFiles();
-    else void loadProjects();
-  }, [activeTab, loadFiles, loadProjects]);
+    else if (activeTab === "projects") void loadProjects();
+    else if (activeTab === "help") void loadHelpFiles();
+  }, [activeTab, loadFiles, loadProjects, loadHelpFiles]);
 
   useEffect(() => {
     if (selectedFileId) setFocusedFileId(selectedFileId);
@@ -401,6 +443,20 @@ export default function PlaygroundSidebar({
     }
   };
 
+  const handleSelectHelp = async (p: HelpFileSummary) => {
+    setHelpLoading(true);
+    setError(null);
+    try {
+      const doc = await getHelpFile(p.id);
+      setSelectedHelp(doc);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load help");
+      setSelectedHelp(null);
+    } finally {
+      setHelpLoading(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -435,6 +491,13 @@ export default function PlaygroundSidebar({
           onClick={() => setActiveTab("projects")}
         >
           Projects
+        </button>
+        <button
+          type="button"
+          className={`editor-tab-button ${activeTab === "help" ? "editor-tab-button--selected" : ""}`}
+          onClick={() => setActiveTab("help")}
+        >
+          Help
         </button>
       </div>
 
@@ -536,6 +599,7 @@ export default function PlaygroundSidebar({
                 data-file-id={file.id}
                 onClick={(e) => {
                   e.stopPropagation();
+                  setContextMenu(null);
                   setFocusedFileId(file.id);
                   if (!isSelected) void handleOpenFile(file);
                 }}
@@ -744,6 +808,28 @@ export default function PlaygroundSidebar({
           >
             Export
           </button>
+          {onShowInTerminal && (
+            <button
+              type="button"
+              onClick={() => {
+                setContextMenu(null);
+                onShowInTerminal();
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "0.4rem 0.75rem",
+                border: "none",
+                background: "none",
+                color: "var(--text-primary)",
+                fontSize: "0.9rem",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
+              Show in terminal
+            </button>
+          )}
         </div>
       )}
 
@@ -794,6 +880,63 @@ export default function PlaygroundSidebar({
               ) : (
                 <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
                   {selectedProject.content}
+                </pre>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "help" && (
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ flexShrink: 0, overflowY: "auto", marginBottom: "0.5rem" }}>
+            {helpFiles.length === 0 && !helpLoading && (
+              <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>No help docs yet.</p>
+            )}
+            {helpFiles.map((p) => (
+              <div
+                key={p.id}
+                onClick={() => handleSelectHelp(p)}
+                style={{
+                  padding: "0.5rem 0.4rem",
+                  marginBottom: "0.25rem",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  backgroundColor:
+                    selectedHelp?.id === p.id ? "var(--bg-tertiary)" : "transparent",
+                  border:
+                    selectedHelp?.id === p.id
+                      ? "1px solid var(--accent-color)"
+                      : "1px solid transparent",
+                  fontSize: "0.9rem",
+                }}
+              >
+                {p.name}
+              </div>
+            ))}
+          </div>
+          {helpLoading && (
+            <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", padding: "0.5rem" }}>Loading…</p>
+          )}
+          {selectedHelp && !helpLoading && (
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: "auto",
+                padding: "0.75rem",
+                borderRadius: "6px",
+                border: "1px solid var(--border-color)",
+                backgroundColor: "var(--bg-tertiary)",
+                fontSize: "0.9rem",
+                lineHeight: 1.6,
+              }}
+            >
+              {codeTheme ? (
+                <ProjectContentBody content={selectedHelp.content} codeTheme={codeTheme} />
+              ) : (
+                <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+                  {selectedHelp.content}
                 </pre>
               )}
             </div>

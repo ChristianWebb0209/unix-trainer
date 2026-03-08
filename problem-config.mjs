@@ -55,7 +55,7 @@ export const SHELL_LANGUAGE_IDS = [];
 // ---------------------------------------------------------------------------
 
 /** @typedef {"kernel"|"tensor"} WorkspaceId */
-/** @typedef {{ id: WorkspaceId; label: string; defaultProblemLanguage: ProblemLanguageId; problemLanguages: ProblemLanguageId[]; dockerImageName: string; dockerfileName: string; kind: string; allowLanguageSwitch: boolean; showWebGpuTab: boolean; showImagePanel: boolean; codeThemeKey: string; terminalThemeKey: string }} SharedWorkspace */
+/** @typedef {{ id: WorkspaceId; label: string; defaultProblemLanguage: ProblemLanguageId; problemLanguages: ProblemLanguageId[]; dockerImageName: string; dockerfileName: string; kind: string; allowLanguageSwitch: boolean; showRenderImageTab: boolean; showRenderVideoTab: boolean; showRenderInteractiveTab: boolean; showImagePanel: boolean; codeThemeKey: string; terminalThemeKey: string }} SharedWorkspace */
 
 /** Terminal theme keys (subtle dark variants per workspace). */
 export const TERMINAL_THEME_KEYS = /** @type {const} */ (["kernel-dark", "tensor-dark"]);
@@ -95,7 +95,9 @@ export const WORKSPACES = {
     dockerfileName: "Dockerfile.kernel",
     kind: "kernel",
     allowLanguageSwitch: true,
-    showWebGpuTab: true,
+    showRenderImageTab: true,
+    showRenderVideoTab: true,
+    showRenderInteractiveTab: true,
     showImagePanel: false,
     codeThemeKey: "kernel-dark",
     terminalThemeKey: "kernel-dark",
@@ -109,7 +111,9 @@ export const WORKSPACES = {
     dockerfileName: "Dockerfile.tensor",
     kind: "tensor",
     allowLanguageSwitch: true,
-    showWebGpuTab: false,
+    showRenderImageTab: false,
+    showRenderVideoTab: false,
+    showRenderInteractiveTab: false,
     showImagePanel: true,
     codeThemeKey: "tensor-dark",
     terminalThemeKey: "tensor-dark",
@@ -162,11 +166,23 @@ export const CODE_EDITOR_THEME_SPECS = {
 
 /** Default editor content when no problem is selected, keyed by language id. @type {Partial<Record<ProblemLanguageId, string>>} */
 export const DEFAULT_STARTER_CODE = {
-  cuda: `// Simple host-only CUDA program compiled with nvcc
+  cuda: `// Minimal CUDA: kernel + main (must have both for nvcc)
 #include <cstdio>
+#include <cuda_runtime.h>
+
+__global__ void hello(int* out) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i == 0) *out = 42;
+}
 
 int main() {
-    printf("Hello from CUDA host code!\\n");
+    int* d;
+    cudaMalloc(&d, sizeof(int));
+    hello<<<1, 1>>>(d);
+    int h;
+    cudaMemcpy(&h, d, sizeof(int), cudaMemcpyDeviceToHost);
+    cudaFree(d);
+    printf("Result: %d\\n", h);
     return 0;
 }
 `,

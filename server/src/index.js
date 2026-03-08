@@ -12,8 +12,11 @@ import { completionRouter } from "./routes/completion.routes.js";
 import { fileRouter } from "./routes/file.routes.js";
 import { projectRouter } from "./routes/project.routes.js";
 import { ContainerService } from "./services/container.service.js";
+import { FileService } from "./services/file.service.js";
 import { seedProblemsToSupabase } from "../scripts/problem-seeder.js";
 import { syncProjectsToDb } from "../scripts/sync-projects.js";
+import { syncHelpFilesToDb } from "../scripts/sync-help-files.js";
+import { helpFileRouter } from "./routes/helpFile.routes.js";
 import { testConnection } from "./config/database.config.js";
 import { setupLSPWebSocket } from "./services/lsp-ws.js";
 import { setupTerminalWebSocket } from "./services/terminal-ws.js";
@@ -39,6 +42,7 @@ async function bootstrap() {
   let hasRetriedPort = false;
 
   const containerService = new ContainerService();
+  const fileService = new FileService();
 
   const startListening = () => {
     httpServer.listen(PORT, () => {
@@ -109,12 +113,13 @@ async function bootstrap() {
   app.use(cors());
   app.use(express.json());
 
-  app.use("/api/containers", createContainerRouter(containerService));
+  app.use("/api/containers", createContainerRouter(containerService, fileService));
   app.use("/api/problems", problemRouter);
   app.use("/api/problems", createValidationRouter(containerService));
   app.use("/api/completions", completionRouter);
   app.use("/api/files", fileRouter);
   app.use("/api/projects", projectRouter);
+  app.use("/api/help-files", helpFileRouter);
 
   app.get("/", (req, res) => {
     res.send("API running");
@@ -131,6 +136,9 @@ async function bootstrap() {
     if (dbOk) {
       await syncProjectsToDb().catch((err) => {
         console.error("[Server] Project sync failed:", err?.message ?? err);
+      });
+      await syncHelpFilesToDb().catch((err) => {
+        console.error("[Server] Help files sync failed:", err?.message ?? err);
       });
     }
   };

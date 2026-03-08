@@ -12,6 +12,8 @@
     "db:sync-problems:hard": "node scripts/sync-problems.js -- --hard",
     "db:sync-projects": "node scripts/sync-projects.js",
     "db:sync-projects:hard": "node scripts/sync-projects.js -- --hard",
+    "db:sync-help-files": "node scripts/sync-help-files.js",
+    "db:sync-help-files:hard": "node scripts/sync-help-files.js -- --hard",
     "db:cleanup-completions": "node scripts/cleanup-completions.js",
     "docker:build": "node scripts/build-docker.js",
     "dev:seed-user": "node scripts/create-dev-user.js"

@@ -120,7 +120,7 @@ Full schema and resolver rules (instructions, solution, hints, test shapes, vali
 ### 3.1 `problem-config.mjs`
 
 - **`WORKSPACES`**  
-  Add a new key (e.g. `myworkspace`) with: `id`, `label`, `defaultProblemLanguage`, `problemLanguages` (array of language IDs), `dockerImageName`, `dockerfileName`, `kind`, `allowLanguageSwitch`, `showWebGpuTab`, `codeThemeKey`.
+  Add a new key (e.g. `myworkspace`) with: `id`, `label`, `defaultProblemLanguage`, `problemLanguages` (array of language IDs), `dockerImageName`, `dockerfileName`, `kind`, `allowLanguageSwitch`, `showRenderImageTab`, `showRenderVideoTab`, `showRenderInteractiveTab`, `showImagePanel`, `codeThemeKey`.
 
 - **`CODE_EDITOR_THEME_SPECS`**  
   If the workspace uses a new theme, add an entry keyed by `codeThemeKey`.
@@ -167,7 +167,7 @@ The server only forwards WebSocket ↔ stdio; it does not list languages. The cl
 ## 5. Validation
 
 - **Default:** Problems use `stdout_exact` (run code with test input, compare stdout). The command is built by **`getValidationCommand`** in `problem-config.mjs`.
-- **Custom validation kinds** (e.g. `cuda_numeric`, `webgpu_numeric`): implement in `server/src/services/verification-types/<name>.verification.js` and register in `server/src/services/verification-types/index.verification.js`. Problems (or individual tests) can then set `validation.kind` or use the `kind::id` prefix on test `id`.
+- **Custom validation kinds** (e.g. `cuda_numeric`): implement in `server/src/services/verification-types/<name>.verification.js` and register in `server/src/services/verification-types/index.verification.js`. Problems (or individual tests) can then set `validation.kind` or use the `kind::id` prefix on test `id`.
 
 ---
 

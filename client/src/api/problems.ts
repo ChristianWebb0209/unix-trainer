@@ -212,7 +212,7 @@ export interface ValidateProblemParams {
     solutionCode: string;
     containerId: string | null;
     language: string;
-    /** For webgpu_numeric: client-run output per test (e.g. center pixel [r,g,b]). */
+    /** For numeric validation kinds: client-run output per test (e.g. [r,g,b] or numeric values). */
     testOutputs?: Array<{ testId: string; values: number[] }>;
 }
 

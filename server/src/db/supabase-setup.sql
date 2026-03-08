@@ -65,6 +65,13 @@ CREATE TABLE IF NOT EXISTS public.projects (
 ALTER TABLE public.projects DROP COLUMN IF EXISTS created_at;
 ALTER TABLE public.projects DROP COLUMN IF EXISTS updated_at;
 
+-- 6. Help files (synced from src/data/help-files/*.md). Read-only docs for playground.
+CREATE TABLE IF NOT EXISTS public.help_files (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL DEFAULT ''
+);
+
 ALTER TABLE public.files ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view their own files" ON public.files FOR SELECT USING (auth.uid() = user_id);
@@ -78,6 +85,11 @@ ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can view projects" ON public.projects FOR SELECT USING (true);
 GRANT SELECT ON public.projects TO authenticated;
 GRANT SELECT ON public.projects TO anon;
+
+ALTER TABLE public.help_files ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view help_files" ON public.help_files FOR SELECT USING (true);
+GRANT SELECT ON public.help_files TO authenticated;
+GRANT SELECT ON public.help_files TO anon;
 
 -- Set up Row Level Security (RLS)
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;

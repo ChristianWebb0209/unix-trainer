@@ -29,6 +29,12 @@ CREATE TABLE public.projects (
   content text NOT NULL DEFAULT ''::text,
   CONSTRAINT projects_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.help_files (
+  id character varying NOT NULL,
+  name character varying NOT NULL,
+  content text NOT NULL DEFAULT ''::text,
+  CONSTRAINT help_files_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.user_file (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL UNIQUE,
