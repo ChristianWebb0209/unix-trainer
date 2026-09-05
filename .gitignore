@@ -1,3 +1,52 @@
+# Dependencies
 node_modules/
 **/node_modules/
+
+# Build output
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
 **/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Caches
+.cache/
+.vite/
+.eslintcache
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local scratch / working files
+scratch/
+*.local
