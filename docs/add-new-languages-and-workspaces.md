@@ -77,7 +77,8 @@ Full schema and resolver rules (instructions, solution, hints, test shapes, vali
 - **`DEFAULT_STARTER_CODE`**  
   Add a key for the new language with a small valid snippet.
 
-- **`getValidationCommand(languageId, codeBase64, inputBase64)`**  
+- **`getRunCommand(languageId, codeBase64)`** and **`getValidationCommand(languageId, codeBase64, inputBase64)`**  
+  Both are built from the same `LANGUAGE_BUILDS` table, so the terminal and the grader always compile with identical flags. Add your language there rather than to either function.  
   Add a `case` that builds the shell command to run in the container: write decoded code to a temp file, compile/interpret as needed, run with decoded stdin. This is what validation and “Run” use.
 
 - **`CODE_EDITOR_THEME_SPECS`**  
@@ -120,7 +121,7 @@ Full schema and resolver rules (instructions, solution, hints, test shapes, vali
 ### 3.1 `problem-config.mjs`
 
 - **`WORKSPACES`**  
-  Add a new key (e.g. `myworkspace`) with: `id`, `label`, `defaultProblemLanguage`, `problemLanguages` (array of language IDs), `dockerImageName`, `dockerfileName`, `kind`, `allowLanguageSwitch`, `showRenderImageTab`, `showRenderVideoTab`, `showRenderInteractiveTab`, `showImagePanel`, `codeThemeKey`.
+  Add a new key (e.g. `myworkspace`) with: `id`, `label`, `defaultProblemLanguage`, `problemLanguages` (array of language IDs), `dockerImageName`, `dockerfileName`, `kind`, `allowLanguageSwitch`, `showRenderTab` (whether the Render panel is offered), `codeThemeKey`, `terminalThemeKey`.
 
 - **`CODE_EDITOR_THEME_SPECS`**  
   If the workspace uses a new theme, add an entry keyed by `codeThemeKey`.
@@ -173,7 +174,8 @@ The server only forwards WebSocket ↔ stdio; it does not list languages. The cl
 
 ## 6. Checklist: new language
 
-- [ ] `problem-config.mjs`: `PROBLEM_LANGUAGES`, `C_LIKE_LANGUAGE_IDS` or `SHELL_LANGUAGE_IDS`, workspace’s `problemLanguages`, `DEFAULT_STARTER_CODE`, `getValidationCommand`
+- [ ] `problem-config.mjs`: `PROBLEM_LANGUAGES`, `C_LIKE_LANGUAGE_IDS` or `SHELL_LANGUAGE_IDS`, workspace’s `problemLanguages`, `DEFAULT_STARTER_CODE`, `LANGUAGE_BUILDS`
+- [ ] Make sure the workspace image actually ships that compiler — a language listed in `problemLanguages` without a toolchain fails at compile time for every problem
 - [ ] `client/src/types/problem-config.d.ts`: language id in union types
 - [ ] (Optional) LSP: `server/docker/lsp-proxy.js` + Dockerfile LSP install + `client/src/services/lspFileUri.ts`
 - [ ] `server/src/data/problems/<lang>.json` + run sync/seeder

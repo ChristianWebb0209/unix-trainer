@@ -18,15 +18,25 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY in environment');
+/**
+ * Supabase is optional. Without it the server serves problems, projects and help
+ * docs straight from src/data (see local-problems.js / local-markdown.js); only
+ * auth, saved progress and playground files need a real project.
+ *
+ * createClient() throws on an undefined URL, so both clients stay null until the
+ * environment is actually configured.
+ */
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+if (!isSupabaseConfigured) {
+  console.warn('[Supabase] Not configured - running on local data. Auth, progress and playground files are disabled.');
 }
 
 // Regular client (uses anon key - for authenticated users)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = isSupabaseConfigured ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 // Admin client (uses service role key - bypasses RLS)
-export const supabaseAdmin = supabaseServiceKey 
+export const supabaseAdmin = supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -37,6 +47,7 @@ export const supabaseAdmin = supabaseServiceKey
 
 // Helper to verify JWT token
 export async function verifyToken(token) {
+  if (!supabase) return null;
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error) throw error;

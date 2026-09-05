@@ -54,11 +54,11 @@ export const SHELL_LANGUAGE_IDS = [];
 // Workspaces
 // ---------------------------------------------------------------------------
 
-/** @typedef {"kernel"|"tensor"} WorkspaceId */
-/** @typedef {{ id: WorkspaceId; label: string; defaultProblemLanguage: ProblemLanguageId; problemLanguages: ProblemLanguageId[]; dockerImageName: string; dockerfileName: string; kind: string; allowLanguageSwitch: boolean; showRenderImageTab: boolean; showRenderVideoTab: boolean; showRenderInteractiveTab: boolean; showImagePanel: boolean; codeThemeKey: string; terminalThemeKey: string }} SharedWorkspace */
+/** @typedef {"kernel"} WorkspaceId */
+/** @typedef {{ id: WorkspaceId; label: string; defaultProblemLanguage: ProblemLanguageId; problemLanguages: ProblemLanguageId[]; dockerImageName: string; dockerfileName: string; kind: string; allowLanguageSwitch: boolean; showRenderTab: boolean; codeThemeKey: string; terminalThemeKey: string }} SharedWorkspace */
 
 /** Terminal theme keys (subtle dark variants per workspace). */
-export const TERMINAL_THEME_KEYS = /** @type {const} */ (["kernel-dark", "tensor-dark"]);
+export const TERMINAL_THEME_KEYS = /** @type {const} */ (["kernel-dark"]);
 
 /** xterm.js theme objects: dark, subtle, terminal aesthetic. background/foreground/cursor only. */
 export const TERMINAL_THEMES = /** @type {Record<typeof TERMINAL_THEME_KEYS[number], { background: string; foreground: string; cursor: string; cursorAccent?: string }>} */ ({
@@ -67,12 +67,6 @@ export const TERMINAL_THEMES = /** @type {Record<typeof TERMINAL_THEME_KEYS[numb
     foreground: "#e4e6eb",
     cursor: "#5c6370",
     cursorAccent: "#1a1b1e",
-  },
-  "tensor-dark": {
-    background: "#1c1a1d",
-    foreground: "#e6e4eb",
-    cursor: "#6b5c70",
-    cursorAccent: "#1c1a1d",
   },
 });
 
@@ -90,33 +84,17 @@ export const WORKSPACES = {
     id: "kernel",
     label: "Kernel Lab",
     defaultProblemLanguage: "cuda",
-    problemLanguages: ["c", "cpp", "rust", "cuda", "sycl"],
+    // Only languages the workspace image can actually compile. Rust and SYCL were
+    // listed here previously but the image ships neither rustc nor dpcpp, so every
+    // one of those problems failed at compile time.
+    problemLanguages: ["cuda", "c", "cpp"],
     dockerImageName: "kernel-workspace:latest",
     dockerfileName: "Dockerfile.kernel",
     kind: "kernel",
     allowLanguageSwitch: true,
-    showRenderImageTab: true,
-    showRenderVideoTab: true,
-    showRenderInteractiveTab: true,
-    showImagePanel: false,
+    showRenderTab: true,
     codeThemeKey: "kernel-dark",
     terminalThemeKey: "kernel-dark",
-  },
-  tensor: {
-    id: "tensor",
-    label: "Tensor Lab",
-    defaultProblemLanguage: "python",
-    problemLanguages: ["python", "triton", "pytorch"],
-    dockerImageName: "tensor-workspace:latest",
-    dockerfileName: "Dockerfile.tensor",
-    kind: "tensor",
-    allowLanguageSwitch: true,
-    showRenderImageTab: false,
-    showRenderVideoTab: false,
-    showRenderInteractiveTab: false,
-    showImagePanel: true,
-    codeThemeKey: "tensor-dark",
-    terminalThemeKey: "tensor-dark",
   },
 };
 
@@ -166,23 +144,95 @@ export const CODE_EDITOR_THEME_SPECS = {
 
 /** Default editor content when no problem is selected, keyed by language id. @type {Partial<Record<ProblemLanguageId, string>>} */
 export const DEFAULT_STARTER_CODE = {
-  cuda: `// Minimal CUDA: kernel + main (must have both for nvcc)
+  // The playground opens on the full animated demo: press Run and it streams
+  // straight to the Render tab. Every #define near the top is a knob.
+  cuda: `// Animated Mandelbrot zoom — one GPU thread per pixel, streamed live to the Render tab.
 #include <cstdio>
+#include <cmath>
 #include <cuda_runtime.h>
+#include "tt_render.h"
 
-__global__ void hello(int* out) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i == 0) *out = 42;
+// ----- knobs: change any of these, hit Run, watch the picture change -----
+#define WIDTH        800
+#define HEIGHT       600
+#define MAX_ITER     400      // detail in the filaments (try 60, then 800)
+#define FRAMES       400      // length of the zoom
+#define ZOOM_RATE    1.02     // magnification per frame
+#define COLOR_SCALE  0.10f    // how tightly the colour bands pack (try 0.35f)
+#define COLOR_DRIFT  0.004f   // palette rotation per frame
+#define CENTER_X    -0.743643887037151   // a seahorse, deep in the valley
+#define CENTER_Y     0.131825904205330
+// ------------------------------------------------------------------------
+
+__global__ void mandelbrot(unsigned char *out, int w, int h,
+                           double scale, int maxIter, float shift)
+{
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= w || y >= h) return;          // guard the ragged edge of the grid
+
+    // This thread owns exactly one pixel. Map it into the complex plane.
+    double cr = CENTER_X + (x - w * 0.5) * scale;
+    double ci = CENTER_Y + (y - h * 0.5) * scale;
+
+    // z <- z^2 + c, until it escapes the disc of radius 16 or we run out of patience.
+    double zr = 0.0, zi = 0.0;
+    int i = 0;
+    while (zr * zr + zi * zi <= 256.0 && i < maxIter) {
+        double t = zr * zr - zi * zi + cr;
+        zi = 2.0 * zr * zi + ci;
+        zr = t;
+        i++;
+    }
+
+    int idx = (y * w + x) * 4;
+    if (i >= maxIter) {                    // never escaped: inside the set
+        out[idx] = out[idx + 1] = out[idx + 2] = 0;
+        out[idx + 3] = 255;
+        return;
+    }
+
+    // Fractional escape count, so the colour bands are smooth instead of stepped.
+    float logZn  = logf((float)(zr * zr + zi * zi)) * 0.5f;
+    float smooth = (float)i + 1.0f - logf(logZn / logf(2.0f)) / logf(2.0f);
+
+    // Cosine palette: three phase-shifted cosines, one per channel.
+    float t = sqrtf(smooth) * COLOR_SCALE + shift;
+    out[idx + 0] = (unsigned char)(255.0f * (0.55f + 0.45f * cosf(6.2831853f * (t + 0.85f))));
+    out[idx + 1] = (unsigned char)(255.0f * (0.55f + 0.45f * cosf(6.2831853f * (t + 0.95f))));
+    out[idx + 2] = (unsigned char)(255.0f * (0.55f + 0.45f * cosf(6.2831853f * (t + 0.15f))));
+    out[idx + 3] = 255;
 }
 
-int main() {
-    int* d;
-    cudaMalloc(&d, sizeof(int));
-    hello<<<1, 1>>>(d);
-    int h;
-    cudaMemcpy(&h, d, sizeof(int), cudaMemcpyDeviceToHost);
-    cudaFree(d);
-    printf("Result: %d\\n", h);
+int main()
+{
+    const size_t bytes = (size_t)WIDTH * HEIGHT * 4;
+
+    unsigned char *dPixels = nullptr;
+    cudaError_t err = cudaMalloc(&dPixels, bytes);
+    if (err != cudaSuccess) {
+        printf("cudaMalloc failed: %s\\n", cudaGetErrorString(err));
+        return 1;
+    }
+    unsigned char *hPixels = (unsigned char *)malloc(bytes);
+
+    dim3 block(16, 16);                                     // 256 threads per block
+    dim3 grid((WIDTH + block.x - 1) / block.x,              // enough blocks to cover
+              (HEIGHT + block.y - 1) / block.y);            // every pixel
+
+    double scale = 3.0 / WIDTH;
+    for (int f = 0; f < FRAMES; f++) {
+        mandelbrot<<<grid, block>>>(dPixels, WIDTH, HEIGHT, scale, MAX_ITER, f * COLOR_DRIFT);
+        cudaMemcpy(hPixels, dPixels, bytes, cudaMemcpyDeviceToHost);
+        tt_render_frame(hPixels, WIDTH, HEIGHT);            // publish to the Render tab
+        scale /= ZOOM_RATE;
+    }
+
+    printf("rendered %d frames at %dx%d, final zoom %.0fx\\n",
+           FRAMES, WIDTH, HEIGHT, pow((double)ZOOM_RATE, (double)FRAMES));
+
+    cudaFree(dPixels);
+    free(hPixels);
     return 0;
 }
 `,
@@ -202,58 +252,6 @@ int main() {
     return 0;
 }
 `,
-  rust: `// Rust: minimal program
-fn main() {
-    println!("Hello from Rust!");
-}
-`,
-  sycl: `#include <sycl/sycl.hpp>
-#include <cstdio>
-
-int main() {
-    printf("Hello from SYCL!\\n");
-    return 0;
-}
-`,
-  python: `# Python (GPU): minimal program
-def main():
-    print("Hello from Python on the GPU workspace!")
-
-
-if __name__ == "__main__":
-    main()
-`,
-  triton: `# Triton: minimal skeleton (Python + Triton)
-import triton
-import triton.language as tl
-
-
-@triton.jit
-def kernel(x_ptr, n: tl.constexpr):
-    pid = tl.program_id(axis=0)
-    if pid < n:
-        tl.store(x_ptr + pid, pid)
-
-
-def main():
-    print("Hello from Triton! Implement your kernel and launch logic here.")
-
-
-if __name__ == "__main__":
-    main()
-`,
-  pytorch: `# PyTorch: minimal program
-import torch
-
-
-def main():
-    x = torch.tensor([1.0, 2.0, 3.0])
-    print("Tensor:", x)
-
-
-if __name__ == "__main__":
-    main()
-`,
 };
 
 /**
@@ -265,32 +263,122 @@ export function getDefaultStarterCode(langId) {
 }
 
 /**
+ * CUDA target architecture. sm_61 is Pascal (GTX 10-series), which is what the
+ * reference machine runs. Compiling for the exact architecture skips JIT at
+ * launch; change this if you run on a different GPU generation.
+ */
+export const CUDA_ARCH = "sm_61";
+
+/** Header search path so problems can write `#include "tt_render.h"`. */
+export const WORKSPACE_INCLUDE = "-I/workspace";
+
+/**
+ * Per-language build recipe. Single source of truth: both the graded run
+ * (getValidationCommand) and the interactive terminal run (getRunCommand) go
+ * through this, so the two can never drift apart on flags like -I/workspace.
+ * @type {Record<string, { file: string; compile: (src: string, out: string) => string }>}
+ */
+const LANGUAGE_BUILDS = {
+  cuda: {
+    file: "/tmp/main.cu",
+    compile: (src, out) => `nvcc -arch=${CUDA_ARCH} ${WORKSPACE_INCLUDE} ${src} -o ${out}`,
+  },
+  c: {
+    file: "/tmp/main.c",
+    compile: (src, out) => `gcc ${WORKSPACE_INCLUDE} ${src} -o ${out}`,
+  },
+  cpp: {
+    file: "/tmp/main.cpp",
+    compile: (src, out) => `g++ -std=c++17 ${WORKSPACE_INCLUDE} ${src} -o ${out}`,
+  },
+};
+
+const BINARY_PATH = "/tmp/a.out";
+
+/**
+ * Shell to write the base64-encoded source to disk and compile it.
+ * @param {string} languageId
+ * @param {string} codeBase64
+ * @returns {{ prefix: string, binary: string } | null} null for unknown languages.
+ */
+function buildPrefix(languageId, codeBase64) {
+  const build = LANGUAGE_BUILDS[languageId];
+  if (!build) return null;
+  return {
+    prefix: `echo '${codeBase64}' | base64 -d > ${build.file} && ${build.compile(build.file, BINARY_PATH)}`,
+    binary: BINARY_PATH,
+  };
+}
+
+/**
+ * Command used when grading: compile, then run with the test's stdin piped in.
  * @param {string} languageId
  * @param {string} codeBase64
  * @param {string} inputBase64
  * @returns {string}
  */
 export function getValidationCommand(languageId, codeBase64, inputBase64) {
-  const code = codeBase64;
-  const input = inputBase64;
-  switch (languageId) {
-    case "cuda":
-      return `echo ${code} | base64 -d > /tmp/main.cu && nvcc /tmp/main.cu -o /tmp/a.out && echo ${input} | base64 -d | /tmp/a.out`;
-    case "python":
-    case "triton":
-    case "pytorch":
-      return `echo ${code} | base64 -d > /tmp/main.py && echo ${input} | base64 -d | python3 /tmp/main.py`;
-    case "c":
-      return `echo ${code} | base64 -d > /tmp/main.c && gcc -o /tmp/a.out /tmp/main.c && echo ${input} | base64 -d | /tmp/a.out`;
-    case "cpp":
-      return `echo ${code} | base64 -d > /tmp/main.cpp && g++ -std=c++17 -o /tmp/a.out /tmp/main.cpp && echo ${input} | base64 -d | /tmp/a.out`;
-    case "rust":
-      return `echo ${code} | base64 -d > /tmp/main.rs && rustc -o /tmp/a.out /tmp/main.rs && echo ${input} | base64 -d | /tmp/a.out`;
-    case "sycl":
-      return `echo ${code} | base64 -d > /tmp/main.cpp && dpcpp -o /tmp/a.out /tmp/main.cpp && echo ${input} | base64 -d | /tmp/a.out`;
-    default:
-      return `echo ${code} | base64 -d > /tmp/exec.sh && echo ${input} | base64 -d | /bin/sh /tmp/exec.sh`;
+  const built = buildPrefix(languageId, codeBase64);
+  if (!built) {
+    return `echo '${codeBase64}' | base64 -d > /tmp/exec.sh && echo '${inputBase64}' | base64 -d | /bin/sh /tmp/exec.sh`;
   }
+  return `${built.prefix} && echo '${inputBase64}' | base64 -d | ${built.binary}`;
+}
+
+/**
+ * Command typed into the interactive terminal by Run. Same compile flags as
+ * grading, but stdin stays attached to the PTY so programs can read input.
+ * @param {string} languageId
+ * @param {string} codeBase64
+ * @returns {string}
+ */
+export function getRunCommand(languageId, codeBase64) {
+  const built = buildPrefix(languageId, codeBase64);
+  if (!built) {
+    return `echo '${codeBase64}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
+  }
+  return `${built.prefix} && ${built.binary}`;
+}
+
+/**
+ * Display priority for languages, taken from the order they are listed on their
+ * workspace. Problem lists sort by difficulty, then by this, so the workspace's
+ * headline language leads each difficulty band instead of losing an alphabetical
+ * race ("c_learn_001" sorts before "cuda_learn_001").
+ * @param {string} langId
+ * @returns {number}
+ */
+export function getLanguageOrder(langId) {
+  let best = 99;
+  for (const wsId of WORKSPACE_IDS) {
+    const idx = WORKSPACES[wsId].problemLanguages.indexOf(langId);
+    if (idx >= 0 && idx < best) best = idx;
+  }
+  return best;
+}
+
+/**
+ * Sort comparator shared by the server and the client so both agree on order.
+ * @param {{difficulty: string, language: string, id: string}} a
+ * @param {{difficulty: string, language: string, id: string}} b
+ */
+export function compareProblems(a, b) {
+  const da = DIFFICULTY_ORDER[a.difficulty] ?? 99;
+  const db = DIFFICULTY_ORDER[b.difficulty] ?? 99;
+  if (da !== db) return da - db;
+  const la = getLanguageOrder(a.language);
+  const lb = getLanguageOrder(b.language);
+  if (la !== lb) return la - lb;
+  return String(a.id).localeCompare(String(b.id));
+}
+
+/** Every language reachable from some workspace (i.e. actually runnable). */
+export function getAvailableLanguageIds() {
+  const out = new Set();
+  for (const wsId of WORKSPACE_IDS) {
+    for (const lang of WORKSPACES[wsId].problemLanguages) out.add(lang);
+  }
+  return [...out];
 }
 
 // ---------- Helper query functions ----------

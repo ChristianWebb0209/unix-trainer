@@ -15,7 +15,7 @@ function useAuthLabel(): string {
 
   useEffect(() => {
     const update = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = supabase ? (await supabase.auth.getSession()).data.session : null;
       if (session?.user) {
         const name = session.user.user_metadata?.name;
         const email = session.user.email;
@@ -32,6 +32,7 @@ function useAuthLabel(): string {
       }
     };
     void update();
+    if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       void update();
     });

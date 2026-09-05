@@ -4,9 +4,11 @@
   "description": "Tensor Trainer – LeetCode-style training for CUDA/C++ kernels and Python/Triton/PyTorch tensors.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "npm run dev --prefix client",
-    "dev:seed-user": "npm run dev:seed-user --prefix server"
+    "dev:seed-user": "npm run dev:seed-user --prefix server",
+    "dev:server": "npm run dev --prefix server",
+    "docker:build": "npm run docker:build --prefix server",
+    "build": "npm run build --prefix client"
   },
   "keywords": [],
   "author": "",

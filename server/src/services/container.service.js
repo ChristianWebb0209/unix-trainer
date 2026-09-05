@@ -145,6 +145,12 @@ export class ContainerService {
             Tty: true,
             HostConfig: {
                 Memory: config.memoryLimitBytes, // limit memory
+                // Expose the host GPU inside the container. Without this nvcc still
+                // compiles, but every kernel launch fails with
+                // "no CUDA-capable device is detected".
+                DeviceRequests: [
+                    { Driver: "", Count: -1, DeviceIDs: [], Capabilities: [["gpu"]], Options: {} },
+                ],
             }
         });
 
@@ -197,6 +203,7 @@ export class ContainerService {
             Tty: false,
         });
 
+        const startedAt = Date.now();
         const stream = await exec.start({ hijack: false, stdin: false });
         const stdoutChunks = [];
         const stderrChunks = [];
@@ -225,8 +232,8 @@ export class ContainerService {
             exitCode: inspect.ExitCode ?? 0,
             stdout,
             stderr,
-            timeMs: Math.floor(Math.random() * 50) + 10,
-            memoryBytes: Math.floor(Math.random() * 1024 * 1024 * 10) // ~10MB
+            // Wall-clock for the whole compile+run exec, not just the program.
+            timeMs: Date.now() - startedAt,
         };
     }
 
@@ -285,47 +292,49 @@ export class ContainerService {
         };
     }
 
-    /** Output directory for plots/images (Tensor Lab). Paths restricted to this. */
-    static OUTPUTS_PATH = "/tmp/outputs";
+    /** Where tt_render.h publishes frames, and the streamer that ships them out. */
+    static RENDER_DIR = "/tmp/render";
+    static FRAME_STREAMER = "/workspace/frame-streamer.js";
 
     /**
-     * Lists image files in the container's /tmp/outputs directory.
+     * Attaches to the container's frame streamer: a small Node process that watches
+     * /tmp/render/frame.bin and writes each new frame to stdout, length-prefixed.
+     *
+     * Mirrors attachLSP(): one long-lived `docker exec` whose stdout is demuxed,
+     * rather than one exec per poll (which would cost ~50ms of overhead per frame).
+     *
      * @param {string} containerId
-     * @returns {Promise<string[]>} Filenames (e.g. ["plot.png", "loss.png"])
+     * @param {number} pollIntervalMs How often the container checks for a new frame.
+     * @returns {Promise<{ stdout: import('stream').Readable, destroy: () => void }>}
      */
-    async listOutputFiles(containerId) {
+    async attachFrameStreamer(containerId, pollIntervalMs = 50) {
         if (!this.containers.has(containerId)) {
             throw new Error(`Container ${containerId} not found or already destroyed.`);
         }
-        this.recordActivity(containerId);
-        const result = await this.runCommand(
-            containerId,
-            `find ${ContainerService.OUTPUTS_PATH} -maxdepth 1 -type f \\( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.gif" -o -name "*.webp" \\) -printf "%f\\n" 2>/dev/null | sort`
-        );
-        const lines = (result.stdout || "").trim().split("\n").filter(Boolean);
-        return lines;
-    }
 
-    /**
-     * Reads a file from /tmp/outputs and returns base64-encoded content.
-     * @param {string} containerId
-     * @param {string} filename Safe filename only (no path traversal)
-     * @returns {Promise<string>} Base64-encoded file content
-     */
-    async getOutputFileContent(containerId, filename) {
-        if (!this.containers.has(containerId)) {
-            throw new Error(`Container ${containerId} not found or already destroyed.`);
-        }
-        if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
-            throw new Error("Invalid filename");
-        }
         this.recordActivity(containerId);
-        const path = `${ContainerService.OUTPUTS_PATH}/${filename}`;
-        const result = await this.runCommand(
-            containerId,
-            `base64 -w0 "${path}" 2>/dev/null || true`
-        );
-        return (result.stdout || "").trim();
+        const container = this.docker.getContainer(containerId);
+        const exec = await container.exec({
+            Cmd: ["node", ContainerService.FRAME_STREAMER, String(pollIntervalMs)],
+            AttachStdin: true,
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: false,
+        });
+
+        const stream = await exec.start({ hijack: true, stdin: true });
+        const stdoutPT = new PassThrough();
+        const stderrPT = new PassThrough();
+        this.docker.modem.demuxStream(stream, stdoutPT, stderrPT);
+        stderrPT.on("data", (chunk) => containerError(`[frames] ${chunk.toString().trim()}`));
+
+        const destroy = () => {
+            stream.destroy();
+            stdoutPT.destroy();
+            stderrPT.destroy();
+        };
+
+        return { stdout: stdoutPT, destroy };
     }
 
     /** Directory inside /workspace where user playground files are placed (terminal: cd /workspace/files). */
@@ -481,12 +490,17 @@ export class ContainerService {
 
     async reapExistingProjectContainers() {
         try {
-            // On server startup, aggressively clean up ALL containers (running or exited)
-            // so repeated dev runs do not accumulate leftover environments.
+            // Clean up leftovers from previous dev runs so environments do not
+            // accumulate. Scoped to this project's own workspace images - the host
+            // may be running unrelated containers that must not be touched.
+            const ourImages = new Set(
+                workspaceConfig.getWorkspaceIds().map((ws) => this.getImageNameForWorkspace(ws))
+            );
             const containers = await this.docker.listContainers({ all: true });
             for (const c of containers) {
                 const id = c.Id;
                 const image = c.Image;
+                if (!ourImages.has(image)) continue;
                 try {
                     containerLogDestroy(`Cleaning up leftover container ${shortId(id)} (image=${image})`);
                     const container = this.docker.getContainer(id);

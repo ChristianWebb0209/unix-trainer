@@ -132,7 +132,9 @@ export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>
 
         const cleanup = () => {
             closedByUs.current = true;
-            socketRef.current = null;
+            // Only disown the ref if it still points at this socket - a late-closing
+            // socket from a previous effect run must not clear its successor.
+            if (socketRef.current === socket) socketRef.current = null;
             resizeObserver?.disconnect();
             resizeObserver = null;
             if (terminalElement && onTerminalContextMenu) {

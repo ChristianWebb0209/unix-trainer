@@ -29,31 +29,14 @@ export function toBase64(str: string): string {
 }
 
 /**
- * Builds the shell command string to inject into the terminal for running the given code.
- * The command writes code to a temp file and executes it with the appropriate interpreter.
+ * Shell command injected into the terminal by Run.
+ *
+ * Delegates to problem-config so the terminal and the grader compile with
+ * identical flags - they used to keep separate copies, which is how the
+ * terminal ended up without -I/workspace and could not find tt_render.h.
  */
 export function buildRunCommand(language: SupportedLanguage, code: string): string {
-  const encoded = toBase64(code);
-  const escaped = encoded.replace(/'/g, "'\"'\"'");
-
-  switch (language) {
-    case "cuda":
-      return `echo '${escaped}' | base64 -d > /tmp/main.cu && nvcc /tmp/main.cu -o /tmp/a.out && /tmp/a.out`;
-    case "sycl":
-      return `echo '${escaped}' | base64 -d > /tmp/main.cpp && dpcpp -o /tmp/a.out /tmp/main.cpp && /tmp/a.out`;
-    case "c":
-      return `echo '${escaped}' | base64 -d > /tmp/main.c && gcc -o /tmp/a.out /tmp/main.c && /tmp/a.out`;
-    case "cpp":
-      return `echo '${escaped}' | base64 -d > /tmp/main.cpp && g++ -std=c++17 -o /tmp/a.out /tmp/main.cpp && /tmp/a.out`;
-    case "rust":
-      return `echo '${escaped}' | base64 -d > /tmp/main.rs && rustc -o /tmp/a.out /tmp/main.rs && /tmp/a.out`;
-    case "python":
-    case "triton":
-    case "pytorch":
-      return `echo '${escaped}' | base64 -d > /tmp/main.py && python3 /tmp/main.py`;
-    default:
-      return `echo '${escaped}' | base64 -d > /tmp/run.sh && sh /tmp/run.sh`;
-  }
+  return problemConfig.getRunCommand(language, toBase64(code));
 }
 
 export type TerminalRunPayload = {

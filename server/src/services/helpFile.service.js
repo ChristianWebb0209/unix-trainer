@@ -5,6 +5,7 @@
  */
 
 import { query } from "../config/database.config.js";
+import { listLocalMarkdown, getLocalMarkdown } from "./local-markdown.js";
 
 export class HelpFileService {
   async list() {
@@ -12,10 +13,11 @@ export class HelpFileService {
       const res = await query(
         "SELECT id, name FROM public.help_files ORDER BY name ASC"
       );
-      return { helpFiles: res.rows ?? [] };
+      const rows = res.rows ?? [];
+      return { helpFiles: rows.length > 0 ? rows : listLocalMarkdown("help-files") };
     } catch (err) {
-      console.error("[HelpFileService] list error:", err.message);
-      return { helpFiles: [] };
+      console.warn("[HelpFileService] list falling back to local files:", err.message);
+      return { helpFiles: listLocalMarkdown("help-files") };
     }
   }
 
@@ -29,10 +31,12 @@ export class HelpFileService {
         [safeId]
       );
       const row = res.rows?.[0];
-      return row ? { id: row.id, name: row.name, content: row.content ?? "" } : null;
+      return row
+        ? { id: row.id, name: row.name, content: row.content ?? "" }
+        : getLocalMarkdown("help-files", safeId);
     } catch (err) {
-      console.error("[HelpFileService] getById error:", err.message);
-      return null;
+      console.warn("[HelpFileService] getById falling back to local files:", err.message);
+      return getLocalMarkdown("help-files", safeId);
     }
   }
 }

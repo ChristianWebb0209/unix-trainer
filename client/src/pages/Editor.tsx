@@ -12,8 +12,8 @@ import PlaygroundSidebar from "../components/editor/PlaygroundSidebar.tsx";
 import AppHeader from "../components/ui/AppHeader.tsx";
 import NotificationBanner from "../components/ui/NotificationBanner.tsx";
 import UnifiedSelect from "../components/ui/UnifiedSelect.tsx";
-import { primaryPillSelected, primaryPillUnselected } from "../uiStyles";
-import { TERMINAL_LANGUAGES, isSupportedLanguage, type SupportedLanguage } from "../services/codeExecution";
+import { primaryPillSelected } from "../uiStyles";
+import { isSupportedLanguage, type SupportedLanguage } from "../services/codeExecution";
 import type { ProblemSummary, ProblemLanguage, ProblemCompletionState, ProblemCompletion } from "../api/problems";
 import { listProblems, fetchProblemCompletions, saveProblemProgress, validateProblem } from "../api/problems";
 import type { ValidationResult } from "../types/validation";
@@ -31,7 +31,6 @@ const WORKSPACES: Record<
         label: string;
         defaultLanguage: SupportedLanguage;
         codeTheme: Extension;
-        isGpu: boolean;
         allowLanguageSwitch: boolean;
     }
 > = (problemConfig.getWorkspaceIds() as Workspace[]).reduce(
@@ -43,7 +42,6 @@ const WORKSPACES: Record<
                 label: string;
                 defaultLanguage: SupportedLanguage;
                 codeTheme: Extension;
-                isGpu: boolean;
                 allowLanguageSwitch: boolean;
             }
         >,
@@ -56,7 +54,6 @@ const WORKSPACES: Record<
             label: ws.label,
             defaultLanguage: ws.defaultProblemLanguage as SupportedLanguage,
             codeTheme: getCodeEditorTheme(ws.codeThemeKey),
-            isGpu: ws.kind === "gpu",
             allowLanguageSwitch: Boolean(ws.allowLanguageSwitch),
         };
         return acc;
@@ -68,7 +65,6 @@ const WORKSPACES: Record<
             label: string;
             defaultLanguage: SupportedLanguage;
             codeTheme: Extension;
-            isGpu: boolean;
             allowLanguageSwitch: boolean;
         }
     >
@@ -104,7 +100,12 @@ export default function Editor() {
         : (problemConfig.DEFAULT_WORKSPACE as Workspace);
     const workspace: Workspace = (WORKSPACES[resolvedWorkspace] ? resolvedWorkspace : knownWorkspaces[0]) as Workspace;
     const isPlaygroundMode = location.pathname.endsWith("/playground");
-    const [code, setCode] = useState("# Write your bash code here\necho \"Hello from CodeMirror!\"");
+    // Seed the editor with the workspace's starter code rather than a placeholder,
+    // so the playground opens on something that actually runs.
+    const [code, setCode] = useState(() => {
+        const ws = problemConfig.WORKSPACES[workspace as keyof typeof problemConfig.WORKSPACES];
+        return problemConfig.getDefaultStarterCode(ws?.defaultProblemLanguage ?? "cuda");
+    });
     const [containerId, setContainerId] = useState<string | null>(null);
     const [isCreatingContainer, setIsCreatingContainer] = useState(false);
     const [isRunning, setIsRunning] = useState(false);
@@ -644,7 +645,6 @@ export default function Editor() {
 
     // Adjust editor language when workspace changes
     useEffect(() => {
-        const wsDef = WORKSPACES[workspace];
         if (isPlaygroundMode) {
             setPlaygroundFileId(null);
             const wsLangs = (problemConfig.getLanguagesForWorkspace(workspace) as string[]).filter((id) => id !== "any");
@@ -656,18 +656,11 @@ export default function Editor() {
             }
             return;
         }
-        if (wsDef?.isGpu) {
-            const defLang = wsDef.defaultLanguage;
-            setLockedLanguage(defLang);
-            setSelectedLanguage(defLang);
-            setCode((prev) => (prev ? prev : problemConfig.getDefaultStarterCode(defLang)));
-        } else {
-            setLockedLanguage(null);
-            if (!isSupportedLanguage(selectedLanguage as string)) {
-                const def = workspaceDefinition.defaultLanguage;
-                setSelectedLanguage(def);
-                setCode(problemConfig.getDefaultStarterCode(def));
-            }
+        setLockedLanguage(null);
+        if (!isSupportedLanguage(selectedLanguage as string)) {
+            const def = workspaceDefinition.defaultLanguage;
+            setSelectedLanguage(def);
+            setCode(problemConfig.getDefaultStarterCode(def));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workspace, isPlaygroundMode]);
@@ -685,12 +678,7 @@ export default function Editor() {
                 });
                 if (cancelled) return;
                 const allowed = data.problems.filter((p) => wsLangs.includes(p.language));
-                allowed.sort((a, b) => {
-                    const da = problemConfig.DIFFICULTY_ORDER[a.difficulty as keyof typeof problemConfig.DIFFICULTY_ORDER];
-                    const db = problemConfig.DIFFICULTY_ORDER[b.difficulty as keyof typeof problemConfig.DIFFICULTY_ORDER];
-                    if (da !== db) return da - db;
-                    return a.id.localeCompare(b.id);
-                });
+                allowed.sort(problemConfig.compareProblems);
                 setVisibleProblems(allowed);
                 if (allowed.length > 0 && !isPlaygroundMode) {
                     const preferredId = initialProblemIdRef.current;
@@ -801,17 +789,10 @@ export default function Editor() {
                         </span>
                         {(WORKSPACES[workspace]?.allowLanguageSwitch || isPlaygroundMode) && (() => {
                             const workspaceLangIds = (problemConfig.getLanguagesForWorkspace(workspace) as string[]).filter((id) => id !== "any");
-                            const languageOptions = isPlaygroundMode
-                                ? workspaceLangIds.map((id) => ({
-                                    id,
-                                    name: (problemConfig.PROBLEM_LANGUAGES as Record<string, { label?: string }>)[id]?.label ?? id,
-                                }))
-                                : WORKSPACES[workspace]?.isGpu
-                                    ? workspaceLangIds.map((id) => ({
-                                        id,
-                                        name: (problemConfig.PROBLEM_LANGUAGES as Record<string, { label?: string }>)[id]?.label ?? id,
-                                    }))
-                                    : TERMINAL_LANGUAGES;
+                            const languageOptions = workspaceLangIds.map((id) => ({
+                                id,
+                                name: (problemConfig.PROBLEM_LANGUAGES as Record<string, { label?: string }>)[id]?.label ?? id,
+                            }));
                             const languageDisabled = isPlaygroundMode ? false : lockedLanguage !== null;
                             return (
                                 <UnifiedSelect
@@ -834,15 +815,6 @@ export default function Editor() {
                                 />
                             );
                         })()}
-                        {WORKSPACES[workspace]?.isGpu && !WORKSPACES[workspace]?.allowLanguageSwitch && (
-                            <div
-                                style={{
-                                    ...primaryPillSelected,
-                                }}
-                            >
-                                {problemConfig.PROBLEM_LANGUAGES[WORKSPACES[workspace].defaultLanguage]?.label ?? "GPU"}
-                            </div>
-                        )}
                     </div>
                 </AppHeader>
 

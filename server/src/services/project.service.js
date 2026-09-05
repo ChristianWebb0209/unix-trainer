@@ -5,6 +5,7 @@
  */
 
 import { query } from "../config/database.config.js";
+import { listLocalMarkdown, getLocalMarkdown } from "./local-markdown.js";
 
 export class ProjectService {
   async list() {
@@ -12,10 +13,11 @@ export class ProjectService {
       const res = await query(
         "SELECT id, name FROM public.projects ORDER BY name ASC"
       );
-      return { projects: res.rows ?? [] };
+      const rows = res.rows ?? [];
+      return { projects: rows.length > 0 ? rows : listLocalMarkdown("projects") };
     } catch (err) {
-      console.error("[ProjectService] list error:", err.message);
-      return { projects: [] };
+      console.warn("[ProjectService] list falling back to local files:", err.message);
+      return { projects: listLocalMarkdown("projects") };
     }
   }
 
@@ -29,10 +31,12 @@ export class ProjectService {
         [safeId]
       );
       const row = res.rows?.[0];
-      return row ? { id: row.id, name: row.name, content: row.content ?? "" } : null;
+      return row
+        ? { id: row.id, name: row.name, content: row.content ?? "" }
+        : getLocalMarkdown("projects", safeId);
     } catch (err) {
-      console.error("[ProjectService] getById error:", err.message);
-      return null;
+      console.warn("[ProjectService] getById falling back to local files:", err.message);
+      return getLocalMarkdown("projects", safeId);
     }
   }
 }

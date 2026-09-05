@@ -19,6 +19,17 @@ dotenv.config();
 
 const { Pool } = pg;
 
+/**
+ * Postgres is optional too. When nothing is configured, query() rejects
+ * immediately instead of spending the 2s connect timeout on every request, so
+ * the markdown fallbacks in project.service / helpFile.service answer instantly.
+ */
+export const isDatabaseConfigured = Boolean(
+  process.env.DB_CONNECTION_STRING ||
+  process.env.DB_HOST ||
+  process.env.DB_PASSWORD
+);
+
 // Build config from connection string or individual settings
 let dbConfig;
 
@@ -47,6 +58,10 @@ export const pool = new Pool(dbConfig);
 
 // Test connection on startup
 export async function testConnection() {
+  if (!isDatabaseConfigured) {
+    console.warn('[Database] Not configured - projects and help docs will be served from src/data.');
+    return false;
+  }
   try {
     const client = await pool.connect();
     console.log('[Database] Connected to PostgreSQL successfully');
@@ -60,6 +75,9 @@ export async function testConnection() {
 
 // Helper for parameterized queries
 export async function query(text, params) {
+  if (!isDatabaseConfigured) {
+    throw new Error('Database is not configured');
+  }
   const res = await pool.query(text, params);
   return res;
 }

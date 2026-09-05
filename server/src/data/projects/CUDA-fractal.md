@@ -342,36 +342,32 @@ Copy GPU memory back to your CPU image array.
 
 ---
 
-# Step 12 — Write the Image File
+# Step 12 — Show the Image
 
-Create a `.ppm` file using `ofstream`.
-
-The header format is:
+Include the render header at the top of your file:
 
 
-P6
-width height
-255
+#include "tt_render.h"
 
 
-Then write raw RGB bytes.
-
-Example idea:
+Then, once the pixels are back on the host, publish them:
 
 
-file.write(...)
+tt_render_frame(pixels, width, height);
 
 
-When finished, close the file.
+One catch: the panel expects **RGBA**, four bytes per pixel, not the three you may have allocated for PPM. Either allocate `width * height * 4` from the start, or copy into a 4-byte buffer before publishing.
+
+Open the **Render** tab and your fractal appears there.
 
 ---
 
-# Step 13 — Run the Program
+# Step 13 — Run It
 
 Compile:
 
 
-nvcc fractal.cu -o fractal
+nvcc -arch=sm_61 -I/workspace fractal.cu -o fractal
 
 
 Run:
@@ -380,15 +376,24 @@ Run:
 ./fractal
 
 
-You should now have something like:
+The image shows up in the Render tab the moment the program publishes it.
+
+---
+
+# Step 14 — Make It Move
+
+You have a still image. Turn it into an animation by wrapping steps 5–12 in a loop and shrinking the coordinate range a little each pass:
 
 
-fractal.ppm
+for (int frame = 0; frame < 240; frame++) {
+    // launch kernel with the current window
+    // copy pixels back
+    // tt_render_frame(pixels, width, height);
+    // shrink the window slightly
+}
 
 
-Open it with any image viewer.
-
-You should see a **Mandelbrot fractal rendered by your GPU**.
+Publish every frame. The panel always displays the newest one, so you can render as fast as the card manages and never worry about pacing.
 
 ---
 

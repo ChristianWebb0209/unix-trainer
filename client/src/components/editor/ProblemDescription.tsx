@@ -23,6 +23,39 @@ const NO_SOLUTION_PLACEHOLDER =
 
 type TabKind = "problem" | "solution";
 
+/** Escapes HTML so authored problem text can never inject markup. */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * Inline markdown: `code`, **bold**, *italic*.
+ * Code spans are pulled out first and restored last, so ** inside a code span
+ * is shown literally instead of being read as bold.
+ */
+function renderInline(raw: string): string {
+  const codeSpans: string[] = [];
+  const withPlaceholders = raw.replace(/`([^`]+)`/g, (_m, code: string) => {
+    codeSpans.push(code);
+    return "\u0000CODE" + (codeSpans.length - 1) + "\u0000";
+  });
+
+  let html = escapeHtml(withPlaceholders)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*]+?)\*/g, "$1<em>$2</em>");
+
+  html = html.replace(/\u0000CODE(\d+)\u0000/g, (_m, i: string) =>
+    '<code class="problem-inline-code">' + escapeHtml(codeSpans[Number(i)]) + "</code>"
+  );
+  return html;
+}
+
+/** Font size for h1/h2/h3 in problem text. */
+const HEADING_SIZES = ["1.35rem", "1.15rem", "1.02rem"];
+
 /** Reusable body: parses markdown-like text (``` blocks, **bold*, *italic*, Input:/Output:) and renders. Code blocks use read-only CodeMirror with the given theme. */
 function ResolvedContentBody({
   content,
@@ -120,15 +153,84 @@ function ResolvedContentBody({
                 </div>
               );
             } else {
-              const withBold = raw.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-              const withItalics = withBold.replace(/\*(.+?)\*/g, "<em>$1</em>");
-              out.push(
-                <p
-                  key={`p-${idx}-${pIdx}`}
-                  style={{ marginBottom: "0.9rem" }}
-                  dangerouslySetInnerHTML={{ __html: withItalics }}
-                />
-              );
+              // A block can mix a heading, prose and a list, so walk it line by
+              // line and group consecutive list items together.
+              const lines = raw.split(/\n/);
+              let cursor = 0;
+              let blockKey = 0;
+              while (cursor < lines.length) {
+                const line = lines[cursor];
+                const trimmed = line.trim();
+                if (!trimmed) {
+                  cursor++;
+                  continue;
+                }
+
+                const heading = trimmed.match(/^(#{1,3})\s+(.*)$/);
+                if (heading) {
+                  const level = heading[1].length;
+                  const Tag = (`h${level + 1}`) as "h2" | "h3" | "h4";
+                  out.push(
+                    <Tag
+                      key={`h-${idx}-${pIdx}-${blockKey++}`}
+                      style={{
+                        fontSize: HEADING_SIZES[level - 1],
+                        fontWeight: 650,
+                        margin: "1.4rem 0 0.6rem",
+                        lineHeight: 1.3,
+                      }}
+                      dangerouslySetInnerHTML={{ __html: renderInline(heading[2]) }}
+                    />
+                  );
+                  cursor++;
+                  continue;
+                }
+
+                const isBullet = (t: string) => /^[-*]\s+/.test(t);
+                const isNumbered = (t: string) => /^\d+[.)]\s+/.test(t);
+                if (isBullet(trimmed) || isNumbered(trimmed)) {
+                  const ordered = isNumbered(trimmed);
+                  const items: string[] = [];
+                  while (cursor < lines.length) {
+                    const t = lines[cursor].trim();
+                    if (ordered ? !isNumbered(t) : !isBullet(t)) break;
+                    items.push(t.replace(/^([-*]|\d+[.)])\s+/, ""));
+                    cursor++;
+                  }
+                  const ListTag = ordered ? "ol" : "ul";
+                  out.push(
+                    <ListTag
+                      key={`l-${idx}-${pIdx}-${blockKey++}`}
+                      style={{ margin: "0.5rem 0 0.9rem", paddingLeft: "1.35rem" }}
+                    >
+                      {items.map((item, i) => (
+                        <li
+                          key={i}
+                          style={{ marginBottom: "0.35rem" }}
+                          dangerouslySetInnerHTML={{ __html: renderInline(item) }}
+                        />
+                      ))}
+                    </ListTag>
+                  );
+                  continue;
+                }
+
+                // Otherwise gather the run of plain lines into one paragraph.
+                const paraLines: string[] = [];
+                while (cursor < lines.length) {
+                  const t = lines[cursor].trim();
+                  if (!t || /^(#{1,3})\s+/.test(t) || isBullet(t) || isNumbered(t)) break;
+                  paraLines.push(t);
+                  cursor++;
+                }
+                out.push(
+                  <p
+                    key={`p-${idx}-${pIdx}-${blockKey++}`}
+                    style={{ marginBottom: "0.9rem" }}
+                    dangerouslySetInnerHTML={{ __html: renderInline(paraLines.join(" ")) }}
+                  />
+                );
+              }
             }
           });
         }

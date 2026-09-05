@@ -1,5 +1,7 @@
 import { Visibility } from '../types/problem.types.js';
 import { supabaseAdmin } from '../config/supabase.config.js';
+import { getLocalProblem, listLocalProblems } from './local-problems.js';
+import { compareProblems, getAvailableLanguageIds } from '../../../problem-config.mjs';
 
 /**
  * Problem Service
@@ -45,8 +47,7 @@ export class ProblemService {
      */
     async getProblem(problemId) {
         if (!supabaseAdmin) {
-            console.error('[ProblemService] supabaseAdmin is not configured');
-            return null;
+            return getLocalProblem(problemId);
         }
         const { data, error } = await supabaseAdmin
             .from('problems')
@@ -72,8 +73,11 @@ export class ProblemService {
      */
     async getTestCases(problemId, visibility) {
         if (!supabaseAdmin) {
-            console.error('[ProblemService] supabaseAdmin is not configured');
-            return [];
+            const local = getLocalProblem(problemId);
+            const localTests = Array.isArray(local?.tests) ? local.tests : [];
+            return visibility === Visibility.PUBLIC
+                ? localTests.filter((tc) => !tc.isHidden)
+                : localTests;
         }
         const { data, error } = await supabaseAdmin
             .from('problems')
@@ -98,8 +102,7 @@ export class ProblemService {
      */
     async listProblems(filters, pagination) {
         if (!supabaseAdmin) {
-            console.error('[ProblemService] supabaseAdmin is not configured');
-            return { problems: [], total: 0, page: pagination.page, limit: pagination.limit };
+            return this.#listLocal(filters, pagination);
         }
 
         let queryBuilder = supabaseAdmin
@@ -134,18 +137,12 @@ export class ProblemService {
             return { problems: [], total: 0, page: pagination.page, limit: pagination.limit };
         }
 
-        const difficultyOrder = { learn: 0, easy: 1, medium: 2, hard: 3 };
         const problems = (data ?? [])
             .map((p) => ({
                 ...p,
                 starterCode: p.starter_code ?? null,
             }))
-            .sort((a, b) => {
-                const da = difficultyOrder[a.difficulty] ?? 99;
-                const db = difficultyOrder[b.difficulty] ?? 99;
-                if (da !== db) return da - db;
-                return String(a.id).localeCompare(String(b.id));
-            });
+            .sort(compareProblems);
 
         return {
             problems,
@@ -160,24 +157,29 @@ export class ProblemService {
      * Backed by Supabase problems table.
      */
     async getProblemOfTheDay(currentDate = new Date()) {
+        let all;
         if (!supabaseAdmin) {
-            console.error('[ProblemService] supabaseAdmin is not configured');
-            return null;
+            all = listLocalProblems();
+        } else {
+            const { data, error } = await supabaseAdmin
+                .from('problems')
+                .select('id,title,instructions,difficulty,language,tests,starter_code');
+
+            if (error) {
+                console.error('[ProblemService] Failed to fetch problems for problem of the day:', error.message);
+                return null;
+            }
+            all = Array.isArray(data) ? data : [];
         }
 
-        const { data, error } = await supabaseAdmin
-            .from('problems')
-            .select('id,title,instructions,difficulty,language,tests,starter_code');
-
-        if (error) {
-            console.error('[ProblemService] Failed to fetch problems for problem of the day:', error.message);
-            return null;
-        }
-
-        const all = Array.isArray(data) ? data : [];
         if (all.length === 0) {
             return null;
         }
+
+        // Never feature a problem in a language no workspace can run.
+        const available = new Set(getAvailableLanguageIds());
+        all = all.filter((p) => available.has(String(p.language).toLowerCase()));
+        if (all.length === 0) return null;
 
         // Stable order so the same date always maps to the same problem
         all.sort((a, b) => a.id.localeCompare(b.id));
@@ -196,5 +198,41 @@ export class ProblemService {
         };
     }
 
-    // syncProblemToDatabase removed: Supabase is now the primary source of truth.
+    /**
+     * Filesystem-backed equivalent of listProblems(). Applies the same filters and
+     * pagination so callers cannot tell which source answered.
+     * @param {object} filters
+     * @param {{ page: number, limit: number }} pagination
+     */
+    #listLocal(filters, pagination) {
+        let rows = listLocalProblems();
+
+        if (filters.search) {
+            const term = String(filters.search).toLowerCase();
+            rows = rows.filter(
+                (p) => p.id.toLowerCase().includes(term) || p.title.toLowerCase().includes(term)
+            );
+        }
+        if (filters.difficulty) {
+            rows = rows.filter((p) => p.difficulty === filters.difficulty);
+        }
+        if (filters.type) {
+            rows = rows.filter((p) => p.language === filters.type);
+        }
+        if (Array.isArray(filters.languageIn) && filters.languageIn.length > 0) {
+            rows = rows.filter((p) => filters.languageIn.includes(p.language));
+        }
+
+        const total = rows.length;
+        const from = (pagination.page - 1) * pagination.limit;
+        return {
+            problems: rows.slice(from, from + pagination.limit),
+            total,
+            page: pagination.page,
+            limit: pagination.limit,
+        };
+    }
+
+    // syncProblemToDatabase removed: Supabase is the source of truth when configured;
+    // otherwise problems are served from src/data/problems/*.json (see local-problems.js).
 }

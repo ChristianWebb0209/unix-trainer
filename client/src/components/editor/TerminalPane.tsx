@@ -27,10 +27,9 @@ import { getUserId } from "../../api/files";
 import { apiUrl } from "../../services/apiOrigin";
 import { getTerminalRunPayload, isSupportedLanguage, type SupportedLanguage } from "../../services/codeExecution";
 import { TerminalPanel, type TerminalPanelHandle } from "./terminal/TerminalPanel";
-import { ImageViewerPanel } from "./terminal/ImageViewerPanel";
-import { RenderImagePanel, RenderVideoPanel, RenderInteractivePanel } from "./visualization";
+import { RenderPanel } from "./visualization";
 
-export type TerminalViewMode = "terminal" | "images" | "render-image" | "render-video" | "render-interactive";
+export type TerminalViewMode = "terminal" | "render";
 
 export type PanelType = TerminalViewMode;
 
@@ -70,10 +69,7 @@ function genPanelId(): string {
 function panelLabel(type: PanelType): string {
     switch (type) {
         case "terminal": return "Terminal";
-        case "images": return "Images";
-        case "render-image": return "Render: Image";
-        case "render-video": return "Render: Video";
-        case "render-interactive": return "Render: Interactive";
+        case "render": return "Render";
         default: return type;
     }
 }
@@ -84,9 +80,6 @@ type TerminalPaneProps = {
     onToggleExpanded: () => void;
     code: string;
     onContainerIdChange?: (id: string | null) => void;
-    imagesRefreshTrigger?: number;
-    imagesPollAfterRun?: boolean;
-    onImagesTabFocus?: () => void;
     onRunStart?: () => void;
     onRunEnd?: () => void;
     onCreatingChange?: (creating: boolean) => void;
@@ -157,9 +150,6 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
         onToggleExpanded,
         code: _code,
         onContainerIdChange,
-        imagesRefreshTrigger = 0,
-        imagesPollAfterRun = false,
-        onImagesTabFocus,
         onRunStart,
         onRunEnd,
         onCreatingChange,
@@ -167,10 +157,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
     ref
 ) {
     const wsConfig = problemConfig.WORKSPACES[workspace as keyof typeof problemConfig.WORKSPACES];
-    const showRenderImageTab = Boolean(wsConfig?.showRenderImageTab);
-    const showRenderVideoTab = Boolean(wsConfig?.showRenderVideoTab);
-    const showRenderInteractiveTab = Boolean(wsConfig?.showRenderInteractiveTab);
-    const showImagePanel = Boolean(wsConfig?.showImagePanel);
+    const showRenderTab = Boolean(wsConfig?.showRenderTab);
 
     const [containerId, setContainerId] = useState<string | null>(null);
     const [isCreatingContainer, setIsCreatingContainer] = useState(false);
@@ -180,10 +167,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
     const initialPanels = useRef<Panel[] | null>(null);
     if (initialPanels.current === null) {
         const list: Panel[] = [{ id: genPanelId(), type: "terminal" }];
-        if (showRenderImageTab) list.push({ id: genPanelId(), type: "render-image" });
-        if (showRenderVideoTab) list.push({ id: genPanelId(), type: "render-video" });
-        if (showRenderInteractiveTab) list.push({ id: genPanelId(), type: "render-interactive" });
-        if (showImagePanel) list.push({ id: genPanelId(), type: "images" });
+        if (showRenderTab) list.push({ id: genPanelId(), type: "render" });
         initialPanels.current = list;
     }
     const [panels, setPanels] = useState<Panel[]>(() => initialPanels.current!);
@@ -238,17 +222,6 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
         }
     }, [workspace, onContainerIdChange, onCreatingChange]);
 
-    const destroyContainer = useCallback(async (id: string) => {
-        if (!id) return;
-        try {
-            await fetch(apiUrl(`/api/containers/${id}`), { method: "DELETE" });
-        } catch (err) {
-            console.error("Container destroy failed", err);
-        }
-        setContainerId(null);
-        onContainerIdChange?.(null);
-    }, [onContainerIdChange]);
-
     useEffect(() => {
         return () => {
             const id = containerIdRef.current;
@@ -274,13 +247,10 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
             return;
         }
         const list: Panel[] = [{ id: genPanelId(), type: "terminal" }];
-        if (showRenderImageTab) list.push({ id: genPanelId(), type: "render-image" });
-        if (showRenderVideoTab) list.push({ id: genPanelId(), type: "render-video" });
-        if (showRenderInteractiveTab) list.push({ id: genPanelId(), type: "render-interactive" });
-        if (showImagePanel) list.push({ id: genPanelId(), type: "images" });
+        if (showRenderTab) list.push({ id: genPanelId(), type: "render" });
         setPanels(list);
         setActivePanelId(list[0].id);
-    }, [workspace, showRenderImageTab, showRenderVideoTab, showRenderInteractiveTab, showImagePanel]);
+    }, [workspace, showRenderTab]);
 
     const handlePendingRunSent = useCallback(() => {
         pendingRunRef.current = null;
@@ -495,7 +465,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
                                         >
                                             New Terminal
                                         </button>
-                                        {showRenderImageTab && (
+                                        {showRenderTab && (
                                             <button
                                                 type="button"
                                                 style={{
@@ -509,66 +479,9 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
                                                     cursor: "pointer",
                                                     fontSize: "0.8rem",
                                                 }}
-                                                onClick={() => addPanel("render-image")}
+                                                onClick={() => addPanel("render")}
                                             >
-                                                Render: Image
-                                            </button>
-                                        )}
-                                        {showRenderVideoTab && (
-                                            <button
-                                                type="button"
-                                                style={{
-                                                    display: "block",
-                                                    width: "100%",
-                                                    padding: "0.4rem 0.75rem",
-                                                    textAlign: "left",
-                                                    border: "none",
-                                                    background: "none",
-                                                    color: "#e0e0e0",
-                                                    cursor: "pointer",
-                                                    fontSize: "0.8rem",
-                                                }}
-                                                onClick={() => addPanel("render-video")}
-                                            >
-                                                Render: Video
-                                            </button>
-                                        )}
-                                        {showRenderInteractiveTab && (
-                                            <button
-                                                type="button"
-                                                style={{
-                                                    display: "block",
-                                                    width: "100%",
-                                                    padding: "0.4rem 0.75rem",
-                                                    textAlign: "left",
-                                                    border: "none",
-                                                    background: "none",
-                                                    color: "#e0e0e0",
-                                                    cursor: "pointer",
-                                                    fontSize: "0.8rem",
-                                                }}
-                                                onClick={() => addPanel("render-interactive")}
-                                            >
-                                                Render: Interactive
-                                            </button>
-                                        )}
-                                        {showImagePanel && (
-                                            <button
-                                                type="button"
-                                                style={{
-                                                    display: "block",
-                                                    width: "100%",
-                                                    padding: "0.4rem 0.75rem",
-                                                    textAlign: "left",
-                                                    border: "none",
-                                                    background: "none",
-                                                    color: "#e0e0e0",
-                                                    cursor: "pointer",
-                                                    fontSize: "0.8rem",
-                                                }}
-                                                onClick={() => addPanel("images")}
-                                            >
-                                                Images
+                                                Render
                                             </button>
                                         )}
                                     </div>
@@ -631,17 +544,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, TerminalPaneProps>(fu
                                 </div>
                             )
                         )}
-                        {panel.type === "render-image" && <RenderImagePanel />}
-                        {panel.type === "render-video" && <RenderVideoPanel containerId={containerId} />}
-                        {panel.type === "render-interactive" && <RenderInteractivePanel containerId={containerId} />}
-                        {panel.type === "images" && (
-                            <ImageViewerPanel
-                                containerId={containerId}
-                                refreshTrigger={imagesRefreshTrigger}
-                                pollAfterRun={imagesPollAfterRun}
-                                onFocus={onImagesTabFocus}
-                            />
-                        )}
+                        {panel.type === "render" && <RenderPanel containerId={containerId} />}
                     </div>
                 ))}
             </div>

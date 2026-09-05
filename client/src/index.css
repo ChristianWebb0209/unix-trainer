@@ -585,3 +585,14 @@ button.editor-problem-nav-button:focus-visible {
   }
 }
 
+
+/* Inline `code` spans inside problem instructions and solutions. */
+.problem-inline-code {
+  background-color: rgba(148, 163, 184, 0.16);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  white-space: nowrap;
+}

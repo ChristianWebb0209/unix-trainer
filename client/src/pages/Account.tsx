@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
+import { supabase, isSupabaseConfigured } from "../supabaseClient";
 import type { ProblemLanguage, ProblemSummary, ProblemCompletionState, ProblemCompletion } from "../api/problems";
 import { listProblems, fetchProblemCompletions } from "../api/problems";
 import AppHeader from "../components/ui/AppHeader";
@@ -107,6 +107,12 @@ export default function Account() {
       setError("Email and password are required.");
       return;
     }
+    if (!supabase) {
+      setError(
+        "Accounts are not configured on this instance. Everything except sign-in, saved progress and playground files works without one."
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -148,6 +154,12 @@ export default function Account() {
     const pwd = password.trim();
     if (!trimmedEmail || !pwd) {
       setError("Email and password are required.");
+      return;
+    }
+    if (!supabase) {
+      setError(
+        "Accounts are not configured on this instance. Everything except sign-in, saved progress and playground files works without one."
+      );
       return;
     }
     setSubmitting(true);
@@ -324,6 +336,13 @@ export default function Account() {
             }}
           />
         </div>
+        {!isSupabaseConfigured && (
+          <div style={{ color: "var(--text-secondary)", fontSize: "0.8rem", lineHeight: 1.5 }}>
+            Accounts are not configured on this instance, so sign-in is unavailable.
+            Problems, the terminal and the Render panel all work without one — only
+            saved progress and playground files need an account.
+          </div>
+        )}
         {error && (
           <div style={{ color: "var(--danger-color)", fontSize: "0.8rem" }}>
             {error}

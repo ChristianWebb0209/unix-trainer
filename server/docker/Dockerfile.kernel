@@ -1,33 +1,54 @@
-# Kernel Lab workspace: CUDA + C/C++
-FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
+# Kernel Lab workspace: CUDA + C/C++ with real GPU passthrough.
+#
+# Built on the CUDA *base* image (~350MB) rather than *devel* (~7GB): the lab only
+# needs nvcc and the runtime headers, not the full toolkit (cuBLAS, cuFFT, cuDNN,
+# Nsight, and the static libs are all unused here). That trades ~5GB of image for
+# two extra apt packages.
+FROM nvidia/cuda:12.4.0-base-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Exactly what the lab uses and nothing else:
+#   cuda-nvcc / cuda-cudart-dev  compile and link .cu against the CUDA runtime
+#   g++                          nvcc's host compiler, and the C/C++ problems
+#   clangd                       language server for C / C++ / CUDA
+#   nano, coreutils, curl        a usable interactive terminal
+#   xz-utils                     unpack the Node runtime below
+#
+# Deliberately dropped from the previous image: vim, git, wget, gnupg,
+# build-essential (g++ alone is enough), and the CUDA devel toolkit.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       bash \
       coreutils \
       nano \
-      vim \
-      build-essential \
-      git \
-      wget \
-      gnupg \
-      ca-certificates \
       curl \
-      clangd && \
+      ca-certificates \
+      xz-utils \
+      g++ \
+      clangd \
+      cuda-nvcc-12-4 \
+      cuda-cudart-dev-12-4 && \
     rm -rf /var/lib/apt/lists/*
 
-# Node 20 for LSP proxy (clangd)
-RUN mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
-    apt-get update && apt-get install -y --no-install-recommends nodejs && \
-    rm -rf /var/lib/apt/lists/*
+# Node runtime for the LSP proxy and the frame streamer. Just the binary from the
+# official tarball — no npm, no package installs, and no glibc mismatch from
+# copying a Debian-built binary onto Ubuntu 22.04.
+ARG NODE_VERSION=20.18.1
+RUN curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" && \
+    tar -xJf "node-v${NODE_VERSION}-linux-x64.tar.xz" -C /usr/local --strip-components=1 \
+        "node-v${NODE_VERSION}-linux-x64/bin/node" && \
+    rm "node-v${NODE_VERSION}-linux-x64.tar.xz" && \
+    node --version
 
-COPY docker/lsp-proxy.js /workspace/lsp-proxy.js
+COPY docker/lsp-proxy.js      /workspace/lsp-proxy.js
+COPY docker/frame-streamer.js /workspace/frame-streamer.js
+COPY docker/tt_render.h       /workspace/tt_render.h
+
+# /tmp/render is where tt_render_frame() publishes frames; /workspace/files is
+# where the user's saved playground files are injected on container create.
+RUN mkdir -p /tmp/render /workspace/files
 
 WORKDIR /workspace
 
 CMD ["tail", "-f", "/dev/null"]
-

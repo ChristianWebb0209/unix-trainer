@@ -2,18 +2,9 @@
   {
     "id": "kernel",
     "title": "Kernel Lab",
-    "description": "Write and tune C/C++/Rust and CUDA kernels in a dedicated GPU environment.",
-    "languages": ["cuda", "c", "cpp", "rust"],
+    "description": "Write CUDA kernels against a real GPU and watch the frames they produce stream back into the browser. C and C++ also available.",
+    "languages": ["cuda", "c", "cpp"],
     "workspace": "kernel",
-    "icon": "systems-icon.svg"
-  },
-  {
-    "id": "tensor",
-    "title": "Tensor Lab",
-    "description": "Experiment with Python, Triton, and PyTorch for tensor and model-centric GPU work.",
-    "languages": ["python", "triton", "pytorch"],
-    "workspace": "tensor",
     "icon": "gpu-icon.svg"
   }
 ]
-

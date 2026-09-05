@@ -20,6 +20,7 @@ import { helpFileRouter } from "./routes/helpFile.routes.js";
 import { testConnection } from "./config/database.config.js";
 import { setupLSPWebSocket } from "./services/lsp-ws.js";
 import { setupTerminalWebSocket } from "./services/terminal-ws.js";
+import { setupRenderWebSocket } from "./services/render-ws.js";
 import { ensureDockerRunning } from "./utils/docker-health.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,15 +41,28 @@ async function bootstrap() {
   const httpServer = http.createServer(app);
 
   let hasRetriedPort = false;
+  // listen(PORT, cb) registers cb on 'listening'. If the first attempt fails with
+  // EADDRINUSE we call listen again, which registers a second callback - and the
+  // eventual 'listening' event then fires both. Attaching the upgrade handlers
+  // twice makes two WebSocketServers race to upgrade the same socket, which ws
+  // rejects with "handleUpgrade() was called more than once". Attach once.
+  let websocketsAttached = false;
 
   const containerService = new ContainerService();
   const fileService = new FileService();
 
+  const attachWebSockets = () => {
+    if (websocketsAttached) return;
+    websocketsAttached = true;
+    setupTerminalWebSocket(httpServer, containerService);
+    setupLSPWebSocket(httpServer, containerService);
+    setupRenderWebSocket(httpServer, containerService);
+  };
+
   const startListening = () => {
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
-      setupTerminalWebSocket(httpServer, containerService);
-      setupLSPWebSocket(httpServer, containerService);
+      attachWebSockets();
     });
   };
 
